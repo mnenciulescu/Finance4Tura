@@ -34,12 +34,18 @@ export default function Dashboard() {
 
   const handleDeleteExpense = (exp) => setPendingDelete(exp);
 
-  const confirmDelete = () => {
+  const confirmDelete = (deleteSeries) => {
     const exp = pendingDelete;
     setPendingDelete(null);
-    setExpenses(prev => prev.filter(e => e.expenseId !== exp.expenseId));
-    deleteExpense(exp.expenseId)
-      .catch(() => setExpenses(prev => [...prev, exp]));
+    if (deleteSeries) {
+      setExpenses(prev => prev.filter(e => e.seriesId !== exp.seriesId));
+      deleteExpense(exp.expenseId, { deleteSeries: "true" })
+        .catch(() => setExpenses(prev => [...prev, exp]));
+    } else {
+      setExpenses(prev => prev.filter(e => e.expenseId !== exp.expenseId));
+      deleteExpense(exp.expenseId)
+        .catch(() => setExpenses(prev => [...prev, exp]));
+    }
   };
 
   const expensesByIncome = useMemo(() => expenses.reduce((acc, exp) => {
@@ -54,14 +60,30 @@ export default function Dashboard() {
       {pendingDelete && (
         <div style={s.overlay}>
           <div style={s.dialog}>
-            <p style={s.dialogTitle}>Delete expense?</p>
-            <p style={s.dialogBody}>
-              <strong style={{ color: "var(--text)" }}>{pendingDelete.summary}</strong> will be permanently removed. This cannot be undone.
-            </p>
-            <div style={s.dialogActions}>
-              <button style={s.btnCancel} onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button style={s.btnDelete} onClick={confirmDelete}>Delete</button>
-            </div>
+            {pendingDelete.isRepeatable ? (
+              <>
+                <p style={s.dialogTitle}>Delete recurring expense?</p>
+                <p style={s.dialogBody}>
+                  <strong style={{ color: "var(--text)" }}>{pendingDelete.summary}</strong> is part of a recurring series. What would you like to delete?
+                </p>
+                <div style={s.dialogActions}>
+                  <button style={s.btnCancel} onClick={() => setPendingDelete(null)}>Cancel</button>
+                  <button style={s.btnDeleteSoft} onClick={() => confirmDelete(false)}>This occurrence</button>
+                  <button style={s.btnDelete} onClick={() => confirmDelete(true)}>Entire series</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={s.dialogTitle}>Delete expense?</p>
+                <p style={s.dialogBody}>
+                  <strong style={{ color: "var(--text)" }}>{pendingDelete.summary}</strong> will be permanently removed. This cannot be undone.
+                </p>
+                <div style={s.dialogActions}>
+                  <button style={s.btnCancel} onClick={() => setPendingDelete(null)}>Cancel</button>
+                  <button style={s.btnDelete} onClick={() => confirmDelete(false)}>Delete</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -176,6 +198,16 @@ const s = {
     background:   "transparent",
     color:        "var(--text-muted)",
     border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   500,
+    fontSize:     "13px",
+    cursor:       "pointer",
+  },
+  btnDeleteSoft: {
+    background:   "transparent",
+    color:        "var(--danger)",
+    border:       "1px solid var(--danger)",
     borderRadius: "8px",
     padding:      "8px 20px",
     fontWeight:   500,
