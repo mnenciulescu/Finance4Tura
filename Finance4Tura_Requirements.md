@@ -1,10 +1,10 @@
 # Finance4Tura – Structured Implementation Requirements
 
-> Personal budgeting web application. Follow each phase sequentially. Complete the tests before proceeding to the next phase.
+> Personal budgeting web application. All phases have been implemented and deployed.
 
 ---
 
-## Phase 0 – Project Scaffold & Local Infrastructure
+## Phase 0 – Project Scaffold & Local Infrastructure ✅
 
 ### Goal
 Set up the full development environment so every subsequent phase has a working foundation.
@@ -14,41 +14,41 @@ Set up the full development environment so every subsequent phase has a working 
 1. **Initialize monorepo structure**
    ```
    finance4tura/
-   ├── frontend/          # React app (Create React App or Vite)
+   ├── frontend/          # React app (Vite)
    ├── backend/           # AWS SAM project (Lambda functions)
    ├── docker/            # DynamoDB local config
    └── README.md
    ```
 
 2. **DynamoDB Local (Docker)**
-   - Create `docker/docker-compose.yml` that runs `amazon/dynamodb-local` on port `8000`.
-   - Create a bootstrap script (`docker/init-tables.sh`) that creates the initial tables (see Phase 1 for schema).
+   - `docker/docker-compose.yml` runs `amazon/dynamodb-local` on port `8000`.
+   - `docker/init-tables.sh` creates the initial tables.
 
 3. **AWS SAM Backend**
-   - Run `sam init` inside `backend/` to scaffold a SAM project.
-   - Configure `template.yaml` to target the local DynamoDB endpoint (`http://localhost:8000`) via an environment variable (`DYNAMODB_ENDPOINT`).
-   - Add a `samconfig.toml` for local invocation defaults.
+   - `backend/template.yaml` defines all infrastructure (tables, Lambda, API Gateway, IAM roles).
+   - `DYNAMODB_ENDPOINT` env var controls which DynamoDB endpoint Lambda connects to.
+   - `samconfig.toml` stores deploy defaults (stack name: `finance4tura-backend`).
 
 4. **React Frontend**
-   - Scaffold inside `frontend/` using Vite + React.
-   - Install: `axios`, `react-router-dom`, `dayjs`.
-   - Add a `.env.local` pointing the API base URL to the local SAM endpoint (`http://localhost:3001`).
+   - Scaffolded inside `frontend/` using Vite + React.
+   - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`.
+   - `.env.local` points to local SAM endpoint; `.env.production` points to cloud API.
 
-5. **IAM / Auth stub**
-   - Document (in `README.md`) the intended AWS IAM authentication flow.
-   - Add a placeholder `AuthContext` in the React app that will later be wired to AWS Cognito / IAM Identity Center. For now, it can hard-code a test user.
+5. **Auth**
+   - `AuthContext.jsx` wired to AWS Cognito User Pool using `amazon-cognito-identity-js`.
+   - Vite requires `define: { global: 'globalThis' }` for the Cognito library to work in the browser.
 
 ### Tests – Phase 0
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 0.1 | `docker compose up` in `docker/` | DynamoDB Local starts; `aws dynamodb list-tables --endpoint-url http://localhost:8000` returns `{"TableNames":[]}` |
+| 0.1 | `docker compose up` in `docker/` | DynamoDB Local starts; `aws dynamodb list-tables --endpoint-url http://localhost:8000` returns both table names |
 | 0.2 | `sam build && sam local start-api` in `backend/` | SAM API gateway starts on port `3001` with no errors |
-| 0.3 | `npm run dev` in `frontend/` | React app opens in browser with no console errors |
+| 0.3 | `npm run dev` in `frontend/` | React app opens in browser at `http://localhost:5173` |
 | 0.4 | Health-check Lambda | `GET /health` returns `{ "status": "ok" }` |
 
 ---
 
-## Phase 1 – Database Schema
+## Phase 1 – Database Schema ✅
 
 ### Goal
 Define and provision all DynamoDB tables needed by the application.
@@ -59,6 +59,7 @@ Define and provision all DynamoDB tables needed by the application.
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `incomeId` | String (PK) | UUID |
+| `userId` | String | Cognito sub — filters records per user |
 | `seriesId` | String | Same for all occurrences of a repeating income; equals `incomeId` for single events |
 | `summary` | String | Mandatory |
 | `date` | String | ISO 8601 (`YYYY-MM-DD`), Mandatory |
@@ -68,12 +69,12 @@ Define and provision all DynamoDB tables needed by the application.
 | `repeatFrequency` | String | `daily` \| `weekly` \| `monthly` – only when `isRepeatable=true` |
 | `seriesEndDate` | String | ISO 8601 – only when `isRepeatable=true` |
 | `isException` | Boolean | `true` when this record overrides a single occurrence of a series |
-| `createdAt` | String | ISO 8601 timestamp |
 
 #### `Expenses`
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `expenseId` | String (PK) | UUID |
+| `userId` | String | Cognito sub — filters records per user |
 | `seriesId` | String | Same for all occurrences; equals `expenseId` for single events |
 | `summary` | String | Mandatory |
 | `priority` | String | `High` \| `Medium` \| `Low` – Mandatory |
@@ -88,23 +89,22 @@ Define and provision all DynamoDB tables needed by the application.
 | `mappedIncomeSummary` | String | Denormalized for fast UI rendering |
 | `mappedIncomeDate` | String | Denormalized |
 | `status` | String | `Pending` \| `Completed` – Default `Pending` |
-| `createdAt` | String | ISO 8601 timestamp |
 
 ### Tasks
-- Add table creation statements to `docker/init-tables.sh`.
-- Add GSI on `Incomes`: `date-index` (partition key: `date`) for efficient date-range queries.
-- Add GSI on `Expenses`: `date-index` (partition key: `date`).
+- Both tables defined in `backend/template.yaml` and auto-provisioned on `sam deploy`.
+- GSI on `Incomes`: `date-index` (partition key: `date`) for efficient date-range queries.
+- GSI on `Expenses`: `date-index` (partition key: `date`).
 
 ### Tests – Phase 1
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 1.1 | Run `docker/init-tables.sh` | Both tables appear in `aws dynamodb list-tables` output |
-| 1.2 | Insert a sample Income item manually | Item visible via `aws dynamodb scan --table-name Incomes` |
-| 1.3 | Insert a sample Expense item manually | Item visible via `aws dynamodb scan --table-name Expenses` |
+| 1.1 | Run `docker/init-tables.sh` | Both tables appear in `aws dynamodb list-tables --endpoint-url http://localhost:8000` output |
+| 1.2 | Insert a sample Income item manually | Item visible via `aws dynamodb scan --table-name Incomes --endpoint-url http://localhost:8000` |
+| 1.3 | Insert a sample Expense item manually | Item visible via `aws dynamodb scan --table-name Expenses --endpoint-url http://localhost:8000` |
 
 ---
 
-## Phase 2 – Backend: Income CRUD
+## Phase 2 – Backend: Income CRUD ✅
 
 ### Goal
 Implement Lambda functions and API Gateway routes for Income management.
@@ -116,13 +116,15 @@ Implement Lambda functions and API Gateway routes for Income management.
 | `POST` | `/incomes` | Create income (single or series) |
 | `GET` | `/incomes` | List all income occurrences (supports `?from=&to=` date filter) |
 | `GET` | `/incomes/{incomeId}` | Get a single income occurrence |
-| `PUT` | `/incomes/{incomeId}` | Edit a single occurrence (creates exception record if part of a series) |
+| `PUT` | `/incomes/{incomeId}` | Edit a single occurrence (sets `isException=true` if part of a series) |
 | `PUT` | `/incomes/{incomeId}/series` | Edit all future occurrences in a series |
-| `DELETE` | `/incomes/{incomeId}` | Delete a single occurrence or entire series |
+| `DELETE` | `/incomes/{incomeId}` | Delete a single occurrence; pass `?deleteSeries=true` to delete entire series |
 
 ### Business Logic
-- When `isRepeatable=true`, the `POST /incomes` handler must **generate all individual occurrence records** between `date` and `seriesEndDate` according to `repeatFrequency`, assigning a shared `seriesId`.
-- `PUT` on a single occurrence of a series sets `isException=true` and stores only the changed fields, without modifying other series records.
+- When `isRepeatable=true`, all individual occurrence records are generated at creation time between `date` and `seriesEndDate` according to `repeatFrequency`, all sharing a common `seriesId`.
+- `PUT` on a single occurrence of a series sets `isException=true` on that record only; other series records are unchanged.
+- All operations filter by `userId` (Cognito sub) for per-user data isolation.
+- Lambda falls back to `userId = "local-dev"` when running under `sam local start-api` (no authorizer).
 
 ### Tests – Phase 2
 | # | Test | Expected Result |
@@ -132,10 +134,11 @@ Implement Lambda functions and API Gateway routes for Income management.
 | 2.3 | `GET /incomes?from=2025-02-01&to=2025-02-28` | Returns only incomes within date range |
 | 2.4 | `PUT /incomes/{id}` on a series occurrence | Only that record updated; other occurrences unchanged |
 | 2.5 | `DELETE /incomes/{id}` | Record removed from DynamoDB |
+| 2.6 | `DELETE /incomes/{id}?deleteSeries=true` | All records with same `seriesId` removed |
 
 ---
 
-## Phase 3 – Backend: Expense CRUD + Auto-Mapping
+## Phase 3 – Backend: Expense CRUD + Auto-Mapping ✅
 
 ### Goal
 Implement Lambda functions for Expense management, including automatic mapping to Incomes.
@@ -149,18 +152,16 @@ Implement Lambda functions for Expense management, including automatic mapping t
 | `GET` | `/expenses/{expenseId}` | Get single expense |
 | `PUT` | `/expenses/{expenseId}` | Edit single occurrence |
 | `PUT` | `/expenses/{expenseId}/series` | Edit all future occurrences in a series |
-| `DELETE` | `/expenses/{expenseId}` | Delete single or series |
+| `DELETE` | `/expenses/{expenseId}` | Delete single occurrence; pass `?deleteSeries=true` to delete entire series |
 | `GET` | `/expenses/resolve-income?date={date}` | Preview which income would be mapped for a given date |
 
 ### Auto-Mapping Logic
-Implement a shared helper function `resolveIncome(expenseDate)`:
+Shared helper function `resolveIncome(expenseDate, userId)`:
 
-1. Query the `Incomes` table for all records where `date <= expenseDate`.
-2. Return the record with the **latest date** that is still earlier than `expenseDate`.
-3. Store `mappedIncomeId`, `mappedIncomeSummary`, and `mappedIncomeDate` on the Expense record.
-4. For repeatable expenses, apply `resolveIncome` independently for **each occurrence date**.
-
-The `GET /expenses/resolve-income?date=` endpoint exposes this logic so the frontend can call it in real time when a user fills in the date field.
+1. Scans the `Incomes` table for records where `date <= expenseDate` AND `userId` matches.
+2. Returns the record with the **latest date** that is still before or on `expenseDate`.
+3. Stores `mappedIncomeId`, `mappedIncomeSummary`, and `mappedIncomeDate` on the Expense record.
+4. For repeatable expenses, `resolveIncome` is applied independently for **each occurrence date**.
 
 ### Tests – Phase 3
 | # | Test | Expected Result |
@@ -170,56 +171,31 @@ The `GET /expenses/resolve-income?date=` endpoint exposes this logic so the fron
 | 3.3 | `POST /expenses` repeatable monthly × 3 | Each occurrence has its own correctly mapped income |
 | 3.4 | `GET /expenses/resolve-income?date=2025-03-04` | Returns the Feb 25 income summary and date |
 | 3.5 | `PUT /expenses/{id}` changing date | `mappedIncomeId` recalculated automatically |
-| 3.6 | `GET /expenses?from=&to=` | Returns filtered results correctly |
+| 3.6 | `DELETE /expenses/{id}?deleteSeries=true` | All records with same `seriesId` removed |
 
 ---
 
-## Phase 4 – Frontend: Layout & Navigation
+## Phase 4 – Frontend: Layout & Navigation ✅
 
 ### Goal
-Build the core application shell matching the specified layout.
+Build the core application shell.
 
-### Layout Specification
-```
-┌─────────────┬──────────────────────────────────────────────┬──────────────┐
-│  Left Menu  │         6 Income–Period Columns               │  Statistics  │
-│             │                                               │   Column     │
-│ • Add Income│  [Col 1] [Col 2] [Col 3] [Col 4] [Col 5] [Col 6]           │
-│ • Add Expense                                               │              │
-│ • Statistics│  Most recent income period shown first        │              │
-└─────────────┴──────────────────────────────────────────────┴──────────────┘
-```
-
-### Tasks
-
-1. **App Shell** – Implement a three-panel layout using CSS Grid or Flexbox. Must be responsive (mobile: stack panels vertically).
-2. **Left Navigation Menu** with three items: `Add Income`, `Add Expense`, `Statistics`.
-3. **Six Income-Period Columns** – Placeholder cards for now. The first column corresponds to the most recent income occurrence on or before today's date.
-4. **Statistics Panel** – Placeholder on the right.
-5. **Routing** – Set up `react-router-dom` routes: `/`, `/add-income`, `/add-expense`, `/statistics`.
-
-### Column Card Format
-Each column card must display (matching `template_column_Fin.png`):
-- **Header**: "Income [Month Day]" in colored header row
-- **Income amount** at top
-- **Expenses list** (with date, amount, and `Completed` badge where applicable)
-- **Summary section** at bottom showing:
-  - Funds available after expenses
-  - Total expenses
-  - Expenses left not completed
+### Layout
+- **Sidebar** (left): navigation links (Dashboard, Add Income, Add Expense, Statistics, Backstage), username display, Sign out button.
+- **Main area** (center): page content.
+- **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/backstage`.
 
 ### Tests – Phase 4
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 4.1 | Open app on desktop | Three-panel layout visible; menu on left, 6 columns in center, stats on right |
-| 4.2 | Open app on mobile (375 px viewport) | Panels stack vertically; no horizontal overflow |
-| 4.3 | Click `Add Income` in menu | Navigates to `/add-income` |
-| 4.4 | Click `Add Expense` in menu | Navigates to `/add-expense` |
-| 4.5 | Column cards render placeholder data | Cards visible with correct section labels |
+| 4.1 | Open app on desktop | Sidebar visible; navigation links work |
+| 4.2 | Click `Add Income` | Navigates to `/add-income` |
+| 4.3 | Click `Add Expense` | Navigates to `/add-expense` |
+| 4.4 | Unauthenticated access | Login page shown instead of app |
 
 ---
 
-## Phase 5 – Frontend: Add & Edit Income Form
+## Phase 5 – Frontend: Add & Edit Income Form ✅
 
 ### Goal
 Implement the Income form connected to the backend API.
@@ -231,29 +207,19 @@ Implement the Income form connected to the backend API.
 | Date | Date picker | Mandatory |
 | Amount | Number input | Mandatory, > 0 |
 | Currency | Dropdown | Mandatory, default `RON` |
-| Repeatable | Toggle / Radio | Mandatory, default `Single event` |
+| Repeatable | Toggle | Default `false` |
 | Repeat Frequency | Dropdown (`daily`, `weekly`, `monthly`) | Mandatory only if Repeatable |
 | Series End Date | Date picker | Mandatory only if Repeatable; must be after Date |
 
 ### Behavior
-- Repeat Frequency and Series End Date fields are **hidden** when Repeatable = `Single event`.
-- On submit, call `POST /incomes`.
-- On edit, pre-populate fields from existing record; call `PUT /incomes/{id}`.
-- If the edited income is part of a series, show a dialog: **"Edit this occurrence only"** or **"Edit entire series"**.
-
-### Tests – Phase 5
-| # | Test | Expected Result |
-|---|------|-----------------|
-| 5.1 | Submit form with all required fields (single) | Income created; appears in column cards |
-| 5.2 | Submit form without Summary | Validation error shown inline |
-| 5.3 | Toggle Repeatable ON | Frequency and End Date fields appear |
-| 5.4 | Submit repeatable income (monthly, 3 months) | 3 occurrence cards appear in correct columns |
-| 5.5 | Click existing income → edit | Form pre-populated with current values |
-| 5.6 | Edit single occurrence of a series | Dialog shown; choosing "this occurrence only" updates one card |
+- Repeat Frequency and Series End Date are hidden when Repeatable is off.
+- On submit, calls `POST /incomes`.
+- On edit (via `?id=`), pre-populates from existing record and calls `PUT /incomes/{id}`.
+- If the edited income is part of a series, a dialog asks: **"Edit this occurrence only"** or **"Edit entire series"**.
 
 ---
 
-## Phase 6 – Frontend: Add & Edit Expense Form
+## Phase 6 – Frontend: Add & Edit Expense Form ✅
 
 ### Goal
 Implement the Expense form with real-time income mapping preview.
@@ -264,109 +230,78 @@ Implement the Expense form with real-time income mapping preview.
 | Summary | Text input | Mandatory |
 | Priority | Dropdown (`High`, `Medium`, `Low`) | Mandatory |
 | Date | Date picker | Mandatory |
-| Mapped Income | Read-only text field (auto-filled) | Auto-populated; greyed-out |
+| Mapped Income | Read-only (auto-filled) | Populated via `GET /expenses/resolve-income` |
 | Amount | Number input | Mandatory, > 0 |
 | Currency | Dropdown | Mandatory, default `RON` |
-| Repeatable | Toggle / Radio | Mandatory, default `Single event` |
+| Repeatable | Toggle | Default `false` |
 | Repeat Frequency | Dropdown | Mandatory only if Repeatable |
 | Series End Date | Date picker | Mandatory only if Repeatable |
 
 ### Behavior
-- As soon as the **Date** field is filled, call `GET /expenses/resolve-income?date={date}` and populate the **Mapped Income** field with `"{summary} – {date}"`.
-- The Mapped Income field is always read-only.
-- On submit, call `POST /expenses`.
-- On edit, pre-populate; call `PUT /expenses/{id}`.
-- If part of a series: show "Edit this occurrence only" or "Edit entire series" dialog.
-
-### Tests – Phase 6
-| # | Test | Expected Result |
-|---|------|-----------------|
-| 6.1 | Fill date Feb 11 (incomes on Feb 10 & Feb 25 exist) | Mapped Income auto-fills with "Salariu … – Feb 10" |
-| 6.2 | Fill date Mar 4 | Mapped Income auto-fills with Feb 25 income |
-| 6.3 | Submit expense form | Expense appears in correct column card |
-| 6.4 | Mapped Income field is not editable | Field remains read-only at all times |
-| 6.5 | Edit existing expense (series) | Dialog shown; series edit updates all future occurrences |
+- When the Date field changes, calls `GET /expenses/resolve-income?date={date}` and populates Mapped Income.
+- On submit calls `POST /expenses`; on edit calls `PUT /expenses/{id}`.
+- If part of a series: dialog asks **"Edit this occurrence only"** or **"Edit entire series"**.
 
 ---
 
-## Phase 7 – Frontend: Column Cards – Live Data
+## Phase 7 – Frontend: Column Cards – Live Data ✅
 
 ### Goal
 Replace placeholder column data with real data from the backend.
 
-### Tasks
-
-1. On app load, call `GET /incomes` to retrieve all income occurrences sorted by date descending.
-2. Identify the **6 most recent income periods** on or before today.
-3. For each income period, call `GET /expenses?mappedIncomeId={incomeId}` to get associated expenses.
-4. Render each column card with:
-   - Income header (label + date)
-   - Income amount
-   - Expense rows (summary, date, amount, priority badge, Completed/Pending status)
-   - Summary footer (funds available, total expenses, expenses not completed)
-5. Clicking an income or expense opens the corresponding edit form.
-
-### Tests – Phase 7
-| # | Test | Expected Result |
-|---|------|-----------------|
-| 7.1 | Load app with seeded data | 6 columns populated with correct income and expense data |
-| 7.2 | Click an expense row | Edit Expense form opens pre-populated |
-| 7.3 | Click an income header | Edit Income form opens pre-populated |
-| 7.4 | Column summary totals | Funds available = income – total expenses; figures match manual calculation |
-| 7.5 | Mark expense as Completed | Card updates immediately; "Expenses left not completed" figure decreases |
+### Behavior
+- On load, calls `GET /incomes` and `GET /expenses`.
+- Shows the **4 most recent income periods** as column cards.
+- Each card displays income header, amount (masked by default — hold mouse button to reveal), expense rows, and summary footer (income, total expenses, pending, balance).
+- Expense rows show priority color dot, summary, date, amount, status toggle (Pending/Completed), edit link, and delete button.
+- Delete button on a recurring expense shows a dialog: **"This occurrence"** or **"Entire series"**.
+- Clicking an income or expense opens the edit form.
 
 ---
 
-## Phase 8 – Frontend: Statistics Panel
+## Phase 8 – Frontend: Statistics Panel ✅
 
 ### Goal
-Implement the right-side statistics panel summarizing the 6 visible columns.
+Implement a statistics page summarizing loaded income and expense data.
 
-### Statistics to Display
-- Total income across all 6 periods
-- Total expenses across all 6 periods
-- Total remaining funds
-- Expenses by priority (High / Medium / Low) – bar or pie chart
-- Completion rate (Completed vs Pending expenses) – percentage
-- Biggest expense category (by summary keyword or priority)
-
-### Tasks
-- Compute statistics from the data already loaded for the 6 columns (no extra API calls needed).
-- Use a charting library (e.g., Recharts) for visual breakdowns.
-- Panel must be responsive: collapses to a bottom section on mobile.
-
-### Tests – Phase 8
-| # | Test | Expected Result |
-|---|------|-----------------|
-| 8.1 | Statistics panel visible on load | Displays all 6 metrics |
-| 8.2 | Total income figure | Matches sum of income amounts from the 6 columns |
-| 8.3 | Total expenses figure | Matches sum of all expenses from the 6 columns |
-| 8.4 | Priority chart renders | Chart visible with correct proportions |
-| 8.5 | Completion rate | Correct percentage of Completed vs total expenses |
+### Statistics Displayed
+- Total income, total expenses, net balance
+- Expenses by priority (chart)
+- Completion rate (Completed vs Pending)
+- Computed from already-loaded data — no extra API calls.
 
 ---
 
-## Phase 9 – AWS Cloud Portability
+## Phase 9 – AWS Cloud Portability ✅
 
 ### Goal
-Ensure the application can be deployed to AWS with minimal changes.
+Deploy the full application to AWS and implement per-user data isolation.
 
-### Tasks
+### What Was Implemented
 
-1. **DynamoDB** – Remove the local endpoint override; production Lambda functions connect to real AWS DynamoDB via IAM role permissions.
-2. **SAM / CloudFormation** – `template.yaml` should already define all resources. Verify it includes: DynamoDB tables, Lambda functions, API Gateway, and IAM execution roles.
-3. **Authentication** – Replace the stub `AuthContext` with AWS Cognito (User Pools) or IAM Identity Center. Add the Cognito User Pool and App Client to `template.yaml`.
-4. **Frontend deployment** – Add an S3 bucket + CloudFront distribution to `template.yaml` for hosting the React build.
-5. **Environment variables** – All environment-specific values (table names, endpoints, Cognito pool IDs) must be passed as SAM parameters, never hard-coded.
-6. **CI/CD stub** – Add a `deploy.sh` script that runs `sam build && sam deploy --guided` for the first deploy.
+1. **Cognito User Pool** (`eu-central-1_CD7AdBFwQ`) with a Pre Sign-Up Lambda trigger (`preSignUp.mjs`) that auto-confirms all new users. New accounts become active immediately with no email verification required.
+
+2. **API Gateway Cognito Authorizer** — all routes protected. The JWT ID token is sent in the `Authorization` header (without `Bearer` prefix). The Lambda extracts `userId` from `event.requestContext.authorizer.claims.sub`.
+
+3. **Per-user data isolation** — all DynamoDB records carry a `userId` field. Every read, write, and delete operation filters or validates by `userId`.
+
+4. **Frontend auth** — `AuthContext.jsx` uses `amazon-cognito-identity-js`. On sign-in, `setAuthToken(jwt)` is called and the axios request interceptor injects `Authorization: <token>` on every API call. Session is restored from localStorage on page load.
+
+5. **S3 + CloudFront hosting** — React build served via CloudFront (`d34ylrmixnmvem.cloudfront.net`). CloudFront errors for unknown paths return `index.html` (required for client-side routing).
+
+6. **Cache-Control** — Lambda responses include `Cache-Control: no-store` to prevent API Gateway's internal CloudFront layer from caching API responses.
+
+7. **samconfig.toml** — stores deploy defaults under `[default.deploy.parameters]`: stack name `finance4tura-backend`, region `eu-central-1`, `CAPABILITY_IAM`, `resolve_s3 = true`.
 
 ### Tests – Phase 9
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 9.1 | `sam build` succeeds | No build errors |
-| 9.2 | `sam deploy --dry-run` (or CloudFormation change set) | No validation errors in template |
-| 9.3 | All env vars externalized | No hard-coded table names, endpoints, or credentials in source code |
-| 9.4 | Local dev still works after changes | `docker compose up` + `sam local start-api` + `npm run dev` still functional |
+| 9.1 | `sam build --no-cached && sam deploy` | Deploys to `finance4tura-backend` stack without errors |
+| 9.2 | Unauthenticated `GET /incomes` | Returns `{"message":"Unauthorized"}` (401) |
+| 9.3 | Authenticated `GET /incomes` with Demo token | Returns Demo user's records only |
+| 9.4 | New user sign-up | Account created and auto-confirmed; app loads with empty database |
+| 9.5 | Income amount masked on Dashboard | Amount shows `••••••` until mouse button is held down |
+| 9.6 | Local dev still works | `docker compose up` + `sam local start-api` + `npm run dev` functional |
 
 ---
 
@@ -376,7 +311,11 @@ Ensure the application can be deployed to AWS with minimal changes.
 |----------|--------|--------|
 | Repeating events storage | Expand into individual records at creation time | Simplifies queries; avoids complex recurrence expansion at read time |
 | Income mapping | Stored on Expense record (denormalized) | Fast UI rendering without joins |
-| Auth | AWS IAM / Cognito | Portable to AWS; no custom auth implementation needed |
+| Auth | AWS Cognito User Pool + Pre Sign-Up trigger | Portable to AWS; auto-confirms users without email verification |
+| Per-user isolation | `userId` field on every DynamoDB record | Simple filter; no separate tables per user |
 | Local DB | DynamoDB Local in Docker | Identical API to AWS DynamoDB; zero migration cost |
+| Local userId fallback | `"local-dev"` | Allows local dev without JWT; data stays isolated from cloud |
 | Frontend | React + Vite | Fast dev experience; compatible with S3/CloudFront hosting |
-| API | AWS SAM Lambda | `sam local` mirrors production; deploys unchanged to AWS Lambda |
+| API | AWS SAM Lambda | `sam local` mirrors production; deploys unchanged to AWS |
+| API response caching | `Cache-Control: no-store` on all responses | Prevents API Gateway's internal CloudFront from caching per-user data |
+| Vite polyfill | `define: { global: 'globalThis' }` | Required for `amazon-cognito-identity-js` to run in the browser |

@@ -1,14 +1,19 @@
 # AWS Deployment Guide — Finance4Tura
 
-This guide walks through deploying the full Finance4Tura stack to AWS:
+This guide documents the one-time setup used to deploy Finance4Tura to AWS.
 
-| Layer | AWS Service |
-|---|---|
-| Frontend hosting | S3 + CloudFront |
-| Authentication | Cognito User Pool |
-| API | API Gateway + Lambda (SAM) |
-| Database | DynamoDB |
-| DNS (optional) | Route 53 + ACM |
+> **Already deployed.** The infrastructure is live. For day-to-day updates see `AWS_Sync.md`.
+
+## Deployed Resources
+
+| Layer | AWS Service | Value |
+|---|---|---|
+| Frontend hosting | S3 + CloudFront | `d34ylrmixnmvem.cloudfront.net` |
+| Authentication | Cognito User Pool | `eu-central-1_CD7AdBFwQ` |
+| API | API Gateway + Lambda (SAM) | `https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod` |
+| Database | DynamoDB | Tables: `Incomes`, `Expenses` |
+| CloudFormation stack | SAM | `finance4tura-backend` |
+| AWS region | — | `eu-central-1` |
 
 ---
 
@@ -16,101 +21,67 @@ This guide walks through deploying the full Finance4Tura stack to AWS:
 
 - AWS CLI installed and configured (`aws configure`)
 - AWS SAM CLI installed (`brew install aws-sam-cli`)
-- Node.js 18+
-- An AWS account with sufficient IAM permissions (AdministratorAccess for first deploy)
+- Node.js 20+
+- An AWS account with sufficient IAM permissions
 
 ---
 
 ## 1. DynamoDB Tables
 
-The tables are defined and created automatically by SAM (`backend/template.yaml`). They will be provisioned when you run `sam deploy` in step 3. No manual setup required.
-
-If you want to create them manually first:
-
-```bash
-aws dynamodb create-table \
-  --table-name Finance4Tura-Incomes \
-  --attribute-definitions AttributeName=incomeId,AttributeType=S \
-  --key-schema AttributeName=incomeId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
-
-aws dynamodb create-table \
-  --table-name Finance4Tura-Expenses \
-  --attribute-definitions AttributeName=expenseId,AttributeType=S \
-  --key-schema AttributeName=expenseId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
-```
+Tables are defined in `backend/template.yaml` and provisioned automatically by SAM on first `sam deploy`. No manual setup required.
 
 ---
 
 ## 2. Cognito User Pool (Authentication)
 
-### 2.1 Create the User Pool
+### 2.1 The deployed User Pool
+
+- **User Pool ID**: `eu-central-1_CD7AdBFwQ`
+- **App Client ID**: `2nh5dljhrg9mq7nsmdg7cef21v`
+- **Username attribute**: username (not email)
+- **Auth flows**: `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
+- **Password policy**: minimum 6 characters (no complexity requirements)
+
+### 2.2 Pre Sign-Up Lambda trigger (auto-confirm)
+
+A Lambda function (`backend/src/handlers/preSignUp.mjs`) is wired as the Cognito Pre Sign-Up trigger. It sets `event.response.autoConfirmUser = true`, so all new sign-ups are confirmed immediately without email verification.
+
+The trigger was registered via:
 
 ```bash
-aws cognito-idp create-user-pool \
-  --pool-name Finance4Tura-Users \
-  --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=true,RequireLowercase=true,RequireNumbers=true}" \
-  --auto-verified-attributes email \
-  --username-attributes email \
-  --query "UserPool.Id" \
-  --output text
+# Grant Cognito permission to invoke the Lambda
+aws lambda add-permission \
+  --function-name <PreSignUpFunction-ARN> \
+  --statement-id cognito-presignup \
+  --action lambda:InvokeFunction \
+  --principal cognito-idp.amazonaws.com \
+  --source-arn arn:aws:cognito-idp:eu-central-1:980921747943:userpool/eu-central-1_CD7AdBFwQ \
+  --region eu-central-1
+
+# Wire the trigger to the User Pool
+aws cognito-idp update-user-pool \
+  --user-pool-id eu-central-1_CD7AdBFwQ \
+  --lambda-config PreSignUp=<PreSignUpFunction-ARN> \
+  --region eu-central-1
 ```
 
-Save the returned **User Pool ID** (format: `eu-central-1_XXXXXXXXX`).
+### 2.3 API Gateway Cognito Authorizer
 
-### 2.2 Create the App Client
-
-```bash
-aws cognito-idp create-user-pool-client \
-  --user-pool-id <YOUR_USER_POOL_ID> \
-  --client-name Finance4Tura-Web \
-  --no-generate-secret \
-  --explicit-auth-flows ALLOW_USER_SRP_AUTH ALLOW_REFRESH_TOKEN_AUTH \
-  --query "UserPoolClient.ClientId" \
-  --output text
-```
-
-Save the returned **App Client ID**.
-
-### 2.3 Note your values
-
-You will need these in later steps:
-- `VITE_COGNITO_USER_POOL_ID` = User Pool ID
-- `VITE_COGNITO_CLIENT_ID` = App Client ID
-- `VITE_COGNITO_REGION` = your AWS region (e.g. `eu-central-1`)
-
-### 2.4 Protect the API with a Cognito Authorizer
-
-In `backend/template.yaml`, add a Cognito authorizer to each API route:
+Defined in `backend/template.yaml`:
 
 ```yaml
-# Under Globals or per-function
 Auth:
   DefaultAuthorizer: CognitoAuthorizer
+  AddDefaultAuthorizerToCorsPreflight: false
   Authorizers:
     CognitoAuthorizer:
-      UserPoolArn: !GetAtt CognitoUserPool.Arn
-
-# Reference the existing User Pool instead of creating a new one:
-CognitoUserPool:
-  Type: AWS::Cognito::UserPool
-  Properties:
-    UserPoolName: Finance4Tura-Users
+      UserPoolArn: !Ref CognitoUserPoolArn
 ```
 
-Or pass the User Pool ARN as a SAM parameter:
+The `CognitoUserPoolArn` parameter defaults to the deployed pool ARN. The frontend sends the JWT ID token in the `Authorization` header (raw token, no `Bearer` prefix). Lambda extracts the user identity via:
 
-```yaml
-Parameters:
-  CognitoUserPoolArn:
-    Type: String
-```
-
-Then deploy with:
-
-```bash
-sam deploy --parameter-overrides CognitoUserPoolArn=arn:aws:cognito-idp:<region>:<account>:userpool/<pool-id>
+```js
+const userId = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
 ```
 
 ---
@@ -121,10 +92,10 @@ sam deploy --parameter-overrides CognitoUserPoolArn=arn:aws:cognito-idp:<region>
 
 ```bash
 cd backend
-sam build
+sam build --no-cached
 ```
 
-### 3.2 First-time guided deploy
+### 3.2 First-time deploy
 
 ```bash
 sam deploy --guided
@@ -132,47 +103,67 @@ sam deploy --guided
 
 Answer the prompts:
 - **Stack name**: `finance4tura-backend`
-- **Region**: your preferred region (e.g. `eu-central-1`)
-- **Confirm changes before deploy**: `Y`
+- **Region**: `eu-central-1`
+- **Confirm changes before deploy**: `N`
 - **Allow SAM to create IAM roles**: `Y`
 - **Save config to samconfig.toml**: `Y`
 
-This creates `samconfig.toml` — subsequent deploys only need `sam deploy`.
-
-### 3.3 Get the API URL
-
-After deploy, SAM outputs the API Gateway URL:
-
-```
-Outputs:
-  ApiUrl: https://xxxxxxxxxx.execute-api.eu-central-1.amazonaws.com/Prod
-```
-
-Save this as `VITE_API_BASE_URL` for the frontend build.
-
-### 3.4 Subsequent deploys
+After this, `samconfig.toml` stores all defaults and subsequent deploys only need:
 
 ```bash
-cd backend
-sam build && sam deploy
+sam build --no-cached && sam deploy
+```
+
+### 3.3 samconfig.toml structure
+
+```toml
+version = 0.1
+
+[default.global.parameters]
+stack_name = "finance4tura-backend"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.local_start_api.parameters]
+warm_containers = "EAGER"
+parameter_overrides = "DynamoDbEndpoint=http://host.docker.internal:8000"
+
+[default.deploy.parameters]
+region = "eu-central-1"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+confirm_changeset = false
+```
+
+> **Important**: Deploy settings must be under `[default.deploy.parameters]`, not `[default.deploy.guided]`.
+
+### 3.4 Get the API URL
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name finance4tura-backend \
+  --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+  --output text
 ```
 
 ---
 
 ## 4. Frontend — Build & Deploy to S3 + CloudFront
 
-### 4.1 Create the S3 bucket
+### 4.1 S3 bucket
 
 ```bash
 aws s3 mb s3://finance4tura-frontend --region eu-central-1
 
-# Block all public access (CloudFront will serve the content)
 aws s3api put-public-access-block \
   --bucket finance4tura-frontend \
-  --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+  --public-access-block-configuration \
+    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 ```
 
-### 4.2 Create a CloudFront Origin Access Control
+### 4.2 CloudFront Origin Access Control
 
 ```bash
 aws cloudfront create-origin-access-control \
@@ -182,52 +173,20 @@ aws cloudfront create-origin-access-control \
     "SigningBehavior": "always",
     "SigningProtocol": "sigv4"
   }' \
-  --query "OriginAccessControl.Id" \
-  --output text
+  --query "OriginAccessControl.Id" --output text
 ```
 
-Save the returned **OAC ID**.
+### 4.3 CloudFront Distribution
 
-### 4.3 Create the CloudFront Distribution
+Distribution ID: `E1O9C9K6CO439`, domain: `d34ylrmixnmvem.cloudfront.net`
 
-```bash
-aws cloudfront create-distribution --distribution-config '{
-  "CallerReference": "finance4tura-'$(date +%s)'",
-  "Origins": {
-    "Quantity": 1,
-    "Items": [{
-      "Id": "S3-finance4tura-frontend",
-      "DomainName": "finance4tura-frontend.s3.eu-central-1.amazonaws.com",
-      "S3OriginConfig": { "OriginAccessIdentity": "" },
-      "OriginAccessControlId": "<YOUR_OAC_ID>"
-    }]
-  },
-  "DefaultCacheBehavior": {
-    "TargetOriginId": "S3-finance4tura-frontend",
-    "ViewerProtocolPolicy": "redirect-to-https",
-    "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
-    "Compress": true
-  },
-  "CustomErrorResponses": {
-    "Quantity": 1,
-    "Items": [{
-      "ErrorCode": 403,
-      "ResponsePagePath": "/index.html",
-      "ResponseCode": "200",
-      "ErrorCachingMinTTL": 0
-    }]
-  },
-  "DefaultRootObject": "index.html",
-  "Enabled": true,
-  "Comment": "Finance4Tura frontend"
-}'
-```
+Key configuration:
+- **Default root object**: `index.html`
+- **Viewer protocol policy**: `redirect-to-https`
+- **Custom error response**: 403 → `/index.html` with HTTP 200 (required for React Router)
+- **Cache policy**: `658327ea-f89d-4fab-a63d-7e88639e58f6` (CachingOptimized)
 
-> The `CustomErrorResponses` entry for 403→index.html is required for React Router to work correctly on direct URL access or page refresh.
-
-Note the returned **Distribution Domain Name** (e.g. `dxxxxxxxxxxxx.cloudfront.net`) and **Distribution ID**.
-
-### 4.4 Grant CloudFront access to the S3 bucket
+### 4.4 S3 bucket policy (CloudFront access only)
 
 ```bash
 aws s3api put-bucket-policy \
@@ -241,102 +200,75 @@ aws s3api put-bucket-policy \
       "Resource": "arn:aws:s3:::finance4tura-frontend/*",
       "Condition": {
         "StringEquals": {
-          "AWS:SourceArn": "arn:aws:cloudfront::<ACCOUNT_ID>:distribution/<DISTRIBUTION_ID>"
+          "AWS:SourceArn": "arn:aws:cloudfront::980921747943:distribution/E1O9C9K6CO439"
         }
       }
     }]
   }'
 ```
 
-### 4.5 Set environment variables and build
+### 4.5 Environment variables
 
-Create `frontend/.env.production`:
+`frontend/.env.production`:
 
 ```env
-VITE_API_BASE_URL=https://xxxxxxxxxx.execute-api.eu-central-1.amazonaws.com/Prod
-VITE_COGNITO_USER_POOL_ID=eu-central-1_XXXXXXXXX
-VITE_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+VITE_API_BASE_URL=https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod
+VITE_COGNITO_USER_POOL_ID=eu-central-1_CD7AdBFwQ
+VITE_COGNITO_CLIENT_ID=2nh5dljhrg9mq7nsmdg7cef21v
 VITE_COGNITO_REGION=eu-central-1
 ```
 
-Build:
+### 4.6 Build and sync
 
 ```bash
 cd frontend
 npm run build
-```
 
-### 4.6 Upload to S3
+aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete
 
-```bash
-aws s3 sync dist/ s3://finance4tura-frontend \
-  --delete \
-  --cache-control "public,max-age=31536000,immutable" \
-  --exclude "index.html"
-
-# Upload index.html with no-cache so updates are picked up immediately
-aws s3 cp dist/index.html s3://finance4tura-frontend/index.html \
-  --cache-control "no-cache,no-store,must-revalidate"
-```
-
-### 4.7 Invalidate CloudFront cache after every deploy
-
-```bash
 aws cloudfront create-invalidation \
-  --distribution-id <DISTRIBUTION_ID> \
-  --paths "/*"
+  --distribution-id E1O9C9K6CO439 \
+  --paths "/*" \
+  --region us-east-1
 ```
 
 ---
 
-## 5. Custom Domain (Optional)
+## 5. Important Implementation Notes
 
-### 5.1 Request an ACM certificate
+### Cache-Control on API responses
 
-> ACM certificates for CloudFront **must be in `us-east-1`** regardless of your app's region.
+Lambda responses include `"Cache-Control": "no-store"` in their headers. This is required because API Gateway internally routes through a CloudFront layer that will cache responses if no cache directive is set. Without this header, a user's first API call (e.g. returning empty data) would be cached and served to all subsequent requests, even after DynamoDB data changes.
 
-```bash
-aws acm request-certificate \
-  --domain-name finance4tura.yourdomain.com \
-  --validation-method DNS \
-  --region us-east-1 \
-  --query "CertificateArn" \
-  --output text
-```
+### Vite browser polyfill
 
-Complete DNS validation by adding the CNAME record shown in the ACM console to your DNS provider (or Route 53).
+`frontend/vite.config.js` includes `define: { global: 'globalThis' }`. This is required because `amazon-cognito-identity-js` references the Node.js `global` variable, which does not exist in the browser.
 
-### 5.2 Attach the certificate to CloudFront
+### Local dev userId
 
-In the AWS Console → CloudFront → your distribution → **Edit** → under **Custom SSL certificate**, select the validated ACM cert, and add your domain under **Alternate domain names (CNAMEs)**.
-
-### 5.3 Point your domain to CloudFront
-
-In Route 53 (or your DNS provider), create a CNAME or ALIAS record:
-
-```
-finance4tura.yourdomain.com → dxxxxxxxxxxxx.cloudfront.net
-```
+When running `sam local start-api`, the Cognito authorizer is not enforced. Lambda falls back to `userId = "local-dev"`. All locally-created records use this userId. To show existing local data, stamp records with `userId = "local-dev"` via a scan + update script.
 
 ---
 
-## 6. Deploy Checklist
+## 6. Deploy Checklist (for re-deployment from scratch)
 
 ```
-[ ] DynamoDB tables provisioned (auto via SAM or manually)
-[ ] Cognito User Pool + App Client created
-[ ] samconfig.toml saved after first guided deploy
-[ ] Backend deployed: sam build && sam deploy
-[ ] API Gateway URL noted for VITE_API_BASE_URL
+[ ] DynamoDB tables provisioned (auto via sam deploy)
+[ ] Cognito User Pool created with username auth + Pre Sign-Up trigger
+[ ] backend/template.yaml references correct CognitoUserPoolArn
+[ ] samconfig.toml has [default.deploy.parameters] with correct settings
+[ ] sam build --no-cached && sam deploy succeeds
+[ ] API Gateway URL confirmed from stack outputs
 [ ] S3 bucket created with public access blocked
-[ ] CloudFront distribution created with OAC
-[ ] S3 bucket policy grants access to CloudFront only
+[ ] CloudFront distribution created with OAC + 403→index.html error response
+[ ] S3 bucket policy grants access to CloudFront distribution only
 [ ] frontend/.env.production filled with real values
 [ ] npm run build succeeds
-[ ] Assets synced to S3 (immutable cache on assets, no-cache on index.html)
+[ ] aws s3 sync dist/ s3://finance4tura-frontend --delete
 [ ] CloudFront cache invalidated
-[ ] App loads at CloudFront domain (or custom domain)
-[ ] Authentication flow tested (sign up, sign in, protected API calls)
+[ ] App loads at https://d34ylrmixnmvem.cloudfront.net
+[ ] Sign-up flow tested (new user gets auto-confirmed, empty database)
+[ ] Sign-in flow tested (Demo user sees their data)
 ```
 
 ---

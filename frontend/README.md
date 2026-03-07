@@ -1,16 +1,52 @@
-# React + Vite
+# Finance4Tura — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite single-page application for personal budgeting.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # production build → dist/
+npm run lint
+```
 
-## React Compiler
+## Environment Variables
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| File | Used for |
+|------|----------|
+| `.env.local` | Local development (API on localhost:3001) |
+| `.env.production` | Cloud build (AWS API Gateway + Cognito) |
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+src/
+├── api/
+│   ├── client.js        # axios instance, auth interceptor, operation log
+│   ├── incomes.js
+│   └── expenses.js
+├── components/
+│   ├── Layout.jsx        # app shell
+│   ├── Sidebar.jsx       # navigation + sign-out
+│   └── IncomeCard.jsx    # income period column card
+├── context/
+│   └── AuthContext.jsx   # Cognito auth (sign in, sign up, sign out, session restore)
+└── pages/
+    ├── Login.jsx
+    ├── Dashboard.jsx
+    ├── AddIncome.jsx
+    ├── AddExpense.jsx
+    ├── Statistics.jsx
+    └── Backstage.jsx     # database viewer + operation log
+```
+
+## Authentication
+
+Uses `amazon-cognito-identity-js`. The JWT ID token is stored in localStorage by the library and injected as an `Authorization` header on every API request via an axios interceptor.
+
+`vite.config.js` includes `define: { global: 'globalThis' }` — required for the Cognito library to work in the browser.
+
+## Deploying to Cloud
+
+See `../Documentation/AWS_Sync.md`.
