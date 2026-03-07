@@ -1,0 +1,446 @@
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { getExpense, createExpense, updateExpense, updateExpenseSeries, resolveIncome } from "../api/expenses";
+import Field from "../components/Field";
+import dayjs from "dayjs";
+
+const PRIORITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
+
+const EMPTY = {
+  summary:         "",
+  amount:          "",
+  currency:        "RON",
+  priority:        "Medium",
+  status:          "Pending",
+  isRepeatable:    false,
+  repeatFrequency: "monthly",
+  seriesEndDate:   "",
+};
+
+export default function AddExpense() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId      = searchParams.get("id");
+  const isEdit      = Boolean(editId);
+  const prefillDate = searchParams.get("date");
+
+  const [form, setForm]                 = useState(() => ({ ...EMPTY, date: prefillDate || dayjs().format("YYYY-MM-DD") }));
+  const [isPartOfSeries, setIsPartOfSeries] = useState(false);
+  const [seriesMode, setSeriesMode]     = useState("single");
+  const [loading, setLoading]           = useState(false);
+  const [fetching, setFetching]         = useState(isEdit);
+  const [error, setError]               = useState(null);
+  const [mappedIncome, setMappedIncome] = useState(null);  // income preview
+  const [resolving, setResolving]       = useState(false);
+  const debounceRef                     = useRef(null);
+
+  // Load existing expense when editing
+  useEffect(() => {
+    if (!editId) return;
+    getExpense(editId)
+      .then(data => {
+        setForm({
+          summary:         data.summary         ?? "",
+          date:            data.date             ?? "",
+          amount:          data.amount           ?? "",
+          currency:        data.currency         ?? "RON",
+          priority:        data.priority         ?? "Medium",
+          status:          data.status           ?? "Pending",
+          isRepeatable:    data.isRepeatable     ?? false,
+          repeatFrequency: data.repeatFrequency  ?? "monthly",
+          seriesEndDate:   data.seriesEndDate    ?? "",
+        });
+        setIsPartOfSeries(data.seriesId !== data.expenseId);
+        // Prefill mapped income from denormalized fields
+        if (data.mappedIncomeId) {
+          setMappedIncome({
+            incomeId: data.mappedIncomeId,
+            summary:  data.mappedIncomeSummary,
+            date:     data.mappedIncomeDate,
+          });
+        }
+      })
+      .catch(() => setError("Could not load expense."))
+      .finally(() => setFetching(false));
+  }, [editId]);
+
+  // Real-time income mapping preview — debounced 400ms on date change
+  useEffect(() => {
+    if (!form.date) { setMappedIncome(null); return; }
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setResolving(true);
+      resolveIncome(form.date)
+        .then(data => setMappedIncome(data.income))
+        .catch(() => setMappedIncome(null))
+        .finally(() => setResolving(false));
+    }, 400);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [form.date]);
+
+  function set(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(null);
+
+    const payload = {
+      summary:      form.summary.trim(),
+      date:         form.date,
+      amount:       parseFloat(form.amount),
+      currency:     form.currency,
+      priority:     form.priority,
+      status:       form.status,
+      isRepeatable: form.isRepeatable,
+      ...(form.isRepeatable ? {
+        repeatFrequency: form.repeatFrequency,
+        seriesEndDate:   form.seriesEndDate,
+      } : {}),
+    };
+
+    if (!payload.summary || !payload.date || isNaN(payload.amount)) {
+      setError("Summary, date and amount are required.");
+      return;
+    }
+    if (form.isRepeatable && !form.seriesEndDate) {
+      setError("Series end date is required for repeating expenses.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (!isEdit) {
+        await createExpense(payload);
+      } else if (isPartOfSeries && seriesMode === "series") {
+        await updateExpenseSeries(editId, payload);
+      } else {
+        await updateExpense(editId, payload);
+      }
+      navigate("/");
+    } catch (err) {
+      setError(err.response?.data?.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (fetching) return <div style={s.outer}><div style={s.card}><p style={s.muted}>Loading…</p></div></div>;
+
+  return (
+    <div style={s.outer}>
+      <div style={s.card}>
+      <h1 style={s.title}>{isEdit ? "Edit Expense" : "Add Expense"}</h1>
+
+      {error && <div style={s.errorBox}>{error}</div>}
+
+      <form onSubmit={handleSubmit} style={s.form}>
+
+        {/* Summary */}
+        <Field label="Summary *">
+          <input
+            style={s.input}
+            type="text"
+            placeholder="e.g. Electricity bill"
+            value={form.summary}
+            onChange={e => set("summary", e.target.value)}
+            required
+          />
+        </Field>
+
+        {/* Date */}
+        <Field label="Date *">
+          <input
+            style={s.input}
+            type="date"
+            value={form.date}
+            onChange={e => set("date", e.target.value)}
+            required
+          />
+        </Field>
+
+        {/* Income mapping preview */}
+        <IncomeMappingPreview income={mappedIncome} resolving={resolving} />
+
+        {/* Amount + Currency */}
+        <Field label="Amount *">
+          <div style={s.row}>
+            <input
+              style={{ ...s.input, flex: 1 }}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={e => set("amount", e.target.value)}
+              required
+            />
+            <select
+              style={{ ...s.input, ...s.select }}
+              value={form.currency}
+              onChange={e => set("currency", e.target.value)}
+            >
+              <option value="RON">RON</option>
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+        </Field>
+
+        {/* Priority */}
+        <Field label="Priority">
+          <div style={s.pillGroup}>
+            {["High", "Medium", "Low"].map(p => (
+              <button
+                key={p}
+                type="button"
+                style={{ ...s.pill, ...(form.priority === p ? s.pillActive(p) : {}) }}
+                onClick={() => set("priority", p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {/* Status */}
+        <Field label="Status">
+          <div style={s.pillGroup}>
+            {["Pending", "Completed"].map(st => (
+              <button
+                key={st}
+                type="button"
+                style={{ ...s.pill, ...(form.status === st ? s.pillStatusActive : {}) }}
+                onClick={() => set("status", st)}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {/* Repeatable toggle — only on create */}
+        {!isEdit && (
+          <Field label="">
+            <label style={s.checkLabel}>
+              <input
+                type="checkbox"
+                checked={form.isRepeatable}
+                onChange={e => set("isRepeatable", e.target.checked)}
+              />
+              Repeating expense
+            </label>
+          </Field>
+        )}
+
+        {/* Repeat options */}
+        {form.isRepeatable && (
+          <>
+            <Field label="Frequency">
+              <select
+                style={{ ...s.input, ...s.select }}
+                value={form.repeatFrequency}
+                onChange={e => set("repeatFrequency", e.target.value)}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </Field>
+
+            <Field label="Series end date *">
+              <input
+                style={s.input}
+                type="date"
+                value={form.seriesEndDate}
+                onChange={e => set("seriesEndDate", e.target.value)}
+                min={form.date}
+                required={form.isRepeatable}
+              />
+            </Field>
+          </>
+        )}
+
+        {/* Series edit scope — only when editing a series member */}
+        {isEdit && isPartOfSeries && (
+          <Field label="Edit scope">
+            <div style={s.radioGroup}>
+              <label style={s.radioLabel}>
+                <input
+                  type="radio"
+                  name="seriesMode"
+                  value="single"
+                  checked={seriesMode === "single"}
+                  onChange={() => setSeriesMode("single")}
+                />
+                This occurrence only
+              </label>
+              <label style={s.radioLabel}>
+                <input
+                  type="radio"
+                  name="seriesMode"
+                  value="series"
+                  checked={seriesMode === "series"}
+                  onChange={() => setSeriesMode("series")}
+                />
+                This and all future occurrences
+              </label>
+            </div>
+          </Field>
+        )}
+
+        {/* Actions */}
+        <div style={s.actions}>
+          <button type="button" style={s.btnSecondary} onClick={() => navigate(-1)} disabled={loading}>
+            Cancel
+          </button>
+          <button type="submit" style={s.btnPrimary} disabled={loading}>
+            {loading ? "Saving…" : isEdit ? "Save changes" : "Add expense"}
+          </button>
+        </div>
+      </form>
+      </div>
+    </div>
+  );
+}
+
+function IncomeMappingPreview({ income, resolving }) {
+  if (resolving) {
+    return <div style={s.previewBox}><span style={s.muted}>Resolving income…</span></div>;
+  } else if (income === null) {
+    return (
+      <div style={{ ...s.previewBox, ...s.previewNone }}>
+        <span style={s.previewIcon}>⚠</span>
+        <span>No income found before this date — expense will be unmapped.</span>
+      </div>
+    );
+  } else if (income) {
+    return (
+      <div style={{ ...s.previewBox, ...s.previewFound }}>
+        <span style={s.previewIcon}>↳</span>
+        <span>
+          Maps to <strong>{income.summary}</strong> ({income.date})
+          {income.amount != null && ` · ${income.currency ?? ""} ${income.amount}`}
+        </span>
+      </div>
+    );
+  }
+  return null;
+}
+
+const s = {
+  outer: {
+    display:        "flex",
+    flex:           1,
+    alignItems:     "center",
+    justifyContent: "center",
+  },
+  card: {
+    width:        "100%",
+    maxWidth:     "460px",
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "14px",
+    padding:      "28px 32px",
+    boxShadow:    "0 4px 32px rgba(0,0,0,0.3)",
+  },
+  title:   { fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "20px" },
+  muted:   { color: "var(--text-muted)", fontSize: "12px" },
+  form:    { display: "flex", flexDirection: "column", gap: "14px" },
+  input: {
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    color:        "var(--text)",
+    padding:      "8px 11px",
+    fontSize:     "13px",
+    outline:      "none",
+    width:        "100%",
+  },
+  select:    { cursor: "pointer", width: "auto" },
+  row:       { display: "flex", gap: "10px" },
+  checkLabel: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" },
+  radioGroup: { display: "flex", flexDirection: "column", gap: "8px" },
+  radioLabel: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" },
+  pillGroup:  { display: "flex", gap: "8px" },
+  pill: {
+    padding:      "5px 14px",
+    borderRadius: "20px",
+    border:       "1px solid var(--border)",
+    background:   "transparent",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   500,
+    transition:   "all 0.15s",
+  },
+  pillActive: (priority) => ({
+    background:  PRIORITY_COLORS[priority] + "22",
+    borderColor: PRIORITY_COLORS[priority],
+    color:       PRIORITY_COLORS[priority],
+  }),
+  pillStatusActive: {
+    background:  "var(--accent)" + "22",
+    borderColor: "var(--accent)",
+    color:       "var(--accent)",
+  },
+  previewBox: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "8px",
+    padding:      "8px 12px",
+    borderRadius: "8px",
+    fontSize:     "12px",
+    border:       "1px solid var(--border)",
+    background:   "var(--surface-2)",
+    color:        "var(--text-muted)",
+  },
+  previewFound: {
+    borderColor: "#22c55e55",
+    background:  "#052e1644",
+    color:       "#86efac",
+  },
+  previewNone: {
+    borderColor: "#f59e0b55",
+    background:  "#2d1f0044",
+    color:       "#fcd34d",
+  },
+  previewIcon: { fontSize: "14px" },
+  actions: {
+    display:        "flex",
+    justifyContent: "flex-end",
+    gap:            "10px",
+    paddingTop:     "6px",
+    borderTop:      "1px solid var(--border)",
+    marginTop:      "4px",
+  },
+  btnPrimary: {
+    background:   "var(--accent)",
+    color:        "#fff",
+    border:       "none",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   600,
+    fontSize:     "13px",
+  },
+  btnSecondary: {
+    background:   "transparent",
+    color:        "var(--text-muted)",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   500,
+    fontSize:     "13px",
+  },
+  errorBox: {
+    background:   "#3b1212",
+    border:       "1px solid var(--danger)",
+    borderRadius: "8px",
+    color:        "#fca5a5",
+    padding:      "10px 14px",
+    fontSize:     "12px",
+    marginBottom: "4px",
+  },
+};

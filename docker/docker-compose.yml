@@ -1,0 +1,12 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: finance4tura-dynamodb
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamodata:/home/dynamodblocal/data
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+
+volumes:
+  dynamodata:
