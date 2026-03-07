@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
@@ -5,6 +6,8 @@ const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const fmt = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense }) {
+  const [revealHeader, setRevealHeader] = useState(false);
+  const [revealFooter, setRevealFooter] = useState(false);
   const { totalExpenses, totalPending } = expenses.reduce(
     (acc, e) => {
       acc.totalExpenses += e.amount ?? 0;
@@ -27,7 +30,14 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
               <Link to={`/add-income?id=${income.incomeId}`} style={s.iconLink} title="Edit income">✎</Link>
             </div>
             <span style={s.date}>{income.date}</span>
-            <span style={s.incomeAmount}>{cur} {fmt(income.amount ?? 0)}</span>
+            <span
+              style={{ ...s.incomeAmount, cursor: "pointer", userSelect: "none" }}
+              onMouseDown={() => setRevealHeader(true)}
+              onMouseUp={() => setRevealHeader(false)}
+              onMouseLeave={() => setRevealHeader(false)}
+            >
+              {revealHeader ? `${cur} ${fmt(income.amount ?? 0)}` : `${cur} ••••••`}
+            </span>
           </div>
           <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addIcon} title="Add expense">＋</Link>
         </div>
@@ -77,7 +87,14 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
       <div style={s.footer}>
         <div style={s.footerRow}>
           <span style={s.footerLabel}>Income</span>
-          <span style={s.footerValue}>{cur} {fmt(income.amount ?? 0)}</span>
+          <span
+            style={{ ...s.footerValue, cursor: "pointer", userSelect: "none" }}
+            onMouseDown={() => setRevealFooter(true)}
+            onMouseUp={() => setRevealFooter(false)}
+            onMouseLeave={() => setRevealFooter(false)}
+          >
+            {revealFooter ? `${cur} ${fmt(income.amount ?? 0)}` : `${cur} ••••••`}
+          </span>
         </div>
         <div style={s.footerRow}>
           <span style={s.footerLabel}>Expenses</span>

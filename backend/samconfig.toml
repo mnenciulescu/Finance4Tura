@@ -1,7 +1,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "finance4tura"
+stack_name = "finance4tura-backend"
 
 [default.build.parameters]
 cached = true
@@ -11,8 +11,8 @@ parallel = true
 warm_containers = "EAGER"
 parameter_overrides = "DynamoDbEndpoint=http://host.docker.internal:8000"
 
-[default.deploy.guided]
-confirm_changeset = true
-resolve_s3 = true
+[default.deploy.parameters]
 region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+confirm_changeset = false

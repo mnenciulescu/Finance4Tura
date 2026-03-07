@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const links = [
   { to: "/",            label: "Dashboard",   end: true },
@@ -9,6 +10,7 @@ const links = [
 ];
 
 export default function Topbar() {
+  const { user, signOut } = useAuth();
   return (
     <header style={s.bar}>
       <span style={s.brand}>Finance4Tura</span>
@@ -24,6 +26,10 @@ export default function Topbar() {
           </NavLink>
         ))}
       </nav>
+      <div style={s.userArea}>
+        <span style={s.username}>{user?.username}</span>
+        <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
+      </div>
     </header>
   );
 }
@@ -64,5 +70,24 @@ const s = {
   linkActive: {
     background: "var(--surface-2)",
     color:      "var(--text)",
+  },
+  userArea: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "12px",
+    marginLeft: "auto",
+  },
+  username: {
+    fontSize:  "13px",
+    color:     "var(--text-muted)",
+  },
+  signOutBtn: {
+    background:   "transparent",
+    border:       "1px solid var(--border)",
+    borderRadius: "7px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    padding:      "4px 12px",
+    cursor:       "pointer",
   },
 };

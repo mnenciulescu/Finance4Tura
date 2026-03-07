@@ -19,8 +19,57 @@ Parameters:
     Description: >
       Override DynamoDB endpoint (e.g. http://localhost:8000 for local dev).
       Leave blank to use the real AWS DynamoDB endpoint.
+  CognitoUserPoolArn:
+    Type: String
+    Default: "arn:aws:cognito-idp:eu-central-1:980921747943:userpool/eu-central-1_CD7AdBFwQ"
+    Description: ARN of the Cognito User Pool for API authorization.
 
 Resources:
+  # ──────────────────────────────────────────
+  # DynamoDB Tables
+  # ──────────────────────────────────────────
+  IncomesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Incomes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: incomeId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: incomeId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ExpensesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Expenses
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: expenseId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: expenseId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
   # ──────────────────────────────────────────
   # API Gateway
   # ──────────────────────────────────────────
@@ -32,6 +81,21 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Ref CognitoUserPoolArn
+
+  # ──────────────────────────────────────────
+  # Cognito Pre Sign-Up trigger (auto-confirm)
+  # ──────────────────────────────────────────
+  PreSignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/preSignUp.mjs
+      CodeUri: .
 
   # ──────────────────────────────────────────
   # Health
@@ -41,6 +105,11 @@ Resources:
     Properties:
       Handler: src/handlers/health.handler
       CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncomesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
       Events:
         HealthGet:
           Type: Api
@@ -57,6 +126,11 @@ Resources:
     Properties:
       Handler: src/handlers/incomes.handler
       CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncomesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
       Events:
         IncomesPost:
           Type: Api
@@ -103,6 +177,11 @@ Resources:
     Properties:
       Handler: src/handlers/expenses.handler
       CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncomesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
       Events:
         ExpensesPost:
           Type: Api

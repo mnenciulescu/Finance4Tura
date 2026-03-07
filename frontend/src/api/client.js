@@ -5,6 +5,9 @@ const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+let _authToken = null;
+export const setAuthToken = (token) => { _authToken = token; };
+
 // Operation log — max 50 entries, newest first
 export const opLog = [];
 let seq = 0;
@@ -25,6 +28,7 @@ function pushLog(config, status, ms) {
 }
 
 client.interceptors.request.use(config => {
+  if (_authToken) config.headers.Authorization = _authToken;
   config._ts = Date.now();
   return config;
 });
