@@ -168,7 +168,6 @@ const s = {
     display:   "flex",
     flex:      1,
     minHeight: 0,
-    gap:       0,
   },
   col: {
     display:       "flex",

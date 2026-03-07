@@ -53,7 +53,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                       title={`Priority: ${exp.priority}`}
                     />
                     <span style={s.expenseSummary} title={exp.summary}>{exp.summary}</span>
-                    <span style={s.expenseDate}>{exp.date ? exp.date.slice(5) : ""}</span>
+                    <span style={s.expenseDate}>{exp.date.slice(5)}</span>
                   </div>
                   <div style={s.expenseRight}>
                     <span style={s.expenseAmount}>{fmt(exp.amount ?? 0)}</span>
