@@ -73,7 +73,6 @@ export default function Login() {
           </svg>
           <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
         </div>
-        <div style={s.subtitle}>{mode === "signin" ? "Sign in to continue" : "Create a new account"}</div>
 
         {error   && <div style={s.error}>{error}</div>}
         {success && <div style={s.successBox}>{success}</div>}
@@ -188,12 +187,6 @@ const s = {
     fontWeight: 700,
     color:      "var(--badge-text)",
     marginLeft: "2px",
-  },
-  subtitle: {
-    fontSize:  "12px",
-    color:     "var(--text-muted)",
-    textAlign: "center",
-    marginTop: "-10px",
   },
   googleBtn: {
     display:        "flex",
