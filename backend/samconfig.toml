@@ -16,3 +16,4 @@ region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
 confirm_changeset = false
+parameter_overrides = "GoogleClientId=887159107424-2g02147g1s2lvhanbjnl1i3u68okskr1.apps.googleusercontent.com"

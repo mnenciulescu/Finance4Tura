@@ -85,6 +85,18 @@ export function AuthProvider({ children }) {
     });
   });
 
+  const signInWithGoogle = async (googleIdToken) => {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ idToken: googleIdToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Google sign-in failed");
+    setUser({ username: data.username });
+    setAuthToken(data.idToken);
+  };
+
   const signOut = () => {
     userPool.getCurrentUser()?.signOut();
     setUser(null);
@@ -92,7 +104,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, oauthError, clearOauthError: () => setOauthError(null) }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle, oauthError, clearOauthError: () => setOauthError(null) }}>
       {children}
     </AuthContext.Provider>
   );
