@@ -177,6 +177,7 @@ const s = {
     alignItems:     "center",
     justifyContent: "center",
     gap:            "10px",
+    marginBottom:   "10px",
   },
   brandText: {
     fontSize:   "20px",
