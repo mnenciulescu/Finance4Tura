@@ -13,7 +13,39 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Exchange an OAuth authorization code for Cognito tokens
+  const exchangeOAuthCode = async (code) => {
+    const res = await fetch(`${import.meta.env.VITE_COGNITO_DOMAIN}/oauth2/token`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type:   "authorization_code",
+        client_id:    import.meta.env.VITE_COGNITO_CLIENT_ID,
+        redirect_uri: window.location.origin,
+        code,
+      }).toString(),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.id_token) throw new Error(data.error_description || "OAuth sign-in failed");
+    const payload = JSON.parse(atob(data.id_token.split(".")[1]));
+    const username = payload.email || payload["cognito:username"] || payload.sub;
+    setUser({ username });
+    setAuthToken(data.id_token);
+  };
+
   useEffect(() => {
+    // If returning from OAuth redirect, exchange the code first
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get("code");
+    if (code) {
+      window.history.replaceState({}, "", "/");
+      exchangeOAuthCode(code)
+        .catch(() => {}) // failed exchange stays on login screen
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // Otherwise restore an existing Cognito session
     const cognitoUser = userPool.getCurrentUser();
     if (!cognitoUser) { setLoading(false); return; }
     cognitoUser.getSession((err, session) => {
@@ -23,7 +55,7 @@ export function AuthProvider({ children }) {
       }
       setLoading(false);
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = (username, password) => new Promise((resolve, reject) => {
     const cognitoUser = new CognitoUser({ Username: username, Pool: userPool });
