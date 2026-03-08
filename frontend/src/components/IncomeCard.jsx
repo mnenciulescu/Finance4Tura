@@ -11,7 +11,7 @@ const monthLabel = (dateStr) => {
 };
 
 export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome }) {
-  const [revealFooter, setRevealFooter]       = useState(false);
+  const [revealHeader, setRevealHeader]       = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalExpenses, totalPending } = expenses.reduce(
@@ -66,8 +66,18 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
             </Link>
           </div>
 
-          {/* Row 2: income name */}
-          <span style={s.summary} title={income.summary}>{income.summary}</span>
+          {/* Row 2: income name + hidden amount */}
+          <div style={s.summaryRow}>
+            <span style={s.summary} title={income.summary}>{income.summary}</span>
+            <span
+              style={{ ...s.headerAmount, color: revealHeader ? "#86efac" : "transparent" }}
+              onClick={() => setRevealHeader(v => !v)}
+              title="Click to reveal income"
+            >
+              {fmt(income.amount ?? 0)} {cur}
+            </span>
+          </div>
+
         </div>
       </div>
 
@@ -113,16 +123,31 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
       {/* Footer summary */}
       <div style={s.footer}>
+        {/* Balance bar */}
+        {income.amount > 0 && (() => {
+          const overBudget = totalExpenses > income.amount;
+          const pctSpent   = Math.min(totalExpenses / income.amount, 1);
+          const pctBalance = Math.max(1 - pctSpent, 0);
+          return (
+            <div style={s.barWrap}>
+              <div style={s.barTrack}>
+                <div style={{ ...s.barSpent, width: `${pctSpent * 100}%`, background: overBudget ? "var(--danger)" : "var(--accent)" }} />
+                <div style={{ ...s.barBalance, width: `${pctBalance * 100}%` }} />
+              </div>
+              <div style={s.barLabels}>
+                <span style={{ ...s.barLabel, color: overBudget ? "var(--danger)" : "rgba(108,99,255,0.8)" }}>
+                  {fmt(totalExpenses)} {cur} spent
+                </span>
+                <span style={{ ...s.barLabel, color: overBudget ? "var(--danger)" : "#86efac" }}>
+                  {overBudget ? "−" : ""}{fmt(Math.abs(balance))} {cur} {overBudget ? "over" : "left"}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
         <div style={s.footerRow}>
           <span style={s.footerLabel}>Income</span>
-          <span
-            style={{ ...s.footerValue, cursor: "pointer", userSelect: "none" }}
-            onMouseDown={() => setRevealFooter(true)}
-            onMouseUp={() => setRevealFooter(false)}
-            onMouseLeave={() => setRevealFooter(false)}
-          >
-            {revealFooter ? `${cur} ${fmt(income.amount ?? 0)}` : `${cur} ••••••`}
-          </span>
+          <span style={{ ...s.footerValue, pointerEvents: "none", userSelect: "none" }}>{cur} ••••••</span>
         </div>
         <div style={s.footerRow}>
           <span style={s.footerLabel}>Expenses</span>
@@ -198,7 +223,7 @@ const s = {
   },
   accentStrip: {
     height:     "3px",
-    background: "linear-gradient(90deg, var(--accent), #86efac)",
+    background: "linear-gradient(90deg, rgba(108,99,255,0.35), rgba(134,239,172,0.2))",
   },
   headerRow: {
     display:       "flex",
@@ -243,6 +268,23 @@ const s = {
     display:        "flex",
     alignItems:     "center",
     opacity:        0.6,
+  },
+  summaryRow: {
+    display:     "flex",
+    alignItems:  "center",
+    gap:         "8px",
+    overflow:    "hidden",
+  },
+  headerAmount: {
+    fontSize:      "11px",
+    fontWeight:    600,
+    color:         "transparent",
+    letterSpacing: "0.04em",
+    cursor:        "pointer",
+    userSelect:    "none",
+    textAlign:     "right",
+    fontVariantNumeric: "tabular-nums",
+    transition:    "color 0.2s",
   },
   addBtn: {
     display:        "flex",
@@ -369,6 +411,41 @@ const s = {
   },
   footerLabel: { color: "var(--text-muted)" },
   footerValue: { color: "var(--text)", fontVariantNumeric: "tabular-nums" },
+  barWrap: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "4px",
+    marginBottom:  "8px",
+    paddingBottom: "8px",
+    borderBottom:  "1px solid var(--border)",
+  },
+  barTrack: {
+    display:      "flex",
+    height:       "5px",
+    borderRadius: "4px",
+    overflow:     "hidden",
+    background:   "rgba(108,99,255,0.12)",
+  },
+  barSpent: {
+    height:       "100%",
+    borderRadius: "4px 0 0 4px",
+    transition:   "width 0.5s ease",
+  },
+  barBalance: {
+    height:       "100%",
+    background:   "#86efac",
+    borderRadius: "0 4px 4px 0",
+    transition:   "width 0.5s ease",
+    opacity:      0.75,
+  },
+  barLabels: {
+    display:        "flex",
+    justifyContent: "space-between",
+  },
+  barLabel: {
+    fontSize:           "10px",
+    fontVariantNumeric: "tabular-nums",
+  },
   deleteIncomeBtn: {
     background: "none",
     border:     "none",
