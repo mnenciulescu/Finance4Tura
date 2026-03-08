@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import IncomeCard from "../components/IncomeCard";
-import { listIncomes } from "../api/incomes";
+import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 
 export default function Dashboard() {
@@ -41,6 +41,63 @@ export default function Dashboard() {
   };
 
   const handleDeleteExpense = (exp) => setPendingDelete(exp);
+
+  const handleDeleteIncome = async (income, deleteSeries) => {
+    // 1. Determine which incomes are being removed
+    const removedIds = new Set(
+      deleteSeries
+        ? allIncomes.filter(i => i.seriesId === income.seriesId).map(i => i.incomeId)
+        : [income.incomeId]
+    );
+    const removedList  = allIncomes.filter(i => removedIds.has(i.incomeId));
+    const remaining    = allIncomes.filter(i => !removedIds.has(i.incomeId));
+
+    // 2. For a given expense date, find the best remaining income (latest date ≤ expDate)
+    const resolveFromRemaining = (expDate) =>
+      remaining
+        .filter(i => i.date <= expDate)
+        .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
+
+    // 3. Remap affected expenses optimistically
+    const prevExpenses = expenses;
+    const remapped = expenses.map(e => {
+      if (!removedIds.has(e.mappedIncomeId)) return e;
+      const inc = resolveFromRemaining(e.date);
+      return {
+        ...e,
+        mappedIncomeId:      inc?.incomeId  ?? null,
+        mappedIncomeSummary: inc?.summary   ?? null,
+        mappedIncomeDate:    inc?.date      ?? null,
+      };
+    });
+    setExpenses(remapped);
+
+    // 4. Update income list and startIdx
+    const firstRemovedIdx = allIncomes.findIndex(i => removedIds.has(i.incomeId));
+    setAllIncomes(remaining);
+    setStartIdx(prev => Math.max(0, firstRemovedIdx < prev ? prev - removedIds.size : prev));
+
+    try {
+      // 5. Delete income(s) on the backend
+      await deleteIncome(income.incomeId, deleteSeries ? { deleteSeries: "true" } : undefined);
+
+      // 6. Persist remapped expenses
+      const affected = prevExpenses.filter(e => removedIds.has(e.mappedIncomeId));
+      await Promise.all(affected.map(e => {
+        const inc = resolveFromRemaining(e.date);
+        return updateExpense(e.expenseId, {
+          ...e,
+          mappedIncomeId:      inc?.incomeId  ?? null,
+          mappedIncomeSummary: inc?.summary   ?? null,
+          mappedIncomeDate:    inc?.date      ?? null,
+        });
+      }));
+    } catch {
+      // Revert both income list and expenses on failure
+      setAllIncomes(allIncomes);
+      setExpenses(prevExpenses);
+    }
+  };
 
   const confirmDelete = (deleteSeries) => {
     const exp = pendingDelete;
@@ -124,6 +181,7 @@ export default function Dashboard() {
                 expenses={expensesByIncome[income.incomeId] ?? []}
                 onToggleStatus={handleToggleStatus}
                 onDeleteExpense={handleDeleteExpense}
+                onDeleteIncome={handleDeleteIncome}
               />
             ))}
           </div>

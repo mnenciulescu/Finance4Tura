@@ -10,9 +10,10 @@ const monthLabel = (dateStr) => {
   return `${name} ${y}`;
 };
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense }) {
-  const [revealHeader, setRevealHeader] = useState(false);
-  const [revealFooter, setRevealFooter] = useState(false);
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome }) {
+  const [revealFooter, setRevealFooter]       = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalExpenses, totalPending } = expenses.reduce(
     (acc, e) => {
       acc.totalExpenses += e.amount ?? 0;
@@ -28,23 +29,45 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
     <div style={s.card}>
       {/* Header */}
       <div style={s.header}>
-        <div style={s.headerTop}>
-          <div style={s.headerLeft}>
+        {/* Top accent strip */}
+        <div style={s.accentStrip} />
+
+        <div style={s.headerRow}>
+          {/* Row 1: calendar icon + month + edit + add */}
+          <div style={s.headerTop}>
+            <svg style={s.calIcon} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1.5" y="2.5" width="13" height="12" rx="2"/>
+              <line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/>
+              <line x1="5"   y1="1"   x2="5"    y2="4"/>
+              <line x1="11"  y1="1"   x2="11"   y2="4"/>
+            </svg>
             <span style={s.monthTitle}>{monthLabel(income.date)}</span>
-            <div style={s.summaryRow}>
-              <span style={s.summary} title={income.summary}>{income.summary}</span>
-              <Link to={`/add-income?id=${income.incomeId}`} style={s.iconLink} title="Edit income">✎</Link>
-            </div>
-            <span
-              style={{ ...s.incomeAmount, cursor: "pointer", userSelect: "none" }}
-              onMouseDown={() => setRevealHeader(true)}
-              onMouseUp={() => setRevealHeader(false)}
-              onMouseLeave={() => setRevealHeader(false)}
-            >
-              {revealHeader ? `${cur} ${fmt(income.amount ?? 0)}` : `${cur} ••••••`}
-            </span>
+            <button style={s.deleteIncomeBtn} title="Delete income" onClick={() => setShowDeleteDialog(true)}>
+              <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1,3 13,3"/>
+                <path d="M4,3V2a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1V3"/>
+                <rect x="2" y="3" width="10" height="10" rx="1"/>
+                <line x1="5.5" y1="6" x2="5.5" y2="10"/>
+                <line x1="8.5" y1="6" x2="8.5" y2="10"/>
+              </svg>
+            </button>
+            <Link to={`/add-income?id=${income.incomeId}`} style={s.iconLink} title="Edit income">
+              <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9.5 1.5l3 3L4 13H1v-3L9.5 1.5z"/>
+              </svg>
+            </Link>
+            <span style={{ flex: 1 }} />
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addBtn} title="Add expense">
+              <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="7" y1="2" x2="7" y2="12"/>
+                <line x1="2" y1="7" x2="12" y2="7"/>
+              </svg>
+              Add
+            </Link>
           </div>
-          <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addIcon} title="Add expense">＋</Link>
+
+          {/* Row 2: income name */}
+          <span style={s.summary} title={income.summary}>{income.summary}</span>
         </div>
       </div>
 
@@ -120,6 +143,38 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
           </span>
         </div>
       </div>
+
+      {/* Income delete dialog */}
+      {showDeleteDialog && (
+        <div style={s.overlay}>
+          <div style={s.dialog}>
+            {isSeriesMember ? (
+              <>
+                <p style={s.dialogTitle}>Delete recurring income?</p>
+                <p style={s.dialogBody}>
+                  <strong style={{ color: "var(--text)" }}>{income.summary}</strong> is part of a recurring series. What would you like to delete?
+                </p>
+                <div style={s.dialogActions}>
+                  <button style={s.btnCancel} onClick={() => setShowDeleteDialog(false)}>Cancel</button>
+                  <button style={s.btnDeleteSoft} onClick={() => { setShowDeleteDialog(false); onDeleteIncome?.(income, false); }}>This occurrence</button>
+                  <button style={s.btnDelete}     onClick={() => { setShowDeleteDialog(false); onDeleteIncome?.(income, true);  }}>Entire series</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={s.dialogTitle}>Delete income?</p>
+                <p style={s.dialogBody}>
+                  <strong style={{ color: "var(--text)" }}>{income.summary}</strong> will be permanently removed. This cannot be undone.
+                </p>
+                <div style={s.dialogActions}>
+                  <button style={s.btnCancel} onClick={() => setShowDeleteDialog(false)}>Cancel</button>
+                  <button style={s.btnDelete}  onClick={() => { setShowDeleteDialog(false); onDeleteIncome?.(income, false); }}>Delete</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -137,59 +192,72 @@ const s = {
     minHeight:     0,
   },
   header: {
-    padding:      "8px 12px",
     borderBottom: "1px solid var(--border)",
+    background:   "linear-gradient(135deg, rgba(108,99,255,0.07) 0%, rgba(134,239,172,0.04) 100%)",
+    overflow:     "hidden",
   },
-  headerTop: {
-    display:        "flex",
-    justifyContent: "space-between",
-    alignItems:     "center",
-    gap:            "8px",
+  accentStrip: {
+    height:     "3px",
+    background: "linear-gradient(90deg, var(--accent), #86efac)",
   },
-  headerLeft: {
+  headerRow: {
     display:       "flex",
     flexDirection: "column",
-    gap:           "1px",
+    gap:           "6px",
+    padding:       "10px 12px 12px",
     overflow:      "hidden",
-    flex:          1,
   },
-  summaryRow: {
+  headerTop: {
     display:    "flex",
     alignItems: "center",
-    gap:        "4px",
+    gap:        "7px",
+  },
+  calIcon: {
+    width:      "14px",
+    height:     "14px",
+    flexShrink: 0,
+    color:      "var(--accent)",
+    opacity:    0.8,
   },
   monthTitle: {
-    fontSize:     "14px",
-    fontWeight:   700,
-    color:        "var(--text)",
+    fontSize:      "13px",
+    fontWeight:    700,
+    color:         "var(--text)",
     letterSpacing: "0.01em",
-    lineHeight:   1.2,
+    whiteSpace:    "nowrap",
+    flexShrink:    0,
   },
   summary: {
-    fontWeight:   400,
-    fontSize:     "11px",
+    fontWeight:   500,
+    fontSize:     "13px",
     color:        "var(--text-muted)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
   },
-  incomeAmount: {
-    fontSize:   "12px",
-    color:      "#86efac",
-    fontWeight: 600,
-  },
   iconLink: {
     color:          "var(--text-muted)",
-    fontSize:       "14px",
     textDecoration: "none",
     lineHeight:     1,
+    flexShrink:     0,
+    display:        "flex",
+    alignItems:     "center",
+    opacity:        0.6,
   },
-  addIcon: {
+  addBtn: {
+    display:        "flex",
+    alignItems:     "center",
+    gap:            "4px",
+    background:     "rgba(108,99,255,0.12)",
+    border:         "1px solid rgba(108,99,255,0.25)",
+    borderRadius:   "6px",
     color:          "var(--accent)",
-    fontSize:       "22px",
+    fontSize:       "11px",
+    fontWeight:     600,
+    padding:        "3px 8px",
     textDecoration: "none",
-    lineHeight:     1,
-    fontWeight:     300,
+    flexShrink:     0,
+    whiteSpace:     "nowrap",
   },
   body: {
     flex:      1,
@@ -301,4 +369,81 @@ const s = {
   },
   footerLabel: { color: "var(--text-muted)" },
   footerValue: { color: "var(--text)", fontVariantNumeric: "tabular-nums" },
+  deleteIncomeBtn: {
+    background: "none",
+    border:     "none",
+    padding:    0,
+    cursor:     "pointer",
+    display:    "flex",
+    alignItems: "center",
+    color:      "var(--danger)",
+    opacity:    0.55,
+    flexShrink: 0,
+  },
+  overlay: {
+    position:       "fixed",
+    inset:          0,
+    background:     "rgba(0,0,0,0.6)",
+    backdropFilter: "blur(2px)",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    zIndex:         200,
+  },
+  dialog: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "14px",
+    padding:      "28px 32px",
+    width:        "100%",
+    maxWidth:     "380px",
+    boxShadow:    "0 8px 40px rgba(0,0,0,0.5)",
+  },
+  dialogTitle: {
+    fontSize:     "16px",
+    fontWeight:   700,
+    color:        "var(--text)",
+    marginBottom: "10px",
+  },
+  dialogBody: {
+    fontSize:     "13px",
+    color:        "var(--text-muted)",
+    lineHeight:   1.6,
+    marginBottom: "24px",
+  },
+  dialogActions: {
+    display:        "flex",
+    justifyContent: "flex-end",
+    gap:            "10px",
+  },
+  btnCancel: {
+    background:   "transparent",
+    color:        "var(--text-muted)",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   500,
+    fontSize:     "13px",
+    cursor:       "pointer",
+  },
+  btnDeleteSoft: {
+    background:   "transparent",
+    color:        "var(--danger)",
+    border:       "1px solid var(--danger)",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   500,
+    fontSize:     "13px",
+    cursor:       "pointer",
+  },
+  btnDelete: {
+    background:   "var(--danger)",
+    color:        "#fff",
+    border:       "none",
+    borderRadius: "8px",
+    padding:      "8px 20px",
+    fontWeight:   600,
+    fontSize:     "13px",
+    cursor:       "pointer",
+  },
 };
