@@ -49,7 +49,19 @@ export default function Login() {
   return (
     <div style={s.root}>
       <form style={s.card} onSubmit={handleSubmit}>
-        <div style={s.brand}>Finance4Tura</div>
+        <div style={s.brand}>
+          <svg width="44" height="44" viewBox="0 0 34 34" fill="none">
+            <circle cx="17" cy="17" r="16" fill="#16a34a"/>
+            <rect x="7.5"  y="21" width="4" height="7"  rx="1.5" fill="white" opacity="0.95"/>
+            <rect x="15"   y="16" width="4" height="12" rx="1.5" fill="white" opacity="0.95"/>
+            <rect x="22.5" y="11" width="4" height="17" rx="1.5" fill="white" opacity="0.95"/>
+            <polyline points="9.5,21 17,16 24.5,11" stroke="#86efac" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="9.5"  cy="21" r="2" fill="#86efac"/>
+            <circle cx="17"   cy="16" r="2" fill="#86efac"/>
+            <circle cx="24.5" cy="11" r="2" fill="#86efac"/>
+          </svg>
+          <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
+        </div>
         <div style={s.subtitle}>{mode === "signin" ? "Sign in to continue" : "Create a new account"}</div>
 
         {error   && <div style={s.error}>{error}</div>}
@@ -135,11 +147,20 @@ const s = {
     gap:           "18px",
   },
   brand: {
-    fontSize:      "18px",
-    fontWeight:    700,
-    color:         "var(--accent)",
-    letterSpacing: "0.02em",
-    textAlign:     "center",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    gap:            "10px",
+  },
+  brandText: {
+    fontSize:   "20px",
+    fontWeight: 400,
+    color:      "var(--text-muted)",
+  },
+  brandAccent: {
+    fontWeight: 700,
+    color:      "var(--badge-text)",
+    marginLeft: "2px",
   },
   subtitle: {
     fontSize:  "12px",
