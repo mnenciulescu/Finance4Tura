@@ -28,6 +28,13 @@
   --header-amount-text: #86efac;
   --bar-label:          rgba(255,255,255,0.9);
 
+  --error-bg:           #3b1212;
+  --error-text:         #fca5a5;
+  --success-bg:         #052e16;
+  --success-text:       #86efac;
+  --warning-bg:         #1c1400;
+  --warning-text:       #fcd34d;
+
   --card-w: 280px;
 
   font-family: system-ui, -apple-system, sans-serif;
@@ -59,6 +66,13 @@
   --amount-text:        #15803d;
   --header-amount-text: #0e1a10;
   --bar-label:          rgba(0,0,0,0.75);
+
+  --error-bg:           #fef2f2;
+  --error-text:         #b91c1c;
+  --success-bg:         #f0fdf4;
+  --success-text:       #166534;
+  --warning-bg:         #fffbeb;
+  --warning-text:       #92400e;
 }
 
 html {

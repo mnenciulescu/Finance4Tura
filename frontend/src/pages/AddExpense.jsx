@@ -422,14 +422,14 @@ const s = {
     color:        "var(--text-muted)",
   },
   previewFound: {
-    borderColor: "#22c55e55",
-    background:  "#052e1644",
-    color:       "#86efac",
+    borderColor: "var(--accent)",
+    background:  "var(--success-bg)",
+    color:       "var(--success-text)",
   },
   previewNone: {
-    borderColor: "#f59e0b55",
-    background:  "#2d1f0044",
-    color:       "#fcd34d",
+    borderColor: "var(--warning)",
+    background:  "var(--warning-bg)",
+    color:       "var(--warning-text)",
   },
   previewIcon: { fontSize: "14px" },
   actions: {
@@ -459,10 +459,10 @@ const s = {
     fontSize:     "13px",
   },
   errorBox: {
-    background:   "#3b1212",
+    background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
     borderRadius: "8px",
-    color:        "#fca5a5",
+    color:        "var(--error-text)",
     padding:      "10px 14px",
     fontSize:     "12px",
     marginBottom: "4px",

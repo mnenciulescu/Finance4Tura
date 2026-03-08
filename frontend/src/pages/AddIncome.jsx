@@ -319,10 +319,10 @@ const s = {
     fontSize:     "13px",
   },
   errorBox: {
-    background:   "#3b1212",
+    background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
     borderRadius: "8px",
-    color:        "#fca5a5",
+    color:        "var(--error-text)",
     padding:      "10px 14px",
     fontSize:     "12px",
     marginBottom: "4px",

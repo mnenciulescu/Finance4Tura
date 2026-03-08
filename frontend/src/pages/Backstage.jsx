@@ -349,8 +349,8 @@ const s = {
     display: "inline-block", padding: "1px 6px", borderRadius: "10px",
     fontSize: "10px", fontWeight: 600, border: "1px solid transparent",
   },
-  pillDone:    { background: "#052e16", color: "#86efac", borderColor: "#22c55e44" },
-  pillPending: { background: "#1c1400", color: "#fcd34d", borderColor: "#f59e0b44" },
+  pillDone:    { background: "var(--success-bg)", color: "var(--success-text)", borderColor: "var(--accent)" },
+  pillPending: { background: "var(--warning-bg)", color: "var(--warning-text)", borderColor: "var(--warning)" },
   logList:     { flex: 1, overflowY: "auto", minHeight: 0, padding: "6px 0" },
   logRow:      { padding: "4px 12px", borderBottom: "1px solid var(--border)" },
   logTop:      { display: "flex", alignItems: "center", gap: "6px" },
@@ -367,7 +367,7 @@ const s = {
     fontStyle: "italic", textAlign: "center",
   },
   errorBox: {
-    background: "#3b1212", border: "1px solid var(--danger)",
-    borderRadius: "8px", color: "#fca5a5", padding: "10px 14px", fontSize: "12px",
+    background: "var(--error-bg)", border: "1px solid var(--danger)",
+    borderRadius: "8px", color: "var(--error-text)", padding: "10px 14px", fontSize: "12px",
   },
 };

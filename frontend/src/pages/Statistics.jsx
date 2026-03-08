@@ -271,14 +271,14 @@ const s = {
   },
   muted:    { color: "var(--text-muted)", fontSize: "13px" },
   errorBox: {
-    background: "#3b1212", border: "1px solid var(--danger)",
-    borderRadius: "8px", color: "#fca5a5", padding: "12px 16px", fontSize: "13px",
+    background: "var(--error-bg)", border: "1px solid var(--danger)",
+    borderRadius: "8px", color: "var(--error-text)", padding: "12px 16px", fontSize: "13px",
   },
   table:       { width: "100%", borderCollapse: "collapse" },
   th:          { textAlign: "left", fontSize: "11px", color: "var(--text-muted)", padding: "4px 8px", borderBottom: "1px solid var(--border)", fontWeight: 500 },
   tr:          { borderBottom: "1px solid var(--border)" },
   td:          { padding: "7px 8px", fontSize: "12px", color: "var(--text)" },
   badge:       { padding: "2px 6px", borderRadius: "10px", fontSize: "10px", fontWeight: 600 },
-  badgeDone:   { background: "#052e16", color: "#86efac", border: "1px solid #22c55e44" },
-  badgePending:{ background: "#1c1400", color: "#fcd34d", border: "1px solid #f59e0b44" },
+  badgeDone:   { background: "var(--success-bg)", color: "var(--success-text)", border: "1px solid var(--accent)" },
+  badgePending:{ background: "var(--warning-bg)", color: "var(--warning-text)", border: "1px solid var(--warning)" },
 };

@@ -353,10 +353,10 @@ const s = {
     padding:       "12px 12px 0",
   },
   errorBox: {
-    background:   "#3b1212",
+    background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
     borderRadius: "8px",
-    color:        "#fca5a5",
+    color:        "var(--error-text)",
     padding:      "12px 16px",
     fontSize:     "13px",
     marginBottom: "20px",
