@@ -11,7 +11,7 @@ const monthParts = (dateStr) => {
   return { month, day: String(+d), year: y };
 };
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false }) {
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalCompleted, totalPending } = expenses.reduce(
@@ -33,17 +33,17 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
         {/* Top accent strip */}
         <div style={s.accentStrip} />
 
-        <div style={s.headerRow}>
+        <div style={{ ...s.headerRow, padding: isMobile ? "7px 10px 9px" : "10px 12px 12px" }}>
           {/* Row 1: date badge + add */}
           <div style={s.headerTop}>
             {(() => { const { month, day, year } = monthParts(income.date); return (
               <div style={s.dateBadge}>
-                <span style={s.badgeMonth}>{month}</span>
-                <span style={s.badgeDay}>{day}</span>
-                <span style={s.badgeYear}>{year}</span>
+                <span style={{ ...s.badgeMonth, fontSize: isMobile ? "17px" : "13px" }}>{month}</span>
+                <span style={{ ...s.badgeDay,   fontSize: isMobile ? "17px" : "13px" }}>{day}</span>
+                <span style={{ ...s.badgeYear,  fontSize: isMobile ? "15px" : "12px" }}>{year}</span>
               </div>
             ); })()}
-            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addBtn} title="Add expense">
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={{ ...s.addBtn, fontSize: isMobile ? "13px" : "11px", padding: isMobile ? "5px 12px" : "3px 8px" }} title="Add expense">
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="7" y1="2" x2="7" y2="12"/>
                 <line x1="2" y1="7" x2="12" y2="7"/>
@@ -54,7 +54,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
           {/* Row 2: income name + delete + edit + hidden amount */}
           <div style={s.summaryRow}>
-            <span style={s.summary} title={income.summary}>{income.summary}</span>
+            <span style={{ ...s.summary, fontSize: isMobile ? "15px" : "13px" }} title={income.summary}>{income.summary}</span>
             <button style={s.deleteIncomeBtn} title="Delete income" onClick={() => setShowDeleteDialog(true)}>
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1,3 13,3"/>
@@ -70,7 +70,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
               </svg>
             </Link>
             <span style={{ flex: 1 }} />
-            <span style={{ ...s.headerAmount, color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
+            <span style={{ ...s.headerAmount, fontSize: isMobile ? "14px" : "11px", color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
               {fmt(income.amount ?? 0)} {cur}
             </span>
           </div>
@@ -81,7 +81,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
       {/* Expense list */}
       <div style={s.body}>
         {expenses.length === 0 ? (
-          <div style={s.empty}>No expenses mapped</div>
+          <div style={{ ...s.empty, fontSize: isMobile ? "14px" : "12px" }}>No expenses mapped</div>
         ) : (
           <ul style={s.list}>
             {expenses
@@ -91,26 +91,26 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 || a.date.localeCompare(b.date)
               )
               .map(exp => (
-                <li key={exp.expenseId} style={s.expenseRow}>
+                <li key={exp.expenseId} style={{ ...s.expenseRow, padding: isMobile ? "11px 16px" : "7px 16px" }}>
                   <div style={s.expenseLeft}>
                     <span
-                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer" }}
+                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer", width: isMobile ? "18px" : "14px", height: isMobile ? "18px" : "14px", fontSize: isMobile ? "12px" : "10px" }}
                       title={exp.status === "Completed" ? "Mark as Pending" : "Mark as Completed"}
                       onClick={() => onToggleStatus?.(exp)}
                     >
                       {exp.status === "Completed" ? "✓" : ""}
                     </span>
                     <span
-                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194" }}
+                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194", width: isMobile ? "9px" : "7px", height: isMobile ? "9px" : "7px" }}
                       title={`Priority: ${exp.priority}`}
                     />
-                    <span style={s.expenseSummary} title={exp.summary}>{exp.summary}</span>
-                    <span style={s.expenseDate}>{exp.date.slice(5)}</span>
+                    <span style={{ ...s.expenseSummary, fontSize: isMobile ? "15px" : "12px" }} title={exp.summary}>{exp.summary}</span>
+                    <span style={{ ...s.expenseDate, fontSize: isMobile ? "12px" : "10px" }}>{exp.date.slice(5)}</span>
                   </div>
                   <div style={s.expenseRight}>
-                    <span style={s.expenseAmount}>{fmt(exp.amount ?? 0)}</span>
-                    <Link to={`/add-expense?id=${exp.expenseId}`} style={s.editLink} title="Edit expense">✎</Link>
-                    <button style={s.deleteBtn} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
+                    <span style={{ ...s.expenseAmount, fontSize: isMobile ? "15px" : "12px" }}>{fmt(exp.amount ?? 0)}</span>
+                    <Link to={`/add-expense?id=${exp.expenseId}`} style={{ ...s.editLink, fontSize: isMobile ? "16px" : "13px" }} title="Edit expense">✎</Link>
+                    <button style={{ ...s.deleteBtn, fontSize: isMobile ? "14px" : "11px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
                 </li>
               ))}
@@ -123,43 +123,69 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
         {income.amount > 0 && (() => {
           const total      = income.amount;
           const overBudget = totalExpenses > total;
-          const pctSpent   = Math.min(totalExpenses / total, 1);
-          const pctLeft    = Math.max(0, 1 - pctSpent);
           const freeColor  = overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)";
-          // Within the spent portion
-          const pctCompOfSpent = totalExpenses > 0 ? totalCompleted / totalExpenses : 0;
-          const pctPendOfSpent = totalExpenses > 0 ? totalPending   / totalExpenses : 0;
+          const safeBalance = Math.max(0, balance);
+
+          // Each segment gets at least MIN fraction of its container so labels always fit
+          const MIN = 0.14;
+
+          // Outer: spent column vs free column
+          let pctSpentN, pctFreeN;
+          if (overBudget) {
+            pctSpentN = 1; pctFreeN = 0;
+          } else {
+            const rawS = total > 0 ? totalExpenses / total : 0;
+            const rawF = total > 0 ? safeBalance   / total : 1;
+            const adjS = Math.max(rawS, MIN);
+            const adjF = Math.max(rawF, MIN);
+            const sum  = adjS + adjF;
+            pctSpentN  = adjS / sum;
+            pctFreeN   = adjF / sum;
+          }
+
+          // Inner: completed vs pending within spent column
+          const rawC = totalExpenses > 0 ? totalCompleted / totalExpenses : 0;
+          const rawP = totalExpenses > 0 ? totalPending   / totalExpenses : 0;
+          const adjC = Math.max(rawC, MIN);
+          const adjP = Math.max(rawP, MIN);
+          const innerSum = adjC + adjP;
+          const pctCompN = adjC / innerSum;
+          const pctPendN = adjP / innerSum;
+
+          const lbl = { ...s.barSegLabel, fontSize: isMobile ? "12px" : "10px" };
           return (
             <div style={s.barWrap}>
-              <div style={s.dualBar}>
+              <div style={{ ...s.dualBar, height: isMobile ? "54px" : "44px" }}>
                 {/* Left spent column — stacked top/bottom */}
-                <div style={{ display: "flex", flexDirection: "column", width: `${pctSpent * 100}%`, height: "100%" }}>
+                <div style={{ display: "flex", flexDirection: "column", width: `${pctSpentN * 100}%`, height: "100%" }}>
                   {/* Top row: total expenses */}
                   <div style={s.dualBarTop}>
                     <div style={{ ...s.dualBarTotal, width: "100%" }}>
-                      {pctSpent > 0.2 && <span style={s.barSegLabel}>{fmtInt(totalExpenses)}</span>}
+                      <span style={lbl}>{fmtInt(totalExpenses)}</span>
                     </div>
                   </div>
                   {/* Bottom row: completed + pending */}
                   <div style={s.dualBarBottom}>
-                    <div style={{ ...s.dualBarCompleted, width: `${pctCompOfSpent * 100}%` }}>
-                      {pctSpent * pctCompOfSpent > 0.18 && <span style={s.barSegLabel}>{fmtInt(totalCompleted)}</span>}
+                    <div style={{ ...s.dualBarCompleted, width: `${pctCompN * 100}%` }}>
+                      <span style={lbl}>{fmtInt(totalCompleted)}</span>
                     </div>
-                    <div style={{ ...s.dualBarPending, width: `${pctPendOfSpent * 100}%` }}>
-                      {pctSpent * pctPendOfSpent > 0.18 && <span style={s.barSegLabel}>{fmtInt(totalPending)}</span>}
+                    <div style={{ ...s.dualBarPending, width: `${pctPendN * 100}%` }}>
+                      <span style={lbl}>{fmtInt(totalPending)}</span>
                     </div>
                   </div>
                 </div>
                 {/* Right free column — spans full height (merged) */}
-                <div style={{ ...s.dualBarFree, width: `${pctLeft * 100}%`, background: freeColor }}>
-                  {pctLeft > 0.15 && <span style={s.barSegLabel}>{fmtInt(Math.max(0, balance))}</span>}
-                </div>
+                {pctFreeN > 0 && (
+                  <div style={{ ...s.dualBarFree, width: `${pctFreeN * 100}%`, background: freeColor }}>
+                    <span style={lbl}>{fmtInt(safeBalance)}</span>
+                  </div>
+                )}
               </div>
               <div style={s.legend}>
-                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(120,113,255,0.65)" }}/> Total</span>
-                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(134,239,172,0.65)" }}/> Done</span>
-                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(245,158,11,0.65)"  }}/> Pending</span>
-                <span style={s.legendItem}><span style={{ ...s.legendDot, background: overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)" }}/> {overBudget ? "Over" : "Free"}</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(120,113,255,0.65)" }}/> Total</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(134,239,172,0.65)" }}/> Done</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(245,158,11,0.65)"  }}/> Pending</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)" }}/> {overBudget ? "Over" : "Free"}</span>
               </div>
             </div>
           );
@@ -309,10 +335,12 @@ const s = {
     whiteSpace:     "nowrap",
   },
   body: {
-    flex:      1,
-    overflowY: "auto",
-    minHeight: 0,
-    padding:   "8px 0",
+    flex:             1,
+    overflowY:        "auto",
+    minHeight:        0,
+    padding:          "8px 0",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
   },
   empty: {
     color:      "var(--text-muted)",
@@ -432,15 +460,17 @@ const s = {
     borderRadius: "6px",
     overflow:     "hidden",
     background:   "var(--surface-2)",
+    gap:          "2px",
   },
   dualBarTop: {
     display:      "flex",
     flex:         1,
-    borderBottom: "1px solid var(--border)",
+    borderBottom: "2px solid var(--surface-2)",
   },
   dualBarBottom: {
     display: "flex",
     flex:    1,
+    gap:     "2px",
   },
   dualBarTotal: {
     height:         "100%",
@@ -479,12 +509,11 @@ const s = {
   barSegLabel: {
     fontSize:           "9px",
     fontWeight:         700,
-    color:              "rgba(255,255,255,0.9)",
+    color:              "var(--bar-label)",
     whiteSpace:         "nowrap",
     padding:            "0 6px",
     fontVariantNumeric: "tabular-nums",
     letterSpacing:      "0.02em",
-    textShadow:         "0 1px 2px rgba(0,0,0,0.4)",
   },
   legend: {
     display:    "flex",

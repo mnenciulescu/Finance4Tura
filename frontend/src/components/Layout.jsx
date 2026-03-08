@@ -1,6 +1,14 @@
+import useIsMobile from "../hooks/useIsMobile";
 import Sidebar from "./Sidebar";
+import MobileLayout from "./MobileLayout";
 
 export default function Layout({ children }) {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return <MobileLayout>{children}</MobileLayout>;
+  }
+
   return (
     <div style={s.shell}>
       <Sidebar />

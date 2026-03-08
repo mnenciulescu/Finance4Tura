@@ -26,6 +26,7 @@
   --badge-text-muted:   rgba(134,239,172,0.55);
   --amount-text:        #86efac;
   --header-amount-text: #86efac;
+  --bar-label:          rgba(255,255,255,0.9);
 
   --card-w: 280px;
 
@@ -56,11 +57,19 @@
   --badge-text:         #15803d;
   --badge-text-muted:   #3d6b4a;
   --amount-text:        #15803d;
-  --header-amount-text: #15803d;
+  --header-amount-text: #0e1a10;
+  --bar-label:          rgba(0,0,0,0.75);
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 

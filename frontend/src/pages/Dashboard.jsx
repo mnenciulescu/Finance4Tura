@@ -1,20 +1,24 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
+import useIsMobile from "../hooks/useIsMobile";
 
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
+  const isMobile = useIsMobile();
   const [allIncomes, setAllIncomes]   = useState([]);
   const [startIdx, setStartIdx]       = useState(0);
   const [expenses, setExpenses]       = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
-  const [pendingDelete, setPendingDelete] = useState(null); // expense awaiting confirmation
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [showAmounts, setShowAmounts]     = useState(getPrivacySetting());
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
@@ -33,9 +37,27 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [authLoading]);
 
-  const incomes = allIncomes.slice(startIdx, startIdx + 4);
+  const visibleCount = isMobile ? 1 : 4;
+  const incomes = allIncomes.slice(startIdx, startIdx + visibleCount);
   const canGoLeft  = startIdx > 0;
-  const canGoRight = startIdx + 4 < allIncomes.length;
+  const canGoRight = startIdx + visibleCount < allIncomes.length;
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    // Only swipe when horizontal movement clearly dominates vertical
+    if (Math.abs(dx) > 50 && Math.abs(dx) > dy * 1.5) {
+      if (dx > 0 && canGoLeft)  setStartIdx(i => i - 1);
+      else if (dx < 0 && canGoRight) setStartIdx(i => i + 1);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   const handleToggleStatus = (exp) => {
     const newStatus = exp.status === "Completed" ? "Pending" : "Completed";
@@ -167,6 +189,25 @@ export default function Dashboard() {
         <div style={s.center}>
           <p style={s.muted}>No incomes yet.</p>
           <Link to="/add-income" style={s.btnPrimary}>Add your first income</Link>
+        </div>
+      ) : isMobile ? (
+        <div
+          style={s.mobileRoot}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {incomes.map(income => (
+            <IncomeCard
+              key={income.incomeId}
+              income={income}
+              expenses={expensesByIncome[income.incomeId] ?? []}
+              onToggleStatus={handleToggleStatus}
+              onDeleteExpense={handleDeleteExpense}
+              onDeleteIncome={handleDeleteIncome}
+              showAmount={showAmounts}
+              isMobile
+            />
+          ))}
         </div>
       ) : (
         <div style={s.navRow}>
@@ -303,6 +344,13 @@ const s = {
     fontWeight:     600,
     fontSize:       "13px",
     textDecoration: "none",
+  },
+  mobileRoot: {
+    display:       "flex",
+    flexDirection: "column",
+    flex:          1,
+    minHeight:     0,
+    padding:       "12px 12px 0",
   },
   errorBox: {
     background:   "#3b1212",
