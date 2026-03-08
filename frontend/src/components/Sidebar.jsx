@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ function IconBackstage() {
 
 function Logo() {
   return (
-    <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+    <svg width="24" height="24" viewBox="0 0 34 34" fill="none">
       <defs>
         <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#16a34a"/>
@@ -104,30 +104,33 @@ function Logo() {
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const links = [
-  { to: "/",            label: "Dashboard",   end: true, Icon: IconDashboard },
-  { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
-  { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
-  { to: "/statistics",  label: "Statistics",             Icon: IconStats     },
-  { to: "/settings",    label: "Settings",               Icon: IconSettings  },
-  { to: "/backstage",   label: "Backstage",              Icon: IconBackstage },
+  { to: "/add-income",  label: "Add Income",  Icon: IconIncome    },
+  { to: "/add-expense", label: "Add Expense", Icon: IconExpense   },
+  { to: "/statistics",  label: "Statistics",  Icon: IconStats     },
+  { to: "/settings",    label: "Settings",    Icon: IconSettings  },
+  { to: "/backstage",   label: "Backstage",   Icon: IconBackstage },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Topbar() {
   const { user, signOut } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const isDashboard = location.pathname === "/";
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?";
 
   return (
     <header style={s.bar}>
-      {/* Brand */}
-      <NavLink to="/" end style={{ ...s.brand, textDecoration: "none" }}>
+      {/* Brand + Dashboard combined */}
+      <div
+        style={{ ...s.brand, ...(isDashboard ? s.brandActive : {}) }}
+        onClick={() => navigate("/", { state: { resetDashboard: Date.now() } })}
+      >
         <Logo />
-        <div style={s.brandText}>
-          <span style={s.brandName}>Finance</span>
-          <span style={s.brandAccent}>4TURA</span>
-        </div>
-      </NavLink>
+        <span style={s.brandName}>Finance<span style={s.brandAccent}>4TURA</span></span>
+        {isDashboard && <span style={s.activeDot}/>}
+      </div>
 
       {/* Divider */}
       <div style={s.divider}/>
@@ -185,29 +188,31 @@ const s = {
     boxShadow:      "0 1px 0 0 var(--topbar-shadow), 0 4px 24px rgba(0,0,0,0.15)",
   },
   brand: {
-    display:    "flex",
-    alignItems: "center",
-    gap:        "10px",
-    flexShrink: 0,
-    marginRight:"4px",
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "10px",
+    flexShrink:   0,
+    marginRight:  "4px",
+    padding:      "7px 14px 7px 10px",
+    borderRadius: "9px",
+    position:     "relative",
+    transition:   "background 0.15s",
+    cursor:       "pointer",
   },
-  brandText: {
-    display:       "flex",
-    flexDirection: "column",
-    lineHeight:    1.15,
+  brandActive: {
+    background: "var(--topbar-link-active)",
   },
   brandName: {
-    fontSize:      "11px",
+    fontSize:      "15px",
     fontWeight:    400,
     color:         "var(--text-muted)",
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
+    letterSpacing: "0.02em",
+    lineHeight:    1,
+    whiteSpace:    "nowrap",
   },
   brandAccent: {
-    fontSize:      "15px",
-    fontWeight:    700,
-    color:         "var(--badge-text)",
-    letterSpacing: "0.02em",
+    fontWeight: 700,
+    color:      "var(--badge-text)",
   },
   divider: {
     width:      "1px",

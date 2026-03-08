@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
@@ -19,6 +19,16 @@ export default function Dashboard() {
   const [showAmounts, setShowAmounts]     = useState(getPrivacySetting());
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+  const location = useLocation();
+
+  // Reset to default column when logo is clicked
+  useEffect(() => {
+    if (!location.state?.resetDashboard || allIncomes.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultIdx = allIncomes.reduce((found, _, idx) =>
+      allIncomes[idx].date <= today ? idx : found, -1);
+    setStartIdx(defaultIdx === -1 ? 0 : defaultIdx);
+  }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
