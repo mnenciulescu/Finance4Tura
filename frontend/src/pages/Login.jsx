@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { signIn, signUp }          = useAuth();
+  const { signIn, signUp, oauthError, clearOauthError } = useAuth();
+  const googleEnabled = import.meta.env.VITE_GOOGLE_ENABLED === "true";
   const [mode, setMode]             = useState("signin"); // "signin" | "signup"
   const [username, setUsername]     = useState("");
   const [password, setPassword]     = useState("");
@@ -21,6 +22,10 @@ export default function Login() {
   };
 
   const handleGoogleSignIn = () => {
+    if (!googleEnabled) {
+      setError("Google sign-in is not yet configured. Please use username and password.");
+      return;
+    }
     const params = new URLSearchParams({
       identity_provider: "Google",
       redirect_uri:      window.location.origin,
@@ -74,7 +79,9 @@ export default function Login() {
           <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
         </div>
 
-        {error   && <div style={s.error}>{error}</div>}
+        {(error || oauthError) && (
+          <div style={s.error} onClick={clearOauthError}>{error || oauthError}</div>
+        )}
         {success && <div style={s.successBox}>{success}</div>}
 
         <div style={s.field}>

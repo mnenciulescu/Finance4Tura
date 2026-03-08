@@ -10,8 +10,9 @@ const userPool = new CognitoUserPool({
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [oauthError, setOauthError] = useState(null);
 
   // Exchange an OAuth authorization code for Cognito tokens
   const exchangeOAuthCode = async (code) => {
@@ -34,13 +35,20 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    // If returning from OAuth redirect, exchange the code first
+    // If returning from OAuth redirect, handle code or error
     const params = new URLSearchParams(window.location.search);
     const code   = params.get("code");
-    if (code) {
+    const err    = params.get("error");
+    if (code || err) {
       window.history.replaceState({}, "", "/");
+      if (err) {
+        const desc = params.get("error_description") || "Google sign-in failed.";
+        setOauthError(desc.replace(/\+/g, " "));
+        setLoading(false);
+        return;
+      }
       exchangeOAuthCode(code)
-        .catch(() => {}) // failed exchange stays on login screen
+        .catch((e) => setOauthError(e.message))
         .finally(() => setLoading(false));
       return;
     }
@@ -84,7 +92,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, oauthError, clearOauthError: () => setOauthError(null) }}>
       {children}
     </AuthContext.Provider>
   );
