@@ -4,6 +4,11 @@ import { Link } from "react-router-dom";
 const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const fmt = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const monthLabel = (dateStr) => {
+  const [y, m] = dateStr.split("-");
+  const name = new Date(+y, +m - 1, 1).toLocaleString("en-US", { month: "long" });
+  return `${name} ${y}`;
+};
 
 export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense }) {
   const [revealHeader, setRevealHeader] = useState(false);
@@ -25,11 +30,11 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
       <div style={s.header}>
         <div style={s.headerTop}>
           <div style={s.headerLeft}>
+            <span style={s.monthTitle}>{monthLabel(income.date)}</span>
             <div style={s.summaryRow}>
               <span style={s.summary} title={income.summary}>{income.summary}</span>
               <Link to={`/add-income?id=${income.incomeId}`} style={s.iconLink} title="Edit income">✎</Link>
             </div>
-            <span style={s.date}>{income.date}</span>
             <span
               style={{ ...s.incomeAmount, cursor: "pointer", userSelect: "none" }}
               onMouseDown={() => setRevealHeader(true)}
@@ -121,8 +126,8 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
 const s = {
   card: {
-    width:         "var(--card-w)",
-    flexShrink:    0,
+    flex:          1,
+    minWidth:      0,
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
     borderRadius:  "12px",
@@ -153,17 +158,20 @@ const s = {
     alignItems: "center",
     gap:        "4px",
   },
-  summary: {
-    fontWeight:   600,
-    fontSize:     "13px",
+  monthTitle: {
+    fontSize:     "14px",
+    fontWeight:   700,
     color:        "var(--text)",
+    letterSpacing: "0.01em",
+    lineHeight:   1.2,
+  },
+  summary: {
+    fontWeight:   400,
+    fontSize:     "11px",
+    color:        "var(--text-muted)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
-  },
-  date: {
-    fontSize: "11px",
-    color:    "var(--text-muted)",
   },
   incomeAmount: {
     fontSize:   "12px",

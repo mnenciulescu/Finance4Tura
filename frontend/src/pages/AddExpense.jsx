@@ -106,8 +106,18 @@ export default function AddExpense() {
       setError("Summary, date and amount are required.");
       return;
     }
+    const minDate = dayjs().subtract(1, "year").format("YYYY-MM-DD");
+    const maxDate = dayjs().add(1, "year").format("YYYY-MM-DD");
+    if (payload.date < minDate || payload.date > maxDate) {
+      setError("Date must be within 1 year of today.");
+      return;
+    }
     if (form.isRepeatable && !form.seriesEndDate) {
       setError("Series end date is required for repeating expenses.");
+      return;
+    }
+    if (form.isRepeatable && form.seriesEndDate > dayjs().add(1, "year").format("YYYY-MM-DD")) {
+      setError("Series end date cannot be more than 1 year from today.");
       return;
     }
 
@@ -158,6 +168,8 @@ export default function AddExpense() {
             type="date"
             value={form.date}
             onChange={e => set("date", e.target.value)}
+            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
+            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
             required
           />
         </Field>
@@ -229,7 +241,16 @@ export default function AddExpense() {
               <input
                 type="checkbox"
                 checked={form.isRepeatable}
-                onChange={e => set("isRepeatable", e.target.checked)}
+                onChange={e => {
+                  const checked = e.target.checked;
+                  setForm(prev => ({
+                    ...prev,
+                    isRepeatable: checked,
+                    seriesEndDate: checked && !prev.seriesEndDate
+                      ? dayjs().endOf("year").format("YYYY-MM-DD")
+                      : prev.seriesEndDate,
+                  }));
+                }}
               />
               Repeating expense
             </label>
@@ -258,6 +279,7 @@ export default function AddExpense() {
                 value={form.seriesEndDate}
                 onChange={e => set("seriesEndDate", e.target.value)}
                 min={form.date}
+                max={dayjs().add(1, "year").format("YYYY-MM-DD")}
                 required={form.isRepeatable}
               />
             </Field>

@@ -5,7 +5,8 @@ import { listIncomes } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 
 export default function Dashboard() {
-  const [incomes, setIncomes]         = useState([]);
+  const [allIncomes, setAllIncomes]   = useState([]);
+  const [startIdx, setStartIdx]       = useState(0);
   const [expenses, setExpenses]       = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
@@ -14,20 +15,27 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([listIncomes(), listExpenses()])
       .then(([inc, exp]) => {
-        setIncomes([...inc].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4).reverse());
+        const today = new Date().toISOString().slice(0, 10);
+        const sorted = [...inc].sort((a, b) => a.date.localeCompare(b.date));
+        const currentIdx = sorted.reduce((found, _, idx) =>
+          sorted[idx].date <= today ? idx : found, -1);
+        setAllIncomes(sorted);
+        setStartIdx(currentIdx === -1 ? 0 : currentIdx);
         setExpenses(exp);
       })
       .catch(() => setError("Failed to load data. Is the API running?"))
       .finally(() => setLoading(false));
   }, []);
 
+  const incomes = allIncomes.slice(startIdx, startIdx + 4);
+  const canGoLeft  = startIdx > 0;
+  const canGoRight = startIdx + 4 < allIncomes.length;
+
   const handleToggleStatus = (exp) => {
     const newStatus = exp.status === "Completed" ? "Pending" : "Completed";
-    // Optimistic update
     setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: newStatus } : e));
     updateExpense(exp.expenseId, { ...exp, status: newStatus })
       .catch(() => {
-        // Revert on failure
         setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: exp.status } : e));
       });
   };
@@ -98,16 +106,36 @@ export default function Dashboard() {
           <Link to="/add-income" style={s.btnPrimary}>Add your first income</Link>
         </div>
       ) : (
-        <div style={s.cardRow}>
-          {incomes.map(income => (
-            <IncomeCard
-              key={income.incomeId}
-              income={income}
-              expenses={expensesByIncome[income.incomeId] ?? []}
-              onToggleStatus={handleToggleStatus}
-              onDeleteExpense={handleDeleteExpense}
-            />
-          ))}
+        <div style={s.navRow}>
+          <button
+            style={{ ...s.navArrow, opacity: canGoLeft ? 1 : 0.2, cursor: canGoLeft ? "pointer" : "default" }}
+            onClick={() => canGoLeft && setStartIdx(i => i - 1)}
+            aria-label="Previous month"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="11,4 6,9 11,14"/>
+            </svg>
+          </button>
+          <div style={s.cardRow}>
+            {incomes.map(income => (
+              <IncomeCard
+                key={income.incomeId}
+                income={income}
+                expenses={expensesByIncome[income.incomeId] ?? []}
+                onToggleStatus={handleToggleStatus}
+                onDeleteExpense={handleDeleteExpense}
+              />
+            ))}
+          </div>
+          <button
+            style={{ ...s.navArrow, opacity: canGoRight ? 1 : 0.2, cursor: canGoRight ? "pointer" : "default" }}
+            onClick={() => canGoRight && setStartIdx(i => i + 1)}
+            aria-label="Next month"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="7,4 12,9 7,14"/>
+            </svg>
+          </button>
         </div>
       )}
     </div>
@@ -121,14 +149,36 @@ const s = {
     flex:          1,
     minHeight:     0,
   },
+  navRow: {
+    display:    "flex",
+    alignItems: "stretch",
+    flex:       1,
+    minHeight:  0,
+    gap:        "16px",
+  },
+  navArrow: {
+    background:   "rgba(134,239,172,0.07)",
+    border:       "1px solid rgba(134,239,172,0.2)",
+    borderRadius: "12px",
+    color:        "rgba(134,239,172,0.7)",
+    fontSize:     "28px",
+    lineHeight:   1,
+    width:        "44px",
+    flexShrink:   0,
+    alignSelf:    "stretch",
+    display:      "flex",
+    alignItems:   "center",
+    justifyContent: "center",
+    transition:   "background 0.15s, border-color 0.15s, opacity 0.15s",
+    userSelect:   "none",
+  },
   cardRow: {
-    display:         "flex",
-    gap:             "16px",
-    overflowX:       "auto",
-    alignItems:      "stretch",
-    justifyContent:  "center",
-    flex:            1,
-    minHeight:       0,
+    display:    "flex",
+    gap:        "16px",
+    alignItems: "stretch",
+    flex:       1,
+    minHeight:  0,
+    minWidth:   0,
   },
   center: {
     display:        "flex",
