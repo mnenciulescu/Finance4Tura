@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
+import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
+  const { loading: authLoading } = useAuth();
   const [allIncomes, setAllIncomes]   = useState([]);
   const [startIdx, setStartIdx]       = useState(0);
   const [expenses, setExpenses]       = useState([]);
@@ -13,6 +15,8 @@ export default function Dashboard() {
   const [pendingDelete, setPendingDelete] = useState(null); // expense awaiting confirmation
 
   useEffect(() => {
+    // Wait for AuthContext to finish restoring the session before fetching
+    if (authLoading) return;
     Promise.all([listIncomes(), listExpenses()])
       .then(([inc, exp]) => {
         const today = new Date().toISOString().slice(0, 10);
@@ -25,7 +29,7 @@ export default function Dashboard() {
       })
       .catch(() => setError("Failed to load data. Is the API running?"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [authLoading]);
 
   const incomes = allIncomes.slice(startIdx, startIdx + 4);
   const canGoLeft  = startIdx > 0;

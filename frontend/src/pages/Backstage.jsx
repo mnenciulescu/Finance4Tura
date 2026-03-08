@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { opLog, getLogSeq } from "../api/client";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, deleteExpense } from "../api/expenses";
+import { useAuth } from "../context/AuthContext";
 
 const METHOD_COLOR = {
   GET:    "#6c63ff",
@@ -70,6 +71,7 @@ function matches(value, filter) {
 }
 
 export default function Backstage() {
+  const { loading: authLoading } = useAuth();
   const [log, setLog]           = useState([...opLog]);
   const [incomes, setIncomes]   = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -97,7 +99,7 @@ export default function Backstage() {
       .then(([inc, exp]) => { setIncomes(inc); setExpenses(exp); })
       .catch(() => setDbError("Failed to load database."));
   };
-  useEffect(loadData, []);
+  useEffect(() => { if (!authLoading) loadData(); }, [authLoading]);
 
   // ── Filtered rows ──────────────────────────────────────────────────────────
 
