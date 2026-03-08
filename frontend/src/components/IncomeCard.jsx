@@ -10,8 +10,7 @@ const monthLabel = (dateStr) => {
   return `${name} ${y}`;
 };
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome }) {
-  const [revealHeader, setRevealHeader]       = useState(false);
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalExpenses, totalPending } = expenses.reduce(
@@ -69,11 +68,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
           {/* Row 2: income name + hidden amount */}
           <div style={s.summaryRow}>
             <span style={s.summary} title={income.summary}>{income.summary}</span>
-            <span
-              style={{ ...s.headerAmount, color: revealHeader ? "#86efac" : "transparent" }}
-              onClick={() => setRevealHeader(v => !v)}
-              title="Click to reveal income"
-            >
+            <span style={{ ...s.headerAmount, color: showAmount ? "#86efac" : "transparent" }}>
               {fmt(income.amount ?? 0)} {cur}
             </span>
           </div>
@@ -146,25 +141,9 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
           );
         })()}
         <div style={s.footerRow}>
-          <span style={s.footerLabel}>Income</span>
-          <span style={{ ...s.footerValue, pointerEvents: "none", userSelect: "none" }}>{cur} ••••••</span>
-        </div>
-        <div style={s.footerRow}>
-          <span style={s.footerLabel}>Expenses</span>
-          <span style={{ ...s.footerValue, color: totalExpenses > 0 ? "#fca5a5" : "var(--text)" }}>
-            − {cur} {fmt(totalExpenses)}
-          </span>
-        </div>
-        <div style={s.footerRow}>
           <span style={s.footerLabel}>Pending</span>
           <span style={{ ...s.footerValue, color: totalPending > 0 ? "#fcd34d" : "var(--text-muted)" }}>
             {cur} {fmt(totalPending)}
-          </span>
-        </div>
-        <div style={{ ...s.footerRow, ...s.footerBalance }}>
-          <span style={s.footerLabel}>Balance</span>
-          <span style={{ ...s.footerValue, color: balance >= 0 ? "#86efac" : "#fca5a5" }}>
-            {cur} {fmt(balance)}
           </span>
         </div>
       </div>
@@ -276,15 +255,15 @@ const s = {
     overflow:    "hidden",
   },
   headerAmount: {
-    fontSize:      "11px",
-    fontWeight:    600,
-    color:         "transparent",
-    letterSpacing: "0.04em",
-    cursor:        "pointer",
-    userSelect:    "none",
-    textAlign:     "right",
+    fontSize:           "11px",
+    fontWeight:         600,
+    letterSpacing:      "0.04em",
+    textAlign:          "right",
     fontVariantNumeric: "tabular-nums",
-    transition:    "color 0.2s",
+    whiteSpace:         "nowrap",
+    flexShrink:         0,
+    transition:         "color 0.2s",
+    userSelect:         "none",
   },
   addBtn: {
     display:        "flex",
@@ -415,9 +394,7 @@ const s = {
     display:       "flex",
     flexDirection: "column",
     gap:           "4px",
-    marginBottom:  "8px",
-    paddingBottom: "8px",
-    borderBottom:  "1px solid var(--border)",
+    marginBottom:  "6px",
   },
   barTrack: {
     display:      "flex",

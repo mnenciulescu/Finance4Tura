@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null); // expense awaiting confirmation
+  const [showAmounts, setShowAmounts]     = useState(false);
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
@@ -168,15 +169,35 @@ export default function Dashboard() {
         </div>
       ) : (
         <div style={s.navRow}>
-          <button
-            style={{ ...s.navArrow, opacity: canGoLeft ? 1 : 0.2, cursor: canGoLeft ? "pointer" : "default" }}
-            onClick={() => canGoLeft && setStartIdx(i => i - 1)}
-            aria-label="Previous month"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="11,4 6,9 11,14"/>
-            </svg>
-          </button>
+          <div style={s.leftCol}>
+            <button
+              style={{ ...s.navArrow, flex: 1, opacity: canGoLeft ? 1 : 0.2, cursor: canGoLeft ? "pointer" : "default" }}
+              onClick={() => canGoLeft && setStartIdx(i => i - 1)}
+              aria-label="Previous month"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="11,4 6,9 11,14"/>
+              </svg>
+            </button>
+            <button
+              style={s.visToggle}
+              onClick={() => setShowAmounts(v => !v)}
+              title={showAmounts ? "Hide income amounts" : "Show income amounts"}
+            >
+              {showAmounts ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+                  <circle cx="8" cy="8" r="2"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+                  <circle cx="8" cy="8" r="2"/>
+                  <line x1="2" y1="2" x2="14" y2="14"/>
+                </svg>
+              )}
+            </button>
+          </div>
           <div style={s.cardRow}>
             {incomes.map(income => (
               <IncomeCard
@@ -186,11 +207,12 @@ export default function Dashboard() {
                 onToggleStatus={handleToggleStatus}
                 onDeleteExpense={handleDeleteExpense}
                 onDeleteIncome={handleDeleteIncome}
+                showAmount={showAmounts}
               />
             ))}
           </div>
           <button
-            style={{ ...s.navArrow, opacity: canGoRight ? 1 : 0.2, cursor: canGoRight ? "pointer" : "default" }}
+            style={{ ...s.navArrow, alignSelf: "stretch", height: "auto", opacity: canGoRight ? 1 : 0.2, cursor: canGoRight ? "pointer" : "default" }}
             onClick={() => canGoRight && setStartIdx(i => i + 1)}
             aria-label="Next month"
           >
@@ -210,6 +232,25 @@ const s = {
     flexDirection: "column",
     flex:          1,
     minHeight:     0,
+  },
+  leftCol: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "8px",
+    alignItems:    "center",
+  },
+  visToggle: {
+    background:   "rgba(255,255,255,0.04)",
+    border:       "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "10px",
+    color:        "rgba(255,255,255,0.3)",
+    width:        "44px",
+    height:       "44px",
+    display:      "flex",
+    alignItems:   "center",
+    justifyContent: "center",
+    cursor:       "pointer",
+    flexShrink:   0,
   },
   navRow: {
     display:    "flex",
