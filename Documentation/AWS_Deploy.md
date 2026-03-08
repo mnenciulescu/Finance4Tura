@@ -39,7 +39,7 @@ Tables are defined in `backend/template.yaml` and provisioned automatically by S
 - **User Pool ID**: `eu-central-1_CD7AdBFwQ`
 - **App Client ID**: `2nh5dljhrg9mq7nsmdg7cef21v`
 - **Username attribute**: username (not email)
-- **Auth flows**: `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
+- **Auth flows**: `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
 - **Password policy**: minimum 6 characters (no complexity requirements)
 
 ### 2.2 Pre Sign-Up Lambda trigger (auto-confirm)
@@ -86,16 +86,60 @@ const userId = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
 
 ---
 
-## 3. Backend — SAM Deploy (Lambda + API Gateway)
+## 3. Google Sign-In Setup
 
-### 3.1 Build
+Google Sign-In uses Google Identity Services (GIS) — an embedded popup, no redirect required.
+
+### 3.1 Google Cloud Console
+
+1. Create a project at [console.cloud.google.com](https://console.cloud.google.com)
+2. **APIs & Services → OAuth consent screen** — choose External, fill in app name and email
+3. **APIs & Services → Credentials → + Create Credentials → OAuth 2.0 Client ID**
+   - Application type: **Web application**
+   - Authorized JavaScript origins:
+     - `https://d34ylrmixnmvem.cloudfront.net`
+     - `http://localhost:3000`
+4. Copy the Client ID (`...apps.googleusercontent.com`)
+
+### 3.2 Backend configuration
+
+The `GoogleAuthFunction` Lambda (`backend/src/handlers/googleAuth.mjs`):
+- Verifies the Google ID token via `https://oauth2.googleapis.com/tokeninfo`
+- Creates a Cognito user on first sign-in (`AdminCreateUser` + `AdminSetUserPassword`)
+- Returns Cognito JWT tokens after `AdminInitiateAuth`
+- Uses a HMAC-derived deterministic password (never exposed to the user)
+
+Environment variables set in `backend/template.yaml`:
+
+| Variable | Description |
+|----------|-------------|
+| `USER_POOL_ID` | Cognito User Pool ID |
+| `CLIENT_ID` | Cognito App Client ID |
+| `GOOGLE_SECRET` | HMAC secret for deriving per-user passwords |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID (passed via `samconfig.toml` parameter override) |
+
+The `GoogleAuthFunction` route (`POST /auth/google`) has `Auth: Authorizer: NONE` — it is a public endpoint.
+
+### 3.3 Frontend env var
+
+Add to `frontend/.env.production` and `frontend/.env.local`:
+
+```env
+VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
+```
+
+---
+
+## 4. Backend — SAM Deploy (Lambda + API Gateway)
+
+### 4.1 Build
 
 ```bash
 cd backend
 sam build --no-cached
 ```
 
-### 3.2 First-time deploy
+### 4.2 First-time deploy
 
 ```bash
 sam deploy --guided
@@ -114,7 +158,7 @@ After this, `samconfig.toml` stores all defaults and subsequent deploys only nee
 sam build --no-cached && sam deploy
 ```
 
-### 3.3 samconfig.toml structure
+### 4.3 samconfig.toml structure
 
 ```toml
 version = 0.1
@@ -135,11 +179,12 @@ region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
 confirm_changeset = false
+parameter_overrides = "GoogleClientId=<your-google-client-id>.apps.googleusercontent.com"
 ```
 
 > **Important**: Deploy settings must be under `[default.deploy.parameters]`, not `[default.deploy.guided]`.
 
-### 3.4 Get the API URL
+### 4.4 Get the API URL
 
 ```bash
 aws cloudformation describe-stacks \
@@ -150,9 +195,9 @@ aws cloudformation describe-stacks \
 
 ---
 
-## 4. Frontend — Build & Deploy to S3 + CloudFront
+## 5. Frontend — Build & Deploy to S3 + CloudFront
 
-### 4.1 S3 bucket
+### 5.1 S3 bucket
 
 ```bash
 aws s3 mb s3://finance4tura-frontend --region eu-central-1
@@ -163,7 +208,7 @@ aws s3api put-public-access-block \
     "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 ```
 
-### 4.2 CloudFront Origin Access Control
+### 5.2 CloudFront Origin Access Control
 
 ```bash
 aws cloudfront create-origin-access-control \
@@ -176,7 +221,7 @@ aws cloudfront create-origin-access-control \
   --query "OriginAccessControl.Id" --output text
 ```
 
-### 4.3 CloudFront Distribution
+### 5.3 CloudFront Distribution
 
 Distribution ID: `E1O9C9K6CO439`, domain: `d34ylrmixnmvem.cloudfront.net`
 
@@ -186,7 +231,7 @@ Key configuration:
 - **Custom error response**: 403 → `/index.html` with HTTP 200 (required for React Router)
 - **Cache policy**: `658327ea-f89d-4fab-a63d-7e88639e58f6` (CachingOptimized)
 
-### 4.4 S3 bucket policy (CloudFront access only)
+### 5.4 S3 bucket policy (CloudFront access only)
 
 ```bash
 aws s3api put-bucket-policy \
@@ -207,7 +252,7 @@ aws s3api put-bucket-policy \
   }'
 ```
 
-### 4.5 Environment variables
+### 5.5 Environment variables
 
 `frontend/.env.production`:
 
@@ -216,9 +261,10 @@ VITE_API_BASE_URL=https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod
 VITE_COGNITO_USER_POOL_ID=eu-central-1_CD7AdBFwQ
 VITE_COGNITO_CLIENT_ID=2nh5dljhrg9mq7nsmdg7cef21v
 VITE_COGNITO_REGION=eu-central-1
+VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 ```
 
-### 4.6 Build and sync
+### 5.6 Build and sync
 
 ```bash
 cd frontend
@@ -234,11 +280,11 @@ aws cloudfront create-invalidation \
 
 ---
 
-## 5. Important Implementation Notes
+## 6. Important Implementation Notes
 
 ### Cache-Control on API responses
 
-Lambda responses include `"Cache-Control": "no-store"` in their headers. This is required because API Gateway internally routes through a CloudFront layer that will cache responses if no cache directive is set. Without this header, a user's first API call (e.g. returning empty data) would be cached and served to all subsequent requests, even after DynamoDB data changes.
+Lambda responses include `"Cache-Control": "no-store"` in their headers. This is required because API Gateway internally routes through a CloudFront layer that will cache responses if no cache directive is set. Without this header, a user's first API call returning empty data would be cached and served to all subsequent requests.
 
 ### Vite browser polyfill
 
@@ -246,34 +292,41 @@ Lambda responses include `"Cache-Control": "no-store"` in their headers. This is
 
 ### Local dev userId
 
-When running `sam local start-api`, the Cognito authorizer is not enforced. Lambda falls back to `userId = "local-dev"`. All locally-created records use this userId. To show existing local data, stamp records with `userId = "local-dev"` via a scan + update script.
+When running `sam local start-api`, the Cognito authorizer is not enforced. Lambda falls back to `userId = "local-dev"`. All locally-created records use this userId.
+
+### Google Sign-In password derivation
+
+Google users never set a password. The backend derives a stable deterministic password from the Google `sub` using HMAC-SHA256 keyed with `GOOGLE_SECRET`. This allows `ADMIN_USER_PASSWORD_AUTH` to work transparently on every sign-in without storing any credential.
 
 ---
 
-## 6. Deploy Checklist (for re-deployment from scratch)
+## 7. Deploy Checklist (for re-deployment from scratch)
 
 ```
 [ ] DynamoDB tables provisioned (auto via sam deploy)
 [ ] Cognito User Pool created with username auth + Pre Sign-Up trigger
+[ ] Cognito App Client has ALLOW_ADMIN_USER_PASSWORD_AUTH enabled
 [ ] backend/template.yaml references correct CognitoUserPoolArn
-[ ] samconfig.toml has [default.deploy.parameters] with correct settings
+[ ] samconfig.toml has [default.deploy.parameters] with GoogleClientId override
 [ ] sam build --no-cached && sam deploy succeeds
 [ ] API Gateway URL confirmed from stack outputs
 [ ] S3 bucket created with public access blocked
 [ ] CloudFront distribution created with OAC + 403→index.html error response
 [ ] S3 bucket policy grants access to CloudFront distribution only
-[ ] frontend/.env.production filled with real values
+[ ] Google Cloud project created with OAuth consent screen configured
+[ ] OAuth 2.0 Client ID created with CloudFront domain as authorized JS origin
+[ ] frontend/.env.production filled with all values including VITE_GOOGLE_CLIENT_ID
 [ ] npm run build succeeds
 [ ] aws s3 sync dist/ s3://finance4tura-frontend --delete
 [ ] CloudFront cache invalidated
 [ ] App loads at https://d34ylrmixnmvem.cloudfront.net
-[ ] Sign-up flow tested (new user gets auto-confirmed, empty database)
-[ ] Sign-in flow tested (Demo user sees their data)
+[ ] Username/password sign-up tested
+[ ] Google Sign-In tested (first sign-in creates Cognito account automatically)
 ```
 
 ---
 
-## 7. Estimated AWS Costs (Free Tier / Low Traffic)
+## 8. Estimated AWS Costs (Free Tier / Low Traffic)
 
 | Service | Free Tier | Notes |
 |---|---|---|

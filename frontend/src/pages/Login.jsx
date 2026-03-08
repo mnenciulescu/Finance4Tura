@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { signIn, signUp, signInWithGoogle, oauthError, clearOauthError } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode]             = useState("signin"); // "signin" | "signup"
   const [username, setUsername]     = useState("");
   const [password, setPassword]     = useState("");
@@ -109,9 +109,7 @@ export default function Login() {
           <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
         </div>
 
-        {(error || oauthError) && (
-          <div style={s.error} onClick={clearOauthError}>{error || oauthError}</div>
-        )}
+        {error && <div style={s.error}>{error}</div>}
         {success && <div style={s.successBox}>{success}</div>}
 
         <div style={s.field}>

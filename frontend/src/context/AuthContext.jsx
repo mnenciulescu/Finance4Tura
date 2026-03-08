@@ -10,50 +10,10 @@ const userPool = new CognitoUserPool({
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]           = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [oauthError, setOauthError] = useState(null);
-
-  // Exchange an OAuth authorization code for Cognito tokens
-  const exchangeOAuthCode = async (code) => {
-    const res = await fetch(`${import.meta.env.VITE_COGNITO_DOMAIN}/oauth2/token`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type:   "authorization_code",
-        client_id:    import.meta.env.VITE_COGNITO_CLIENT_ID,
-        redirect_uri: window.location.origin,
-        code,
-      }).toString(),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.id_token) throw new Error(data.error_description || "OAuth sign-in failed");
-    const payload = JSON.parse(atob(data.id_token.split(".")[1]));
-    const username = payload.email || payload["cognito:username"] || payload.sub;
-    setUser({ username });
-    setAuthToken(data.id_token);
-  };
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If returning from OAuth redirect, handle code or error
-    const params = new URLSearchParams(window.location.search);
-    const code   = params.get("code");
-    const err    = params.get("error");
-    if (code || err) {
-      window.history.replaceState({}, "", "/");
-      if (err) {
-        const desc = params.get("error_description") || "Google sign-in failed.";
-        setOauthError(desc.replace(/\+/g, " "));
-        setLoading(false);
-        return;
-      }
-      exchangeOAuthCode(code)
-        .catch((e) => setOauthError(e.message))
-        .finally(() => setLoading(false));
-      return;
-    }
-
-    // Otherwise restore an existing Cognito session
     const cognitoUser = userPool.getCurrentUser();
     if (!cognitoUser) { setLoading(false); return; }
     cognitoUser.getSession((err, session) => {
@@ -104,7 +64,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle, oauthError, clearOauthError: () => setOauthError(null) }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

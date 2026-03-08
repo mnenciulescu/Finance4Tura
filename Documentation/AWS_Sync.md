@@ -64,7 +64,7 @@ cd backend
 sam build --no-cached && sam deploy
 ```
 
-> Use `--no-cached` to ensure source file changes are picked up. The `samconfig.toml` handles all deploy defaults (stack name, region, capabilities).
+> Use `--no-cached` to ensure source file changes are picked up. The `samconfig.toml` handles all deploy defaults (stack name, region, capabilities, Google Client ID parameter).
 
 SAM will detect changed Lambda functions, re-package and upload them, apply any infrastructure changes from `template.yaml`, and deploy automatically (no confirmation prompt — `confirm_changeset = false` in `samconfig.toml`).
 
@@ -90,11 +90,12 @@ VITE_API_BASE_URL=https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod
 VITE_COGNITO_USER_POOL_ID=eu-central-1_CD7AdBFwQ
 VITE_COGNITO_CLIENT_ID=2nh5dljhrg9mq7nsmdg7cef21v
 VITE_COGNITO_REGION=eu-central-1
+VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 ```
 
 ### Backend env vars (Lambda)
 
-Backend environment variables are defined in `backend/template.yaml` under `Globals.Function.Environment`. After editing, redeploy:
+Backend environment variables are defined in `backend/template.yaml` under each function's `Environment` section. The `GoogleClientId` is passed via `samconfig.toml` `parameter_overrides`. After editing, redeploy:
 
 ```bash
 cd backend && sam build --no-cached && sam deploy
@@ -158,19 +159,30 @@ aws cognito-idp admin-delete-user \
 ### Lambda function logs (real-time)
 
 ```bash
-# Tail logs for a specific function
+# Tail logs for a specific function (replace <FunctionName> with the logical name)
 sam logs -n IncomesFunction --stack-name finance4tura-backend --tail
 
 # Or using CloudWatch directly
-aws logs tail /aws/lambda/finance4tura-backend-IncomesFunction-9vHDnp9D1GLA --follow --region eu-central-1
+aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 ```
 
-### All Lambda log groups
+### Lambda log groups
 
 ```
-/aws/lambda/finance4tura-backend-IncomesFunction-9vHDnp9D1GLA
-/aws/lambda/finance4tura-backend-ExpensesFunction-rwdmgTUf9WJs
-/aws/lambda/finance4tura-backend-HealthFunction-vuj1kp0HafVt
+/aws/lambda/finance4tura-backend-GoogleAuthFunction-*
+/aws/lambda/finance4tura-backend-IncomesFunction-*
+/aws/lambda/finance4tura-backend-ExpensesFunction-*
+/aws/lambda/finance4tura-backend-HealthFunction-*
+/aws/lambda/finance4tura-backend-PreSignUpFunction-*
+```
+
+Get the exact log group names:
+
+```bash
+aws logs describe-log-groups \
+  --region eu-central-1 \
+  --query "logGroups[?contains(logGroupName, 'finance4tura')].logGroupName" \
+  --output table
 ```
 
 ---
