@@ -44,6 +44,18 @@ function IconStats() {
   );
 }
 
+function IconSettings() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <line x1="1" y1="4.5" x2="14" y2="4.5"/>
+      <line x1="1" y1="10.5" x2="14" y2="10.5"/>
+      <circle cx="5"  cy="4.5"  r="1.8" fill="currentColor" stroke="none"/>
+      <circle cx="10" cy="10.5" r="1.8" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}
+
 function IconBackstage() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
@@ -61,12 +73,12 @@ function Logo() {
     <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
       <defs>
         <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7c74ff"/>
-          <stop offset="100%" stopColor="#4a43c8"/>
+          <stop offset="0%" stopColor="#16a34a"/>
+          <stop offset="100%" stopColor="#0d7a35"/>
         </linearGradient>
         <linearGradient id="glowGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6c63ff" stopOpacity="0.3"/>
-          <stop offset="100%" stopColor="#6c63ff" stopOpacity="0"/>
+          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.35"/>
+          <stop offset="100%" stopColor="#22c55e" stopOpacity="0"/>
         </linearGradient>
       </defs>
       {/* Outer ring */}
@@ -96,6 +108,7 @@ const links = [
   { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
   { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
   { to: "/statistics",  label: "Statistics",             Icon: IconStats     },
+  { to: "/settings",    label: "Settings",               Icon: IconSettings  },
   { to: "/backstage",   label: "Backstage",              Icon: IconBackstage },
 ];
 
@@ -108,13 +121,13 @@ export default function Topbar() {
   return (
     <header style={s.bar}>
       {/* Brand */}
-      <div style={s.brand}>
+      <NavLink to="/" end style={{ ...s.brand, textDecoration: "none" }}>
         <Logo />
         <div style={s.brandText}>
           <span style={s.brandName}>Finance</span>
-          <span style={s.brandAccent}>4Tura</span>
+          <span style={s.brandAccent}>4TURA</span>
         </div>
-      </div>
+      </NavLink>
 
       {/* Divider */}
       <div style={s.divider}/>
@@ -133,7 +146,7 @@ export default function Topbar() {
           >
             {({ isActive }) => (
               <>
-                <span style={{ ...s.iconWrap, color: isActive ? "var(--accent)" : "var(--text-muted)" }}>
+                <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
                   <Icon/>
                 </span>
                 <span>{label}</span>
@@ -166,10 +179,10 @@ const s = {
     gap:            "12px",
     padding:        "0 24px",
     height:         "60px",
-    background:     "rgba(26,29,39,0.97)",
-    borderBottom:   "1px solid var(--border)",
+    background:     "var(--topbar-bg)",
+    borderBottom:   "1px solid var(--topbar-border)",
     backdropFilter: "blur(12px)",
-    boxShadow:      "0 1px 0 0 rgba(108,99,255,0.12), 0 4px 24px rgba(0,0,0,0.3)",
+    boxShadow:      "0 1px 0 0 var(--topbar-shadow), 0 4px 24px rgba(0,0,0,0.15)",
   },
   brand: {
     display:    "flex",
@@ -184,16 +197,16 @@ const s = {
     lineHeight:    1.15,
   },
   brandName: {
-    fontSize:   "11px",
-    fontWeight: 400,
-    color:      "var(--text-muted)",
+    fontSize:      "11px",
+    fontWeight:    400,
+    color:         "var(--text-muted)",
     letterSpacing: "0.06em",
     textTransform: "uppercase",
   },
   brandAccent: {
     fontSize:      "15px",
     fontWeight:    700,
-    color:         "var(--accent)",
+    color:         "var(--badge-text)",
     letterSpacing: "0.02em",
   },
   divider: {
@@ -224,7 +237,7 @@ const s = {
     whiteSpace:     "nowrap",
   },
   linkActive: {
-    background: "rgba(108,99,255,0.14)",
+    background: "var(--topbar-link-active)",
     color:      "var(--text)",
   },
   iconWrap: {
@@ -241,8 +254,8 @@ const s = {
     width:        "16px",
     height:       "2px",
     borderRadius: "2px",
-    background:   "var(--accent)",
-    opacity:      0.7,
+    background:   "rgba(134,239,172,0.7)",
+    opacity:      1,
   },
   userArea: {
     display:    "flex",
@@ -255,9 +268,9 @@ const s = {
     width:           "28px",
     height:          "28px",
     borderRadius:    "50%",
-    background:      "rgba(108,99,255,0.25)",
-    border:          "1px solid rgba(108,99,255,0.4)",
-    color:           "var(--accent)",
+    background:      "rgba(134,239,172,0.12)",
+    border:          "1px solid rgba(134,239,172,0.3)",
+    color:           "#86efac",
     fontSize:        "10px",
     fontWeight:      700,
     display:         "flex",

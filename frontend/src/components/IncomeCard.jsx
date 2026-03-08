@@ -3,24 +3,26 @@ import { Link } from "react-router-dom";
 
 const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
-const fmt = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const monthLabel = (dateStr) => {
-  const [y, m] = dateStr.split("-");
-  const name = new Date(+y, +m - 1, 1).toLocaleString("en-US", { month: "long" });
-  return `${name} ${y}`;
+const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
+const monthParts = (dateStr) => {
+  const [y, m, d] = dateStr.split("-");
+  const month = new Date(+y, +m - 1, 1).toLocaleString("en-US", { month: "short" }).toUpperCase();
+  return { month, day: String(+d), year: y };
 };
 
 export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
-  const { totalExpenses, totalPending } = expenses.reduce(
+  const { totalCompleted, totalPending } = expenses.reduce(
     (acc, e) => {
-      acc.totalExpenses += e.amount ?? 0;
-      if (e.status === "Pending") acc.totalPending += e.amount ?? 0;
+      if (e.status === "Completed") acc.totalCompleted += e.amount ?? 0;
+      else                          acc.totalPending   += e.amount ?? 0;
       return acc;
     },
-    { totalExpenses: 0, totalPending: 0 }
+    { totalCompleted: 0, totalPending: 0 }
   );
+  const totalExpenses = totalCompleted + totalPending;
   const balance = (income.amount ?? 0) - totalExpenses;
   const cur     = income.currency ?? "RON";
 
@@ -32,15 +34,27 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
         <div style={s.accentStrip} />
 
         <div style={s.headerRow}>
-          {/* Row 1: calendar icon + month + edit + add */}
+          {/* Row 1: date badge + add */}
           <div style={s.headerTop}>
-            <svg style={s.calIcon} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="1.5" y="2.5" width="13" height="12" rx="2"/>
-              <line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/>
-              <line x1="5"   y1="1"   x2="5"    y2="4"/>
-              <line x1="11"  y1="1"   x2="11"   y2="4"/>
-            </svg>
-            <span style={s.monthTitle}>{monthLabel(income.date)}</span>
+            {(() => { const { month, day, year } = monthParts(income.date); return (
+              <div style={s.dateBadge}>
+                <span style={s.badgeMonth}>{month}</span>
+                <span style={s.badgeDay}>{day}</span>
+                <span style={s.badgeYear}>{year}</span>
+              </div>
+            ); })()}
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addBtn} title="Add expense">
+              <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="7" y1="2" x2="7" y2="12"/>
+                <line x1="2" y1="7" x2="12" y2="7"/>
+              </svg>
+              Add
+            </Link>
+          </div>
+
+          {/* Row 2: income name + delete + edit + hidden amount */}
+          <div style={s.summaryRow}>
+            <span style={s.summary} title={income.summary}>{income.summary}</span>
             <button style={s.deleteIncomeBtn} title="Delete income" onClick={() => setShowDeleteDialog(true)}>
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1,3 13,3"/>
@@ -56,19 +70,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
               </svg>
             </Link>
             <span style={{ flex: 1 }} />
-            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={s.addBtn} title="Add expense">
-              <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="7" y1="2" x2="7" y2="12"/>
-                <line x1="2" y1="7" x2="12" y2="7"/>
-              </svg>
-              Add
-            </Link>
-          </div>
-
-          {/* Row 2: income name + hidden amount */}
-          <div style={s.summaryRow}>
-            <span style={s.summary} title={income.summary}>{income.summary}</span>
-            <span style={{ ...s.headerAmount, color: showAmount ? "#86efac" : "transparent" }}>
+            <span style={{ ...s.headerAmount, color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
               {fmt(income.amount ?? 0)} {cur}
             </span>
           </div>
@@ -92,6 +94,13 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 <li key={exp.expenseId} style={s.expenseRow}>
                   <div style={s.expenseLeft}>
                     <span
+                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer" }}
+                      title={exp.status === "Completed" ? "Mark as Pending" : "Mark as Completed"}
+                      onClick={() => onToggleStatus?.(exp)}
+                    >
+                      {exp.status === "Completed" ? "✓" : ""}
+                    </span>
+                    <span
                       style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194" }}
                       title={`Priority: ${exp.priority}`}
                     />
@@ -100,13 +109,6 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                   </div>
                   <div style={s.expenseRight}>
                     <span style={s.expenseAmount}>{fmt(exp.amount ?? 0)}</span>
-                    <span
-                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer" }}
-                      title={exp.status === "Completed" ? "Mark as Pending" : "Mark as Completed"}
-                      onClick={() => onToggleStatus?.(exp)}
-                    >
-                      {exp.status === "Completed" ? "✓" : "○"}
-                    </span>
                     <Link to={`/add-expense?id=${exp.expenseId}`} style={s.editLink} title="Edit expense">✎</Link>
                     <button style={s.deleteBtn} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
@@ -118,34 +120,50 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
       {/* Footer summary */}
       <div style={s.footer}>
-        {/* Balance bar */}
         {income.amount > 0 && (() => {
-          const overBudget = totalExpenses > income.amount;
-          const pctSpent   = Math.min(totalExpenses / income.amount, 1);
-          const pctBalance = Math.max(1 - pctSpent, 0);
+          const total      = income.amount;
+          const overBudget = totalExpenses > total;
+          const pctSpent   = Math.min(totalExpenses / total, 1);
+          const pctLeft    = Math.max(0, 1 - pctSpent);
+          const freeColor  = overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)";
+          // Within the spent portion
+          const pctCompOfSpent = totalExpenses > 0 ? totalCompleted / totalExpenses : 0;
+          const pctPendOfSpent = totalExpenses > 0 ? totalPending   / totalExpenses : 0;
           return (
             <div style={s.barWrap}>
-              <div style={s.barTrack}>
-                <div style={{ ...s.barSpent, width: `${pctSpent * 100}%`, background: overBudget ? "var(--danger)" : "var(--accent)" }} />
-                <div style={{ ...s.barBalance, width: `${pctBalance * 100}%` }} />
+              <div style={s.dualBar}>
+                {/* Left spent column — stacked top/bottom */}
+                <div style={{ display: "flex", flexDirection: "column", width: `${pctSpent * 100}%`, height: "100%" }}>
+                  {/* Top row: total expenses */}
+                  <div style={s.dualBarTop}>
+                    <div style={{ ...s.dualBarTotal, width: "100%" }}>
+                      {pctSpent > 0.2 && <span style={s.barSegLabel}>{fmtInt(totalExpenses)}</span>}
+                    </div>
+                  </div>
+                  {/* Bottom row: completed + pending */}
+                  <div style={s.dualBarBottom}>
+                    <div style={{ ...s.dualBarCompleted, width: `${pctCompOfSpent * 100}%` }}>
+                      {pctSpent * pctCompOfSpent > 0.18 && <span style={s.barSegLabel}>{fmtInt(totalCompleted)}</span>}
+                    </div>
+                    <div style={{ ...s.dualBarPending, width: `${pctPendOfSpent * 100}%` }}>
+                      {pctSpent * pctPendOfSpent > 0.18 && <span style={s.barSegLabel}>{fmtInt(totalPending)}</span>}
+                    </div>
+                  </div>
+                </div>
+                {/* Right free column — spans full height (merged) */}
+                <div style={{ ...s.dualBarFree, width: `${pctLeft * 100}%`, background: freeColor }}>
+                  {pctLeft > 0.15 && <span style={s.barSegLabel}>{fmtInt(Math.max(0, balance))}</span>}
+                </div>
               </div>
-              <div style={s.barLabels}>
-                <span style={{ ...s.barLabel, color: overBudget ? "var(--danger)" : "rgba(108,99,255,0.8)" }}>
-                  {fmt(totalExpenses)} {cur} spent
-                </span>
-                <span style={{ ...s.barLabel, color: overBudget ? "var(--danger)" : "#86efac" }}>
-                  {overBudget ? "−" : ""}{fmt(Math.abs(balance))} {cur} {overBudget ? "over" : "left"}
-                </span>
+              <div style={s.legend}>
+                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(120,113,255,0.65)" }}/> Total</span>
+                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(134,239,172,0.65)" }}/> Done</span>
+                <span style={s.legendItem}><span style={{ ...s.legendDot, background: "rgba(245,158,11,0.65)"  }}/> Pending</span>
+                <span style={s.legendItem}><span style={{ ...s.legendDot, background: overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)" }}/> {overBudget ? "Over" : "Free"}</span>
               </div>
             </div>
           );
         })()}
-        <div style={s.footerRow}>
-          <span style={s.footerLabel}>Pending</span>
-          <span style={{ ...s.footerValue, color: totalPending > 0 ? "#fcd34d" : "var(--text-muted)" }}>
-            {cur} {fmt(totalPending)}
-          </span>
-        </div>
       </div>
 
       {/* Income delete dialog */}
@@ -197,12 +215,12 @@ const s = {
   },
   header: {
     borderBottom: "1px solid var(--border)",
-    background:   "linear-gradient(135deg, rgba(108,99,255,0.07) 0%, rgba(134,239,172,0.04) 100%)",
+    background:   "var(--surface-2)",
     overflow:     "hidden",
   },
   accentStrip: {
     height:     "3px",
-    background: "linear-gradient(90deg, rgba(108,99,255,0.35), rgba(134,239,172,0.2))",
+    background: "linear-gradient(90deg, var(--accent), rgba(134,239,172,0.2))",
   },
   headerRow: {
     display:       "flex",
@@ -216,25 +234,35 @@ const s = {
     alignItems: "center",
     gap:        "7px",
   },
-  calIcon: {
-    width:      "14px",
-    height:     "14px",
-    flexShrink: 0,
-    color:      "var(--accent)",
-    opacity:    0.8,
+  dateBadge: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "5px",
+    flex:       1,
+    lineHeight: 1,
   },
-  monthTitle: {
+  badgeMonth: {
     fontSize:      "13px",
-    fontWeight:    700,
-    color:         "var(--text)",
-    letterSpacing: "0.01em",
-    whiteSpace:    "nowrap",
-    flexShrink:    0,
+    fontWeight:    800,
+    color:         "var(--badge-text)",
+    letterSpacing: "0.08em",
+  },
+  badgeDay: {
+    fontSize:      "13px",
+    fontWeight:    800,
+    color:         "var(--badge-text)",
+    letterSpacing: "0.04em",
+  },
+  badgeYear: {
+    fontSize:      "12px",
+    fontWeight:    500,
+    color:         "var(--badge-text-muted)",
+    letterSpacing: "0.04em",
   },
   summary: {
-    fontWeight:   500,
+    fontWeight:   600,
     fontSize:     "13px",
-    color:        "var(--text-muted)",
+    color:        "var(--text)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
@@ -269,8 +297,8 @@ const s = {
     display:        "flex",
     alignItems:     "center",
     gap:            "4px",
-    background:     "rgba(108,99,255,0.12)",
-    border:         "1px solid rgba(108,99,255,0.25)",
+    background:     "rgba(134,239,172,0.1)",
+    border:         "1px solid rgba(134,239,172,0.25)",
     borderRadius:   "6px",
     color:          "var(--accent)",
     fontSize:       "11px",
@@ -344,20 +372,26 @@ const s = {
     fontVariantNumeric: "tabular-nums",
   },
   statusBadge: {
-    fontSize:     "10px",
-    padding:      "1px 5px",
-    borderRadius: "10px",
-    fontWeight:   600,
+    display:        "inline-flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    width:          "14px",
+    height:         "14px",
+    borderRadius:   "3px",
+    fontWeight:     700,
+    fontSize:       "10px",
+    flexShrink:     0,
+    transition:     "background 0.15s, border-color 0.15s",
   },
   statusDone: {
-    background: "#052e16",
-    color:      "#86efac",
-    border:     "1px solid #22c55e44",
+    background: "var(--accent)",
+    color:      "#fff",
+    border:     "1px solid var(--accent)",
   },
   statusPending: {
-    background: "#1c1400",
-    color:      "#fcd34d",
-    border:     "1px solid #f59e0b44",
+    background: "var(--surface)",
+    color:      "transparent",
+    border:     "1px solid var(--border)",
   },
   deleteBtn: {
     background: "none",
@@ -370,11 +404,8 @@ const s = {
     color:      "var(--danger)",
   },
   footer: {
-    padding:       "12px 16px",
-    borderTop:     "1px solid var(--border)",
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "5px",
+    padding:   "10px 12px 12px",
+    borderTop: "1px solid var(--border)",
   },
   footerRow: {
     display:        "flex",
@@ -393,35 +424,86 @@ const s = {
   barWrap: {
     display:       "flex",
     flexDirection: "column",
-    gap:           "4px",
-    marginBottom:  "6px",
+    gap:           "6px",
   },
-  barTrack: {
+  dualBar: {
     display:      "flex",
-    height:       "5px",
-    borderRadius: "4px",
+    height:       "44px",
+    borderRadius: "6px",
     overflow:     "hidden",
-    background:   "rgba(108,99,255,0.12)",
+    background:   "var(--surface-2)",
   },
-  barSpent: {
-    height:       "100%",
-    borderRadius: "4px 0 0 4px",
-    transition:   "width 0.5s ease",
+  dualBarTop: {
+    display:      "flex",
+    flex:         1,
+    borderBottom: "1px solid var(--border)",
   },
-  barBalance: {
-    height:       "100%",
-    background:   "#86efac",
-    borderRadius: "0 4px 4px 0",
-    transition:   "width 0.5s ease",
-    opacity:      0.75,
+  dualBarBottom: {
+    display: "flex",
+    flex:    1,
   },
-  barLabels: {
+  dualBarTotal: {
+    height:         "100%",
+    background:     "rgba(120,113,255,0.65)",
     display:        "flex",
-    justifyContent: "space-between",
+    alignItems:     "center",
+    justifyContent: "center",
+    overflow:       "hidden",
   },
-  barLabel: {
-    fontSize:           "10px",
+  dualBarCompleted: {
+    height:         "100%",
+    background:     "rgba(134,239,172,0.65)",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    overflow:       "hidden",
+    transition:     "width 0.5s ease",
+  },
+  dualBarPending: {
+    height:         "100%",
+    background:     "rgba(245,158,11,0.65)",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    overflow:       "hidden",
+    transition:     "width 0.5s ease",
+  },
+  dualBarFree: {
+    height:         "100%",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    overflow:       "hidden",
+    transition:     "width 0.5s ease",
+  },
+  barSegLabel: {
+    fontSize:           "9px",
+    fontWeight:         700,
+    color:              "rgba(255,255,255,0.9)",
+    whiteSpace:         "nowrap",
+    padding:            "0 6px",
     fontVariantNumeric: "tabular-nums",
+    letterSpacing:      "0.02em",
+    textShadow:         "0 1px 2px rgba(0,0,0,0.4)",
+  },
+  legend: {
+    display:    "flex",
+    gap:        "10px",
+    flexWrap:   "wrap",
+  },
+  legendItem: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "4px",
+    fontSize:   "9px",
+    fontWeight: 500,
+    color:      "var(--text-muted)",
+  },
+  legendDot: {
+    width:        "8px",
+    height:       "8px",
+    borderRadius: "2px",
+    flexShrink:   0,
   },
   deleteIncomeBtn: {
     background: "none",

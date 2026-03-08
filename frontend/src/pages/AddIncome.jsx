@@ -125,19 +125,6 @@ export default function AddIncome() {
           />
         </Field>
 
-        {/* Date */}
-        <Field label="Date *">
-          <input
-            style={s.input}
-            type="date"
-            value={form.date}
-            onChange={e => set("date", e.target.value)}
-            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
-            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
-            required
-          />
-        </Field>
-
         {/* Amount + Currency */}
         <Field label="Amount *">
           <div style={s.row}>
@@ -161,6 +148,19 @@ export default function AddIncome() {
               <option value="USD">USD</option>
             </select>
           </div>
+        </Field>
+
+        {/* Date */}
+        <Field label="Date *">
+          <input
+            style={s.input}
+            type="date"
+            value={form.date}
+            onChange={e => set("date", e.target.value)}
+            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
+            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
+            required
+          />
         </Field>
 
         {/* Repeatable toggle — only on create */}

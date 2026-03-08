@@ -161,22 +161,6 @@ export default function AddExpense() {
           />
         </Field>
 
-        {/* Date */}
-        <Field label="Date *">
-          <input
-            style={s.input}
-            type="date"
-            value={form.date}
-            onChange={e => set("date", e.target.value)}
-            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
-            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
-            required
-          />
-        </Field>
-
-        {/* Income mapping preview */}
-        <IncomeMappingPreview income={mappedIncome} resolving={resolving} />
-
         {/* Amount + Currency */}
         <Field label="Amount *">
           <div style={s.row}>
@@ -201,6 +185,22 @@ export default function AddExpense() {
             </select>
           </div>
         </Field>
+
+        {/* Date */}
+        <Field label="Date *">
+          <input
+            style={s.input}
+            type="date"
+            value={form.date}
+            onChange={e => set("date", e.target.value)}
+            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
+            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
+            required
+          />
+        </Field>
+
+        {/* Income mapping preview */}
+        <IncomeMappingPreview income={mappedIncome} resolving={resolving} />
 
         {/* Priority */}
         <Field label="Priority">
@@ -357,8 +357,10 @@ const s = {
   outer: {
     display:        "flex",
     flex:           1,
-    alignItems:     "center",
+    alignItems:     "flex-start",
     justifyContent: "center",
+    overflowY:      "auto",
+    padding:        "20px 0",
   },
   card: {
     width:        "100%",
@@ -366,18 +368,18 @@ const s = {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
     borderRadius: "14px",
-    padding:      "28px 32px",
+    padding:      "20px 28px",
     boxShadow:    "0 4px 32px rgba(0,0,0,0.3)",
   },
-  title:   { fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "20px" },
+  title:   { fontSize: "16px", fontWeight: 700, color: "var(--text)", marginBottom: "14px" },
   muted:   { color: "var(--text-muted)", fontSize: "12px" },
-  form:    { display: "flex", flexDirection: "column", gap: "14px" },
+  form:    { display: "flex", flexDirection: "column", gap: "10px" },
   input: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
     borderRadius: "8px",
     color:        "var(--text)",
-    padding:      "8px 11px",
+    padding:      "6px 10px",
     fontSize:     "13px",
     outline:      "none",
     width:        "100%",
@@ -434,9 +436,9 @@ const s = {
     display:        "flex",
     justifyContent: "flex-end",
     gap:            "10px",
-    paddingTop:     "6px",
+    paddingTop:     "4px",
     borderTop:      "1px solid var(--border)",
-    marginTop:      "4px",
+    marginTop:      "2px",
   },
   btnPrimary: {
     background:   "var(--accent)",

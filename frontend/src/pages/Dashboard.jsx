@@ -4,6 +4,7 @@ import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
+import { getPrivacySetting, setPrivacySetting } from "./Settings";
 
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
@@ -13,7 +14,7 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null); // expense awaiting confirmation
-  const [showAmounts, setShowAmounts]     = useState(false);
+  const [showAmounts, setShowAmounts]     = useState(getPrivacySetting());
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
@@ -181,7 +182,7 @@ export default function Dashboard() {
             </button>
             <button
               style={s.visToggle}
-              onClick={() => setShowAmounts(v => !v)}
+              onClick={() => setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; })}
               title={showAmounts ? "Hide income amounts" : "Show income amounts"}
             >
               {showAmounts ? (
@@ -240,10 +241,10 @@ const s = {
     alignItems:    "center",
   },
   visToggle: {
-    background:   "rgba(255,255,255,0.04)",
-    border:       "1px solid rgba(255,255,255,0.1)",
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
     borderRadius: "10px",
-    color:        "rgba(255,255,255,0.3)",
+    color:        "var(--text-muted)",
     width:        "44px",
     height:       "44px",
     display:      "flex",
@@ -260,10 +261,10 @@ const s = {
     gap:        "16px",
   },
   navArrow: {
-    background:   "rgba(134,239,172,0.07)",
-    border:       "1px solid rgba(134,239,172,0.2)",
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
     borderRadius: "12px",
-    color:        "rgba(134,239,172,0.7)",
+    color:        "var(--accent)",
     fontSize:     "28px",
     lineHeight:   1,
     width:        "44px",
