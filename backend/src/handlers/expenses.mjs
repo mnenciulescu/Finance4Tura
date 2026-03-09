@@ -47,6 +47,7 @@ async function createExpense(body, userId) {
   const {
     summary, date, amount, currency = "RON",
     priority = "Medium", status = "Pending",
+    special = false,
     isRepeatable = false, repeatFrequency, seriesEndDate,
   } = body;
 
@@ -61,7 +62,7 @@ async function createExpense(body, userId) {
       expenseId,
       seriesId: expenseId,
       summary, date, amount, currency,
-      priority, status,
+      priority, status, special,
       isRepeatable: false,
       userId,
       mappedIncomeId:      income?.incomeId      ?? null,
@@ -87,7 +88,7 @@ async function createExpense(body, userId) {
       expenseId: randomUUID(),
       seriesId,
       summary, date: d, amount, currency,
-      priority, status,
+      priority, status, special,
       isRepeatable: true,
       repeatFrequency,
       seriesEndDate,
@@ -168,7 +169,7 @@ async function updateExpenseSeries(expenseId, body, userId) {
   if (!existing || existing.userId !== userId) return err(404, "Expense not found");
 
   const { seriesId, date } = existing;
-  const { summary, amount, currency, priority, status } = body;
+  const { summary, amount, currency, priority, status, special } = body;
 
   const { Items = [] } = await docClient.send(new ScanCommand({
     TableName: EXPENSES_TABLE,
@@ -186,6 +187,7 @@ async function updateExpenseSeries(expenseId, body, userId) {
       ...(currency !== undefined ? { currency } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(status   !== undefined ? { status   } : {}),
+      ...(special  !== undefined ? { special  } : {}),
       mappedIncomeId:      income?.incomeId      ?? null,
       mappedIncomeSummary: income?.summary        ?? null,
       mappedIncomeDate:    income?.date           ?? null,

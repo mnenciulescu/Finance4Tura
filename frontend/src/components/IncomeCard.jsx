@@ -104,6 +104,9 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                       style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194", width: isMobile ? "9px" : "7px", height: isMobile ? "9px" : "7px" }}
                       title={`Priority: ${exp.priority}`}
                     />
+                    {exp.special && (
+                      <span style={{ ...s.specialStar, fontSize: isMobile ? "12px" : "10px" }} title="Special">★</span>
+                    )}
                     <span style={{ ...s.expenseSummary, fontSize: isMobile ? "15px" : "12px" }} title={exp.summary}>{exp.summary}</span>
                     <span style={{ ...s.expenseDate, fontSize: isMobile ? "12px" : "10px" }}>{exp.date.slice(5)}</span>
                   </div>
@@ -542,6 +545,11 @@ const s = {
     height:       "8px",
     borderRadius: "2px",
     flexShrink:   0,
+  },
+  specialStar: {
+    color:      "#a855f7",
+    lineHeight: 1,
+    flexShrink: 0,
   },
   deleteIncomeBtn: {
     background: "none",

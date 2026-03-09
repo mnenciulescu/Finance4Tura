@@ -12,6 +12,7 @@ const EMPTY = {
   currency:        "RON",
   priority:        "Medium",
   status:          "Pending",
+  special:         false,
   isRepeatable:    false,
   repeatFrequency: "monthly",
   seriesEndDate:   "",
@@ -46,6 +47,7 @@ export default function AddExpense() {
           currency:        data.currency         ?? "RON",
           priority:        data.priority         ?? "Medium",
           status:          data.status           ?? "Pending",
+          special:         data.special          ?? false,
           isRepeatable:    data.isRepeatable     ?? false,
           repeatFrequency: data.repeatFrequency  ?? "monthly",
           seriesEndDate:   data.seriesEndDate    ?? "",
@@ -95,6 +97,7 @@ export default function AddExpense() {
       currency:     form.currency,
       priority:     form.priority,
       status:       form.status,
+      special:      form.special,
       isRepeatable: form.isRepeatable,
       ...(form.isRepeatable ? {
         repeatFrequency: form.repeatFrequency,
@@ -229,6 +232,22 @@ export default function AddExpense() {
                 onClick={() => set("status", st)}
               >
                 {st}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {/* Special */}
+        <Field label="Special">
+          <div style={s.pillGroup}>
+            {[false, true].map(val => (
+              <button
+                key={String(val)}
+                type="button"
+                style={{ ...s.pill, ...(form.special === val ? s.pillSpecialActive(val) : {}) }}
+                onClick={() => set("special", val)}
+              >
+                {val ? "Yes" : "No"}
               </button>
             ))}
           </div>
@@ -409,6 +428,15 @@ const s = {
     background:  "var(--accent)" + "22",
     borderColor: "var(--accent)",
     color:       "var(--accent)",
+  },
+  pillSpecialActive: (val) => val ? {
+    background:  "rgba(168,85,247,0.12)",
+    borderColor: "#a855f7",
+    color:       "#a855f7",
+  } : {
+    background:  "rgba(107,114,148,0.12)",
+    borderColor: "var(--border)",
+    color:       "var(--text-muted)",
   },
   previewBox: {
     display:      "flex",
