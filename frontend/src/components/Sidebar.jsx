@@ -66,6 +66,18 @@ function IconBackstage() {
   );
 }
 
+function IconSplit() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="7.5" x2="5" y2="7.5"/>
+      <polyline points="5,4.5 8.5,7.5 5,10.5"/>
+      <line x1="8.5" y1="4" x2="14" y2="4"/>
+      <line x1="8.5" y1="11" x2="14" y2="11"/>
+    </svg>
+  );
+}
+
 // ── Logo ─────────────────────────────────────────────────────────────────────
 
 function Logo() {
@@ -104,11 +116,12 @@ function Logo() {
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const links = [
-  { to: "/add-income",  label: "Add Income",  Icon: IconIncome    },
-  { to: "/add-expense", label: "Add Expense", Icon: IconExpense   },
-  { to: "/statistics",  label: "Statistics",  Icon: IconStats     },
-  { to: "/settings",    label: "Settings",    Icon: IconSettings  },
-  { to: "/backstage",   label: "Backstage",   Icon: IconBackstage },
+  { to: "/add-income",      label: "Add Income",      Icon: IconIncome    },
+  { to: "/add-expense",     label: "Add Expense",     Icon: IconExpense   },
+  { to: "/split-payments",  label: "Split Payments",  Icon: IconSplit     },
+  { to: "/statistics",      label: "Statistics",      Icon: IconStats     },
+  { to: "/settings",        label: "Settings",        Icon: IconSettings  },
+  { to: "/backstage",       label: "Backstage",       Icon: IconBackstage },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────

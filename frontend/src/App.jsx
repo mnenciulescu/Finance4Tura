@@ -8,6 +8,7 @@ import AddExpense from "./pages/AddExpense";
 import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import Backstage from "./pages/Backstage";
+import SplitPayment from "./pages/SplitPayment";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -23,6 +24,7 @@ function AppRoutes() {
           <Route path="/statistics" element={<Statistics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/backstage" element={<Backstage />} />
+          <Route path="/split-payments" element={<SplitPayment />} />
         </Routes>
       </Layout>
     </BrowserRouter>
