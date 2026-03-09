@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
+const BAR_COLOR = { total: "#7c75e0", done: "#4ade80", pending: "#f59e0b", free: "#22c55e", over: "#ef4444" };
 const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
 const monthParts = (dateStr) => {
@@ -126,7 +127,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
         {income.amount > 0 && (() => {
           const total      = income.amount;
           const overBudget = totalExpenses > total;
-          const freeColor  = overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)";
+          const freeColor  = overBudget ? BAR_COLOR.over : BAR_COLOR.free;
           const safeBalance = Math.max(0, balance);
 
           // Each segment gets at least MIN fraction of its container so labels always fit
@@ -185,10 +186,10 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 )}
               </div>
               <div style={s.legend}>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(120,113,255,0.65)" }}/> Total</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(134,239,172,0.65)" }}/> Done</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: "rgba(245,158,11,0.65)"  }}/> Pending</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: overBudget ? "var(--danger)" : "rgba(34,197,94,0.6)" }}/> {overBudget ? "Over" : "Free"}</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.total   }}/> Total</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.done    }}/> Done</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.pending }}/> Pending</span>
+                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: freeColor          }}/> {overBudget ? "Over" : "Free"}</span>
               </div>
             </div>
           );
@@ -484,7 +485,7 @@ const s = {
   },
   dualBarTotal: {
     height:         "100%",
-    background:     "rgba(120,113,255,0.65)",
+    background:     BAR_COLOR.total,
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
@@ -492,7 +493,7 @@ const s = {
   },
   dualBarCompleted: {
     height:         "100%",
-    background:     "rgba(134,239,172,0.65)",
+    background:     BAR_COLOR.done,
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
@@ -501,7 +502,7 @@ const s = {
   },
   dualBarPending: {
     height:         "100%",
-    background:     "rgba(245,158,11,0.65)",
+    background:     BAR_COLOR.pending,
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
