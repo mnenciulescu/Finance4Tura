@@ -11,7 +11,7 @@ const monthParts = (dateStr) => {
   return { month, day: String(+d), year: y };
 };
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false }) {
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalCompleted, totalPending } = expenses.reduce(
@@ -27,14 +27,14 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   const cur     = income.currency ?? "RON";
 
   return (
-    <div style={s.card}>
+    <div style={{ ...s.card, ...(isCurrent ? s.cardCurrent : {}) }}>
       {/* Header */}
       <div style={s.header}>
         {/* Top accent strip */}
-        <div style={s.accentStrip} />
+        <div style={{ ...s.accentStrip, ...(isCurrent ? s.accentStripCurrent : {}) }} />
 
         <div style={{ ...s.headerRow, padding: isMobile ? "7px 10px 9px" : "10px 12px 12px" }}>
-          {/* Row 1: date badge + add */}
+          {/* Row 1: date badge + current pill + add */}
           <div style={s.headerTop}>
             {(() => { const { month, day, year } = monthParts(income.date); return (
               <div style={s.dateBadge}>
@@ -238,6 +238,11 @@ const s = {
     flexDirection: "column",
     overflow:      "hidden",
     minHeight:     0,
+    transition:    "border-color 0.2s",
+  },
+  cardCurrent: {
+    borderColor: "rgba(22,163,74,0.6)",
+    boxShadow:   "0 6px 24px rgba(22,163,74,0.30)",
   },
   header: {
     borderBottom: "1px solid var(--border)",
@@ -245,8 +250,12 @@ const s = {
     overflow:     "hidden",
   },
   accentStrip: {
-    height:     "3px",
+    height:     "4px",
     background: "linear-gradient(90deg, var(--accent), rgba(134,239,172,0.2))",
+  },
+  accentStripCurrent: {
+    height:     "4px",
+    background: "linear-gradient(90deg, #052e16 0%, #166534 60%, transparent 100%)",
   },
   headerRow: {
     display:       "flex",

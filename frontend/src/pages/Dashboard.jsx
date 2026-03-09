@@ -12,6 +12,7 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const [allIncomes, setAllIncomes]   = useState([]);
   const [startIdx, setStartIdx]       = useState(0);
+  const [currentIdx, setCurrentIdx]   = useState(-1);
   const [expenses, setExpenses]       = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
@@ -40,6 +41,7 @@ export default function Dashboard() {
         const currentIdx = sorted.reduce((found, _, idx) =>
           sorted[idx].date <= today ? idx : found, -1);
         setAllIncomes(sorted);
+        setCurrentIdx(currentIdx);
         setStartIdx(currentIdx === -1 ? 0 : currentIdx);
         setExpenses(exp);
       })
@@ -206,7 +208,7 @@ export default function Dashboard() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {incomes.map(income => (
+          {incomes.map((income, i) => (
             <IncomeCard
               key={income.incomeId}
               income={income}
@@ -215,6 +217,7 @@ export default function Dashboard() {
               onDeleteExpense={handleDeleteExpense}
               onDeleteIncome={handleDeleteIncome}
               showAmount={showAmounts}
+              isCurrent={startIdx + i === currentIdx}
               isMobile
             />
           ))}
@@ -251,7 +254,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div style={s.cardRow}>
-            {incomes.map(income => (
+            {incomes.map((income, i) => (
               <IncomeCard
                 key={income.incomeId}
                 income={income}
@@ -260,6 +263,7 @@ export default function Dashboard() {
                 onDeleteExpense={handleDeleteExpense}
                 onDeleteIncome={handleDeleteIncome}
                 showAmount={showAmounts}
+                isCurrent={startIdx + i === currentIdx}
               />
             ))}
           </div>
