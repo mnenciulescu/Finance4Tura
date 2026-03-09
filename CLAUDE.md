@@ -65,6 +65,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook switches between desktop (Sidebar) and mobile (MobileLayout)
+- Split Payments module (`/split-payments`) is desktop-only; data stored in `localStorage` (`split_payments_v1`)
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 
@@ -85,6 +86,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 **Expenses** table (PK: `expenseId`):
 - Same series fields as Incomes
 - `priority`: `High`|`Medium`|`Low`; `status`: `Pending`|`Completed`
+- `special`: Boolean, default `false` — flags the expense as special; shown with ★ icon and red row background on Dashboard
 - `mappedIncomeId`, `mappedIncomeSummary`, `mappedIncomeDate` — denormalized from Incomes
 - GSI: `date-index` on `date`
 

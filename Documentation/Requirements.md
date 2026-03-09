@@ -81,6 +81,7 @@ Define and provision all DynamoDB tables needed by the application.
 | `date` | String | ISO 8601, Mandatory |
 | `amount` | Number | Mandatory |
 | `currency` | String | Default `RON` |
+| `special` | Boolean | Default `false` — flags the expense as special; highlighted in red on Dashboard |
 | `isRepeatable` | Boolean | Default `false` |
 | `repeatFrequency` | String | `daily` \| `weekly` \| `monthly` |
 | `seriesEndDate` | String | ISO 8601 |
@@ -233,6 +234,7 @@ Implement the Expense form with real-time income mapping preview.
 | Mapped Income | Read-only (auto-filled) | Populated via `GET /expenses/resolve-income` |
 | Amount | Number input | Mandatory, > 0 |
 | Currency | Dropdown | Mandatory, default `RON` |
+| Special | Pill toggle (`Yes` / `No`) | Default `No`; highlighted in purple when Yes |
 | Repeatable | Toggle | Default `false` |
 | Repeat Frequency | Dropdown | Mandatory only if Repeatable |
 | Series End Date | Date picker | Mandatory only if Repeatable |
@@ -253,7 +255,9 @@ Replace placeholder column data with real data from the backend.
 - On load, calls `GET /incomes` and `GET /expenses`.
 - Shows the **4 most recent income periods** as column cards.
 - Each card displays income header, amount (masked by default — hold mouse button to reveal), expense rows, and summary footer (income, total expenses, pending, balance).
+- The **current income period** (latest income with date ≤ today) has a distinct green-tinted header background to indicate it is the active period.
 - Expense rows show priority color dot, summary, date, amount, status toggle (Pending/Completed), edit link, and delete button.
+- Expense rows with `special = true` display a purple **★** icon and a dark reddish row background.
 - Delete button on a recurring expense shows a dialog: **"This occurrence"** or **"Entire series"**.
 - Clicking an income or expense opens the edit form.
 
@@ -302,6 +306,47 @@ Deploy the full application to AWS and implement per-user data isolation.
 | 9.4 | New user sign-up | Account created and auto-confirmed; app loads with empty database |
 | 9.5 | Income amount masked on Dashboard | Amount shows `••••••` until mouse button is held down |
 | 9.6 | Local dev still works | `docker compose up` + `sam local start-api` + `npm run dev` functional |
+
+---
+
+---
+
+## Phase 10 – Split Payments Module ✅
+
+### Goal
+A desktop-only module for logging advance payments split across multiple occurrences and tracking when the total is fully covered.
+
+### Behavior
+- Accessible via **"Split Payments"** in the desktop top navigation bar (`/split-payments`). Not present in the mobile tab bar.
+- Page shows a data table of all split payment entries plus an **"Add New Split Payment"** button.
+- Data is persisted in `localStorage` (`split_payments_v1`) — no backend API required.
+
+### Create Form Fields
+| Field | Type | Notes |
+|-------|------|-------|
+| Created Date | Read-only | Auto-filled with today's date |
+| Title | Text input | Mandatory |
+| Amount | Number input | Mandatory, > 0 |
+| Currency | Dropdown | `RON`, `EUR`, `USD`; default `RON` |
+| No. of Occurrences | Integer input | Mandatory; 1–36 |
+| Occurrence Type | Dropdown | `amount` – cells show equal installment value; `date` – cells record payment dates |
+
+### Table Columns
+- **Fixed**: Created Date, Title, Total Amount, Currency
+- **Dynamic**: one editable input cell per occurrence (number input for `amount` type; date input for `date` type); cells turn green when a value is entered
+- **Coverage badge**: shows `paid / total`; turns green with ✓ when all occurrences are filled
+- **Delete** (✕) removes the entry from the list and localStorage
+
+### Tests – Phase 10
+| # | Test | Expected Result |
+|---|---|---|
+| 10.1 | Navigate to `/split-payments` | Page loads; empty-state message shown |
+| 10.2 | Add entry with 3 amount occurrences | Row appears with 3 number inputs; coverage shows `0/3` |
+| 10.3 | Enter a value in first cell | Cell turns green; coverage updates to `1/3` |
+| 10.4 | Fill all cells | Coverage shows `3/3 ✓` |
+| 10.5 | Refresh page | Entries still present (localStorage) |
+| 10.6 | Delete entry | Row removed; localStorage updated |
+| 10.7 | Open on mobile | "Split Payments" absent from bottom tab bar |
 
 ---
 
