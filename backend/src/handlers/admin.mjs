@@ -54,9 +54,11 @@ async function listUsers() {
   expItems.forEach(e => { expenseCounts[e.userId] = (expenseCounts[e.userId] ?? 0) + 1; });
 
   const users = Users.map(u => {
-    const sub = u.Attributes?.find(a => a.Name === "sub")?.Value ?? null;
+    const sub   = u.Attributes?.find(a => a.Name === "sub")?.Value   ?? null;
+    const email = u.Attributes?.find(a => a.Name === "email")?.Value ?? null;
     return {
       username: u.Username,
+      email,
       status:   u.UserStatus,
       enabled:  u.Enabled,
       created:  u.UserCreateDate,

@@ -93,7 +93,7 @@ export default function Admin() {
         <table style={s.table}>
           <thead>
             <tr>
-              {["User", "Type", "Status", "Incomes", "Expenses", "Total entries", "Actions"].map(h => (
+              {["User", "Email", "Type", "Status", "Incomes", "Expenses", "Total entries", "Actions"].map(h => (
                 <th key={h} style={s.th}>{h}</th>
               ))}
             </tr>
@@ -116,6 +116,7 @@ export default function Admin() {
                       </div>
                     </div>
                   </td>
+                  <td style={{ ...s.td, ...s.emailCell }}>{u.email ?? <span style={s.noEmail}>—</span>}</td>
                   <td style={s.td}>
                     <span style={{ ...s.roleBadge, ...(isAdmin ? s.roleBadgeAdmin : s.roleBadgeNormal) }}>
                       {isAdmin ? "Admin" : "Normal"}
@@ -221,6 +222,8 @@ const s = {
   trSelf:   { background: "rgba(22,163,74,0.04)" },
   td:       { padding: "10px 12px", fontSize: "13px", color: "var(--text)", verticalAlign: "middle" },
   numCell:  { fontVariantNumeric: "tabular-nums", textAlign: "right" },
+  emailCell:{ fontSize: "12px", color: "var(--text-muted)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  noEmail:  { color: "var(--border)", fontSize: "12px" },
   usernameCell: { display: "flex", alignItems: "center", gap: "10px" },
   avatar: {
     width: "30px", height: "30px", borderRadius: "50%",
