@@ -33,6 +33,16 @@ async function createIncome(body, userId) {
     return err(400, "summary, date, and amount are required");
   }
 
+  const currentYear = new Date().getFullYear();
+  const yearStart = `${currentYear}-01-01`;
+  const yearEnd   = `${currentYear}-12-31`;
+  if (date < yearStart || date > yearEnd) {
+    return err(400, `Date must be within the current year (${currentYear})`);
+  }
+  if (seriesEndDate && (seriesEndDate < yearStart || seriesEndDate > yearEnd)) {
+    return err(400, `Series end date must be within the current year (${currentYear})`);
+  }
+
   if (!isRepeatable) {
     const incomeId = randomUUID();
     const item = { incomeId, seriesId: incomeId, summary, date, amount, currency, isRepeatable: false, userId };

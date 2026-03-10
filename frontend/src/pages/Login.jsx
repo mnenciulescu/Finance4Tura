@@ -10,6 +10,7 @@ export default function Login() {
   const [error, setError]           = useState(null);
   const [success, setSuccess]       = useState(null);
   const [loading, setLoading]       = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const googleBtnRef                = useRef(null);
 
   const switchMode = (next) => {
@@ -59,9 +60,9 @@ export default function Login() {
     setLoading(true);
     try {
       await signInWithGoogle(response.credential);
+      setTransitioning(true);
     } catch (err) {
       setError(err.message || "Google sign-in failed.");
-    } finally {
       setLoading(false);
     }
   };
@@ -80,17 +81,26 @@ export default function Login() {
     try {
       if (mode === "signin") {
         await signIn(username, password);
+        setTransitioning(true);
       } else {
         await signUp(username, password);
         setSuccess("Account created! You can now sign in.");
         switchMode("signin");
+        setLoading(false);
       }
     } catch (err) {
       setError(err.message || "Something went wrong.");
-    } finally {
       setLoading(false);
     }
   };
+
+  if (transitioning) {
+    return (
+      <div style={s.root}>
+        <div style={s.spinner} />
+      </div>
+    );
+  }
 
   return (
     <div style={s.root}>
@@ -270,7 +280,7 @@ const s = {
     border:       "1px solid var(--border)",
     borderRadius: "8px",
     color:        "var(--text)",
-    fontSize:     "14px",
+    fontSize:     "16px",
     padding:      "9px 12px",
     outline:      "none",
     width:        "100%",
@@ -306,5 +316,13 @@ const s = {
     cursor:         "pointer",
     padding:        0,
     fontWeight:     500,
+  },
+  spinner: {
+    width:       "44px",
+    height:      "44px",
+    border:      "4px solid var(--border)",
+    borderTop:   "4px solid var(--accent)",
+    borderRadius:"50%",
+    animation:   "spin 0.8s linear infinite",
   },
 };

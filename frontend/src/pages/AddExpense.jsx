@@ -109,18 +109,18 @@ export default function AddExpense() {
       setError("Summary, date and amount are required.");
       return;
     }
-    const minDate = dayjs().subtract(1, "year").format("YYYY-MM-DD");
-    const maxDate = dayjs().add(1, "year").format("YYYY-MM-DD");
-    if (payload.date < minDate || payload.date > maxDate) {
-      setError("Date must be within 1 year of today.");
+    const yearStart = dayjs().startOf("year").format("YYYY-MM-DD");
+    const yearEnd   = dayjs().endOf("year").format("YYYY-MM-DD");
+    if (payload.date < yearStart || payload.date > yearEnd) {
+      setError(`Date must be within the current year (${dayjs().year()}).`);
       return;
     }
     if (form.isRepeatable && !form.seriesEndDate) {
       setError("Series end date is required for repeating expenses.");
       return;
     }
-    if (form.isRepeatable && form.seriesEndDate > dayjs().add(1, "year").format("YYYY-MM-DD")) {
-      setError("Series end date cannot be more than 1 year from today.");
+    if (form.isRepeatable && form.seriesEndDate > yearEnd) {
+      setError(`Series end date must be within the current year (${dayjs().year()}).`);
       return;
     }
 
@@ -196,8 +196,8 @@ export default function AddExpense() {
             type="date"
             value={form.date}
             onChange={e => set("date", e.target.value)}
-            min={dayjs().subtract(1, "year").format("YYYY-MM-DD")}
-            max={dayjs().add(1, "year").format("YYYY-MM-DD")}
+            min={dayjs().startOf("year").format("YYYY-MM-DD")}
+            max={dayjs().endOf("year").format("YYYY-MM-DD")}
             required
           />
         </Field>
@@ -298,7 +298,7 @@ export default function AddExpense() {
                 value={form.seriesEndDate}
                 onChange={e => set("seriesEndDate", e.target.value)}
                 min={form.date}
-                max={dayjs().add(1, "year").format("YYYY-MM-DD")}
+                max={dayjs().endOf("year").format("YYYY-MM-DD")}
                 required={form.isRepeatable}
               />
             </Field>

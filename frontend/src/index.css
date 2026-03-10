@@ -97,3 +97,7 @@ button {
   font-family: inherit;
   font-size: inherit;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
