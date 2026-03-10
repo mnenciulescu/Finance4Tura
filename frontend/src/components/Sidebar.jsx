@@ -163,20 +163,6 @@ export default function Topbar() {
 
       {/* Navigation */}
       <nav style={s.nav}>
-        {user?.isAdmin && (
-          <NavLink
-            to="/admin"
-            style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
-          >
-            {({ isActive }) => (
-              <>
-                <span style={{ ...s.iconWrap, color: isActive ? "#a855f7" : "var(--text-muted)" }}><IconAdmin /></span>
-                <span>Admin</span>
-                {isActive && <span style={{ ...s.activeDot, background: "rgba(168,85,247,0.7)" }}/>}
-              </>
-            )}
-          </NavLink>
-        )}
         {links.map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}
@@ -198,6 +184,20 @@ export default function Topbar() {
             )}
           </NavLink>
         ))}
+        {user?.isAdmin && (
+          <NavLink
+            to="/admin"
+            style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
+          >
+            {({ isActive }) => (
+              <>
+                <span style={{ ...s.iconWrap, color: isActive ? "#a855f7" : "var(--text-muted)" }}><IconAdmin /></span>
+                <span>Admin</span>
+                {isActive && <span style={{ ...s.activeDot, background: "rgba(168,85,247,0.7)" }}/>}
+              </>
+            )}
+          </NavLink>
+        )}
       </nav>
 
       {/* User area */}

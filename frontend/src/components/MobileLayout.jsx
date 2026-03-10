@@ -79,15 +79,6 @@ export default function MobileLayout({ children }) {
 
       {/* Bottom tab bar */}
       <nav style={s.tabBar}>
-        {user?.isAdmin && (
-          <NavLink
-            to="/admin"
-            style={({ isActive }) => ({ ...s.tab, color: isActive ? "#a855f7" : "var(--text-muted)" })}
-          >
-            <IconAdmin />
-            <span style={s.tabLabel}>Admin</span>
-          </NavLink>
-        )}
         {tabs.map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}
@@ -99,6 +90,15 @@ export default function MobileLayout({ children }) {
             <span style={s.tabLabel}>{label}</span>
           </NavLink>
         ))}
+        {user?.isAdmin && (
+          <NavLink
+            to="/admin"
+            style={({ isActive }) => ({ ...s.tab, color: isActive ? "#a855f7" : "var(--text-muted)" })}
+          >
+            <IconAdmin />
+            <span style={s.tabLabel}>Admin</span>
+          </NavLink>
+        )}
       </nav>
     </div>
   );

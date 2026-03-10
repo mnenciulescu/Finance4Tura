@@ -21,7 +21,13 @@ export default function Admin() {
   useEffect(() => {
     listUsers()
       .then(setUsers)
-      .catch(() => setError("Failed to load users."))
+      .catch((e) => {
+        if (e.response?.status === 403) {
+          setError("Session does not include admin permissions yet. Please sign out and sign back in, then try again.");
+        } else {
+          setError(`Failed to load users. ${e.response?.data?.message || e.message || ""}`);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
