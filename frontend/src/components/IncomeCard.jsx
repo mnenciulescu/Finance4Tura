@@ -423,14 +423,14 @@ const s = {
     transition:     "background 0.15s, border-color 0.15s",
   },
   statusDone: {
-    background: BAR_COLOR.done,
-    color:      "rgba(0,0,0,0.7)",
-    border:     `1px solid ${BAR_COLOR.done}`,
+    background: "var(--accent)",
+    color:      "#fff",
+    border:     "1px solid var(--accent)",
   },
   statusPending: {
-    background: BAR_COLOR.pending,
+    background: "var(--surface)",
     color:      "transparent",
-    border:     `1px solid ${BAR_COLOR.pending}`,
+    border:     "1px solid var(--border)",
   },
   deleteBtn: {
     background: "none",
