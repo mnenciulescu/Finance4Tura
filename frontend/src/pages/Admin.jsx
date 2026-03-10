@@ -105,7 +105,7 @@ export default function Admin() {
               const total   = u.incomes + u.expenses;
               return (
                 <tr key={u.username} style={{ ...s.tr, ...(isSelf ? s.trSelf : {}) }}>
-                  <td style={s.td}>
+                  <td style={{ ...s.td, textAlign: "left" }}>
                     <div style={s.usernameCell}>
                       <div style={{ ...s.avatar, background: isAdmin ? "rgba(168,85,247,0.15)" : "var(--avatar-bg)", border: `1px solid ${isAdmin ? "#a855f7" : "var(--avatar-border)"}`, color: isAdmin ? "#a855f7" : "var(--avatar-color)" }}>
                         {u.username.slice(0, 2).toUpperCase()}
@@ -139,14 +139,15 @@ export default function Admin() {
                       >
                         {roleLoading === u.username ? "…" : isAdmin ? "→ Normal" : "→ Admin"}
                       </button>
-                      <button
-                        style={{ ...s.btn, ...s.btnDelete }}
-                        onClick={() => openDeleteModal(u)}
-                        disabled={isSelf}
-                        title={isSelf ? "Cannot delete your own account" : "Delete user and all data"}
-                      >
-                        Delete
-                      </button>
+                      {!isSelf && (
+                        <button
+                          style={{ ...s.btn, ...s.btnDelete }}
+                          onClick={() => openDeleteModal(u)}
+                          title="Delete user and all data"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -217,11 +218,11 @@ const s = {
   },
   tableWrap: { overflowX: "auto", flexShrink: 0 },
   table:    { width: "100%", borderCollapse: "collapse", minWidth: "700px" },
-  th:       { textAlign: "left", fontSize: "11px", color: "var(--text-muted)", padding: "8px 12px", borderBottom: "2px solid var(--border)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" },
+  th:       { textAlign: "center", fontSize: "11px", color: "var(--text-muted)", padding: "8px 12px", borderBottom: "2px solid var(--border)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" },
   tr:       { borderBottom: "1px solid var(--border)", transition: "background 0.1s" },
   trSelf:   { background: "rgba(22,163,74,0.04)" },
-  td:       { padding: "10px 12px", fontSize: "13px", color: "var(--text)", verticalAlign: "middle" },
-  numCell:  { fontVariantNumeric: "tabular-nums", textAlign: "right" },
+  td:       { padding: "10px 12px", fontSize: "13px", color: "var(--text)", verticalAlign: "middle", textAlign: "center" },
+  numCell:  { fontVariantNumeric: "tabular-nums" },
   emailCell:{ fontSize: "12px", color: "var(--text-muted)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   noEmail:  { color: "var(--border)", fontSize: "12px" },
   usernameCell: { display: "flex", alignItems: "center", gap: "10px" },
