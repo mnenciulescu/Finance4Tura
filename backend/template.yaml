@@ -91,17 +91,21 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Ref CognitoUserPoolArn
+      EndpointConfiguration:
+        Type: REGIONAL
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Cache-Control: "'no-store'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Cache-Control: "'no-store'"
 
   # ──────────────────────────────────────────
   # Google Auth (public — no Cognito authorizer)
