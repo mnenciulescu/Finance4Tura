@@ -22,10 +22,10 @@ export default function Admin() {
     listUsers()
       .then(setUsers)
       .catch((e) => {
-        if (e.response?.status === 403) {
+        if (e.response?.status === 401 || e.response?.status === 403) {
           setError("Session does not include admin permissions yet. Please sign out and sign back in, then try again.");
         } else {
-          setError(`Failed to load users. ${e.response?.data?.message || e.message || ""}`);
+          setError(`Failed to load users (HTTP ${e.response?.status ?? "none"}: ${e.response?.data?.message || e.message || "unknown"})`);
         }
       })
       .finally(() => setLoading(false));

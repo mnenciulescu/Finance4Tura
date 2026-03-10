@@ -32,6 +32,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg}'],
         runtimeCaching: [
           {
+            // Admin endpoints — never cache, bypass SW caching entirely
+            urlPattern: /^https:\/\/2t55twyqmh\.execute-api\.eu-central-1\.amazonaws\.com\/Prod\/admin\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          {
             urlPattern: /^https:\/\/2t55twyqmh\.execute-api\.eu-central-1\.amazonaws\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
