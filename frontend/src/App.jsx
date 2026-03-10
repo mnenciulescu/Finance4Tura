@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { YearProvider } from "./context/YearContext";
 import Layout from "./components/Layout";
@@ -26,6 +26,7 @@ function AppRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/backstage" element={<Backstage />} />
           <Route path="/split-payments" element={<SplitPayment />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
     </BrowserRouter>

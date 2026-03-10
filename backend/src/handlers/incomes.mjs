@@ -9,7 +9,8 @@ import {
 import { docClient } from "../lib/dynamo.mjs";
 import { expandDates } from "../lib/expandDates.mjs";
 
-const TABLE = "Incomes";
+const TABLE      = "Incomes";
+const BATCH_SIZE = 25; // DynamoDB BatchWrite limit
 
 const CORS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" };
 
@@ -71,8 +72,8 @@ async function createIncome(body, userId) {
     userId,
   }));
 
-  for (let i = 0; i < items.length; i += 25) {
-    const chunk = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const chunk = items.slice(i, i + BATCH_SIZE).map((Item) => ({ PutRequest: { Item } }));
     await docClient.send(new BatchWriteCommand({ RequestItems: { [TABLE]: chunk } }));
   }
 
@@ -151,8 +152,8 @@ async function updateIncomeSeries(incomeId, body, userId) {
     ...(currency !== undefined ? { currency } : {}),
   }));
 
-  for (let i = 0; i < updates.length; i += 25) {
-    const chunk = updates.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const chunk = updates.slice(i, i + BATCH_SIZE).map((Item) => ({ PutRequest: { Item } }));
     await docClient.send(new BatchWriteCommand({ RequestItems: { [TABLE]: chunk } }));
   }
 
@@ -179,8 +180,8 @@ async function deleteIncome(incomeId, queryParams, userId) {
     ExpressionAttributeValues: { ":sid": existing.seriesId, ":uid": userId },
   }));
 
-  for (let i = 0; i < Items.length; i += 25) {
-    const chunk = Items.slice(i, i + 25).map(({ incomeId: id }) => ({
+  for (let i = 0; i < Items.length; i += BATCH_SIZE) {
+    const chunk = Items.slice(i, i + BATCH_SIZE).map(({ incomeId: id }) => ({
       DeleteRequest: { Key: { incomeId: id } },
     }));
     await docClient.send(new BatchWriteCommand({ RequestItems: { [TABLE]: chunk } }));

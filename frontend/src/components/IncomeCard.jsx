@@ -233,7 +233,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
 const s = {
   card: {
-    flex:          1,
+    flex:          "0 0 calc(25% - 12px)",
     minWidth:      0,
     background:    "var(--surface)",
     border:        "1px solid var(--border)",

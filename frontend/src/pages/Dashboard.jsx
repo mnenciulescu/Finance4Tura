@@ -42,10 +42,10 @@ export default function Dashboard() {
     setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset startIdx when year changes or data loads
+  // Reset startIdx whenever the selected year changes (always, regardless of yearCurrentIdx value)
   useEffect(() => {
     setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
-  }, [yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedYear, yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
@@ -65,9 +65,10 @@ export default function Dashboard() {
   }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleCount = isMobile ? 1 : 4;
-  const incomes = yearIncomes.slice(startIdx, startIdx + visibleCount);
-  const canGoLeft  = startIdx > 0;
-  const canGoRight = startIdx + visibleCount < yearIncomes.length;
+  const safeStart  = Math.max(0, Math.min(startIdx, yearIncomes.length - 1));
+  const incomes    = yearIncomes.slice(safeStart, safeStart + visibleCount);
+  const canGoLeft  = safeStart > 0;
+  const canGoRight = safeStart + visibleCount < yearIncomes.length;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -232,7 +233,7 @@ export default function Dashboard() {
               onDeleteExpense={handleDeleteExpense}
               onDeleteIncome={handleDeleteIncome}
               showAmount={showAmounts}
-              isCurrent={startIdx + i === yearCurrentIdx}
+              isCurrent={safeStart + i === yearCurrentIdx}
               isMobile
             />
           ))}
@@ -278,7 +279,7 @@ export default function Dashboard() {
                 onDeleteExpense={handleDeleteExpense}
                 onDeleteIncome={handleDeleteIncome}
                 showAmount={showAmounts}
-                isCurrent={startIdx + i === yearCurrentIdx}
+                isCurrent={safeStart + i === yearCurrentIdx}
               />
             ))}
           </div>
@@ -348,12 +349,13 @@ const s = {
     userSelect:   "none",
   },
   cardRow: {
-    display:    "flex",
-    gap:        "16px",
-    alignItems: "stretch",
-    flex:       1,
-    minHeight:  0,
-    minWidth:   0,
+    display:         "flex",
+    gap:             "16px",
+    alignItems:      "stretch",
+    justifyContent:  "flex-start",
+    flex:            1,
+    minHeight:       0,
+    minWidth:        0,
   },
   center: {
     display:        "flex",

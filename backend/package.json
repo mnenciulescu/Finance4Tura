@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Finance4Tura Lambda handlers",
+  "scripts": {
+    "test": "node --test src/**/*.test.mjs"
+  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3",
     "@aws-sdk/lib-dynamodb": "^3"
