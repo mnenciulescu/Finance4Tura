@@ -9,6 +9,17 @@ const userPool = new CognitoUserPool({
 
 const AuthContext = createContext(null);
 
+// Decode the cognito:groups claim from a JWT ID token
+function decodeIsAdmin(jwt) {
+  try {
+    const payload = JSON.parse(atob(jwt.split(".")[1]));
+    const groups  = payload["cognito:groups"] ?? [];
+    return Array.isArray(groups) ? groups.includes("admin") : groups === "admin";
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,8 +29,9 @@ export function AuthProvider({ children }) {
     if (!cognitoUser) { setLoading(false); return; }
     cognitoUser.getSession((err, session) => {
       if (!err && session.isValid()) {
-        setUser({ username: cognitoUser.getUsername() });
-        setAuthToken(session.getIdToken().getJwtToken());
+        const jwt = session.getIdToken().getJwtToken();
+        setUser({ username: cognitoUser.getUsername(), isAdmin: decodeIsAdmin(jwt) });
+        setAuthToken(jwt);
       }
       setLoading(false);
     });
@@ -30,8 +42,9 @@ export function AuthProvider({ children }) {
     const authDetails = new AuthenticationDetails({ Username: username, Password: password });
     cognitoUser.authenticateUser(authDetails, {
       onSuccess: (session) => {
-        setUser({ username: cognitoUser.getUsername() });
-        setAuthToken(session.getIdToken().getJwtToken());
+        const jwt = session.getIdToken().getJwtToken();
+        setUser({ username: cognitoUser.getUsername(), isAdmin: decodeIsAdmin(jwt) });
+        setAuthToken(jwt);
         resolve();
       },
       onFailure: reject,
@@ -45,6 +58,17 @@ export function AuthProvider({ children }) {
     });
   });
 
+  // Verify the current user's password without changing app state
+  const verifyPassword = (password) => new Promise((resolve, reject) => {
+    if (!user) { reject(new Error("Not signed in")); return; }
+    const cognitoUser = new CognitoUser({ Username: user.username, Pool: userPool });
+    const authDetails = new AuthenticationDetails({ Username: user.username, Password: password });
+    cognitoUser.authenticateUser(authDetails, {
+      onSuccess: () => resolve(true),
+      onFailure:  reject,
+    });
+  });
+
   const signInWithGoogle = async (googleIdToken) => {
     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google`, {
       method:  "POST",
@@ -53,7 +77,7 @@ export function AuthProvider({ children }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Google sign-in failed");
-    setUser({ username: data.username });
+    setUser({ username: data.username, isAdmin: decodeIsAdmin(data.idToken) });
     setAuthToken(data.idToken);
   };
 
@@ -64,7 +88,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle, verifyPassword }}>
       {children}
     </AuthContext.Provider>
   );

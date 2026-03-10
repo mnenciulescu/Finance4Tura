@@ -27,6 +27,10 @@ const tabs = [
   { to: "/settings",    label: "Settings",Icon: IconSettings},
 ];
 
+function IconAdmin() {
+  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="5" r="2.5"/><path d="M2 13c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg>;
+}
+
 export default function MobileLayout({ children }) {
   const { user, signOut } = useAuth();
   const { selectedYear, setSelectedYear, availableYears } = useYear();
@@ -75,6 +79,15 @@ export default function MobileLayout({ children }) {
 
       {/* Bottom tab bar */}
       <nav style={s.tabBar}>
+        {user?.isAdmin && (
+          <NavLink
+            to="/admin"
+            style={({ isActive }) => ({ ...s.tab, color: isActive ? "#a855f7" : "var(--text-muted)" })}
+          >
+            <IconAdmin />
+            <span style={s.tabLabel}>Admin</span>
+          </NavLink>
+        )}
         {tabs.map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}

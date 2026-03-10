@@ -264,6 +264,53 @@ Resources:
             Path: /expenses/{expenseId}
             Method: DELETE
 
+  # ──────────────────────────────────────────
+  # Admin (user management — admin group only)
+  # ──────────────────────────────────────────
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/admin.handler
+      CodeUri: .
+      Timeout: 30
+      Environment:
+        Variables:
+          USER_POOL_ID: eu-central-1_CD7AdBFwQ
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncomesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ListUsers
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminRemoveUserFromGroup
+                - cognito-idp:ListUsersInGroup
+              Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/eu-central-1_CD7AdBFwQ"
+      Events:
+        AdminUsersGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/users
+            Method: GET
+        AdminUserRolePut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/users/{username}/role
+            Method: PUT
+        AdminUserDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/users/{username}
+            Method: DELETE
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL

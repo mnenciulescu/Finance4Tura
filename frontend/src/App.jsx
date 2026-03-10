@@ -10,6 +10,7 @@ import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import Backstage from "./pages/Backstage";
 import SplitPayment from "./pages/SplitPayment";
+import Admin from "./pages/Admin";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -26,6 +27,7 @@ function AppRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/backstage" element={<Backstage />} />
           <Route path="/split-payments" element={<SplitPayment />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

@@ -127,6 +127,17 @@ const links = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+function IconAdmin() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="7.5" cy="5" r="2.5"/>
+      <path d="M2 13c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>
+      <path d="M10 8.5l1.5 1 1-1.5" strokeWidth="1.4"/>
+    </svg>
+  );
+}
+
 export default function Topbar() {
   const { user, signOut } = useAuth();
   const { selectedYear, setSelectedYear, availableYears } = useYear();
@@ -152,6 +163,20 @@ export default function Topbar() {
 
       {/* Navigation */}
       <nav style={s.nav}>
+        {user?.isAdmin && (
+          <NavLink
+            to="/admin"
+            style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
+          >
+            {({ isActive }) => (
+              <>
+                <span style={{ ...s.iconWrap, color: isActive ? "#a855f7" : "var(--text-muted)" }}><IconAdmin /></span>
+                <span>Admin</span>
+                {isActive && <span style={{ ...s.activeDot, background: "rgba(168,85,247,0.7)" }}/>}
+              </>
+            )}
+          </NavLink>
+        )}
         {links.map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}
