@@ -14,7 +14,7 @@ const COLORS = {
   Medium:    "#f59e0b",
   Low:       "#22c55e",
   Pending:   "#f59e0b",
-  Completed: "#22c55e",
+  Completed: "#bbf7d0",
 };
 
 const tooltipStyle = {

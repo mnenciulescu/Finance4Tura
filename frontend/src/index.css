@@ -26,7 +26,7 @@
   --badge-text-muted:   rgba(134,239,172,0.55);
   --amount-text:        #86efac;
   --header-amount-text: #86efac;
-  --bar-label:          rgba(255,255,255,0.9);
+  --bar-label:          rgba(0,0,0,0.85);
 
   --error-bg:           #3b1212;
   --error-text:         #fca5a5;
@@ -34,6 +34,12 @@
   --success-text:       #86efac;
   --warning-bg:         #1c1400;
   --warning-text:       #fcd34d;
+
+  --header-current-bg:     rgba(22,163,74,0.08);
+  --header-current-border: rgba(22,163,74,0.4);
+  --avatar-bg:             rgba(134,239,172,0.12);
+  --avatar-border:         rgba(134,239,172,0.3);
+  --avatar-color:          #86efac;
 
   --card-w: 280px;
 
@@ -66,6 +72,12 @@
   --amount-text:        #15803d;
   --header-amount-text: #0e1a10;
   --bar-label:          rgba(0,0,0,0.75);
+
+  --header-current-bg:     rgba(22,163,74,0.22);
+  --header-current-border: rgba(22,163,74,0.6);
+  --avatar-bg:             rgba(21,128,61,0.15);
+  --avatar-border:         rgba(21,128,61,0.55);
+  --avatar-color:          #15803d;
 
   --error-bg:           #fef2f2;
   --error-text:         #b91c1c;

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
-const BAR_COLOR = { total: "#7c75e0", done: "#4ade80", pending: "#f59e0b", free: "#22c55e", over: "#ef4444" };
+const BAR_COLOR = { total: "#7c75e0", done: "#bbf7d0", pending: "#f59e0b", free: "#22c55e", over: "#ef4444" };
 const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
 const monthParts = (dateStr) => {
@@ -159,9 +159,9 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
           const lbl = { ...s.barSegLabel, fontSize: isMobile ? "12px" : "10px" };
           return (
             <div style={s.barWrap}>
-              <div style={{ ...s.dualBar, height: isMobile ? "54px" : "44px" }}>
+              <div style={{ ...s.dualBar, height: isMobile ? "68px" : "58px" }}>
                 {/* Left spent column — stacked top/bottom */}
-                <div style={{ display: "flex", flexDirection: "column", width: `${pctSpentN * 100}%`, height: "100%" }}>
+                <div style={{ display: "flex", flexDirection: "column", width: `${pctSpentN * 100}%`, minWidth: "72px", height: "100%" }}>
                   {/* Top row: total expenses */}
                   <div style={s.dualBarTop}>
                     <div style={{ ...s.dualBarTotal, width: "100%" }}>
@@ -174,14 +174,14 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                       <span style={lbl}>{fmtInt(totalCompleted)}</span>
                     </div>
                     <div style={{ ...s.dualBarPending, width: `${pctPendN * 100}%` }}>
-                      <span style={lbl}>{fmtInt(totalPending)}</span>
+                      <span style={{ ...s.barSegLabel, fontSize: isMobile ? "15px" : "13px" }}>{fmtInt(totalPending)}</span>
                     </div>
                   </div>
                 </div>
                 {/* Right free column — spans full height (merged) */}
                 {pctFreeN > 0 && (
                   <div style={{ ...s.dualBarFree, width: `${pctFreeN * 100}%`, background: freeColor }}>
-                    <span style={lbl}>{fmtInt(safeBalance)}</span>
+                    <span style={{ ...s.barSegLabel, fontSize: isMobile ? "15px" : "13px" }}>{fmtInt(safeBalance)}</span>
                   </div>
                 )}
               </div>
@@ -249,8 +249,8 @@ const s = {
     overflow:     "hidden",
   },
   headerCurrent: {
-    background:   "rgba(22,163,74,0.08)",
-    borderBottom: "1px solid rgba(22,163,74,0.4)",
+    background:   "var(--header-current-bg)",
+    borderBottom: "1px solid var(--header-current-border)",
   },
   accentStrip: {
     height:     "3px",
@@ -423,14 +423,14 @@ const s = {
     transition:     "background 0.15s, border-color 0.15s",
   },
   statusDone: {
-    background: "var(--accent)",
-    color:      "#fff",
-    border:     "1px solid var(--accent)",
+    background: BAR_COLOR.done,
+    color:      "rgba(0,0,0,0.7)",
+    border:     `1px solid ${BAR_COLOR.done}`,
   },
   statusPending: {
-    background: "var(--surface)",
+    background: BAR_COLOR.pending,
     color:      "transparent",
-    border:     "1px solid var(--border)",
+    border:     `1px solid ${BAR_COLOR.pending}`,
   },
   deleteBtn: {
     background: "none",
@@ -480,7 +480,7 @@ const s = {
   },
   dualBarBottom: {
     display: "flex",
-    flex:    1,
+    flex:    3,
     gap:     "2px",
   },
   dualBarTotal: {
@@ -493,6 +493,7 @@ const s = {
   },
   dualBarCompleted: {
     height:         "100%",
+    minWidth:       "34px",
     background:     BAR_COLOR.done,
     display:        "flex",
     alignItems:     "center",
@@ -502,6 +503,7 @@ const s = {
   },
   dualBarPending: {
     height:         "100%",
+    minWidth:       "34px",
     background:     BAR_COLOR.pending,
     display:        "flex",
     alignItems:     "center",
@@ -511,6 +513,7 @@ const s = {
   },
   dualBarFree: {
     height:         "100%",
+    minWidth:       "34px",
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
