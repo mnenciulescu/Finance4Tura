@@ -4,15 +4,16 @@ import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
+import { useYear } from "../context/YearContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
 import useIsMobile from "../hooks/useIsMobile";
 
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
+  const { selectedYear, setAvailableYears } = useYear();
   const isMobile = useIsMobile();
   const [allIncomes, setAllIncomes]   = useState([]);
   const [startIdx, setStartIdx]       = useState(0);
-  const [currentIdx, setCurrentIdx]   = useState(-1);
   const [expenses, setExpenses]       = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
@@ -22,37 +23,51 @@ export default function Dashboard() {
   const touchStartY = useRef(null);
   const location = useLocation();
 
-  // Reset to default column when logo is clicked
-  useEffect(() => {
-    if (!location.state?.resetDashboard || allIncomes.length === 0) return;
+  // Incomes filtered to the selected year
+  const yearIncomes = useMemo(() =>
+    allIncomes.filter(i => i.date.startsWith(String(selectedYear))),
+    [allIncomes, selectedYear]
+  );
+
+  // Index of the "current" column within yearIncomes
+  const yearCurrentIdx = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const defaultIdx = allIncomes.reduce((found, _, idx) =>
-      allIncomes[idx].date <= today ? idx : found, -1);
-    setStartIdx(defaultIdx === -1 ? 0 : defaultIdx);
+    return yearIncomes.reduce((found, _, idx) =>
+      yearIncomes[idx].date <= today ? idx : found, -1);
+  }, [yearIncomes]);
+
+  // Reset to first relevant column when logo is clicked
+  useEffect(() => {
+    if (!location.state?.resetDashboard || yearIncomes.length === 0) return;
+    setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset startIdx when year changes or data loads
+  useEffect(() => {
+    setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
+  }, [yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
     if (authLoading) return;
     Promise.all([listIncomes(), listExpenses()])
       .then(([inc, exp]) => {
-        const today = new Date().toISOString().slice(0, 10);
         const sorted = [...inc].sort((a, b) => a.date.localeCompare(b.date));
-        const currentIdx = sorted.reduce((found, _, idx) =>
-          sorted[idx].date <= today ? idx : found, -1);
+        const years = [...new Set(sorted.map(i => i.date.slice(0, 4)))].map(Number);
+        const curYear = new Date().getFullYear();
+        if (!years.includes(curYear)) years.push(curYear);
+        setAvailableYears(years.sort((a, b) => a - b));
         setAllIncomes(sorted);
-        setCurrentIdx(currentIdx);
-        setStartIdx(currentIdx === -1 ? 0 : currentIdx);
         setExpenses(exp);
       })
       .catch(() => setError("Failed to load data. Is the API running?"))
       .finally(() => setLoading(false));
-  }, [authLoading]);
+  }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleCount = isMobile ? 1 : 4;
-  const incomes = allIncomes.slice(startIdx, startIdx + visibleCount);
+  const incomes = yearIncomes.slice(startIdx, startIdx + visibleCount);
   const canGoLeft  = startIdx > 0;
-  const canGoRight = startIdx + visibleCount < allIncomes.length;
+  const canGoRight = startIdx + visibleCount < yearIncomes.length;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -217,7 +232,7 @@ export default function Dashboard() {
               onDeleteExpense={handleDeleteExpense}
               onDeleteIncome={handleDeleteIncome}
               showAmount={showAmounts}
-              isCurrent={startIdx + i === currentIdx}
+              isCurrent={startIdx + i === yearCurrentIdx}
               isMobile
             />
           ))}
@@ -263,7 +278,7 @@ export default function Dashboard() {
                 onDeleteExpense={handleDeleteExpense}
                 onDeleteIncome={handleDeleteIncome}
                 showAmount={showAmounts}
-                isCurrent={startIdx + i === currentIdx}
+                isCurrent={startIdx + i === yearCurrentIdx}
               />
             ))}
           </div>

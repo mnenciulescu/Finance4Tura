@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useYear } from "../context/YearContext";
 import { useState } from "react";
 
 function IconDashboard() {
@@ -28,6 +29,7 @@ const tabs = [
 
 export default function MobileLayout({ children }) {
   const { user, signOut } = useAuth();
+  const { selectedYear, setSelectedYear, availableYears } = useYear();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?";
 
@@ -48,6 +50,15 @@ export default function MobileLayout({ children }) {
           </svg>
           <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
         </div>
+        <select
+          style={s.yearSelect}
+          value={selectedYear}
+          onChange={e => setSelectedYear(Number(e.target.value))}
+        >
+          {availableYears.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
         <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)}>
           {initials}
         </button>
@@ -113,6 +124,19 @@ const s = {
     fontWeight: 700,
     color:      "var(--badge-text)",
     marginLeft: "2px",
+  },
+  yearSelect: {
+    appearance:   "none",
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    color:        "var(--text)",
+    fontSize:     "13px",
+    fontWeight:   600,
+    padding:      "5px 10px",
+    cursor:       "pointer",
+    letterSpacing:"0.03em",
+    outline:      "none",
   },
   avatar: {
     width:          "32px",

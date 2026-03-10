@@ -1,5 +1,6 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useYear } from "../context/YearContext";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ const links = [
 
 export default function Topbar() {
   const { user, signOut } = useAuth();
+  const { selectedYear, setSelectedYear, availableYears } = useYear();
   const navigate  = useNavigate();
   const location  = useLocation();
   const isDashboard = location.pathname === "/";
@@ -175,6 +177,16 @@ export default function Topbar() {
 
       {/* User area */}
       <div style={s.userArea}>
+        <select
+          style={s.yearSelect}
+          value={selectedYear}
+          onChange={e => setSelectedYear(Number(e.target.value))}
+          title="Select year"
+        >
+          {availableYears.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
         <div style={s.avatar}>{initials}</div>
         <span style={s.username}>{user?.username}</span>
         <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
@@ -281,6 +293,20 @@ const s = {
     gap:        "10px",
     marginLeft: "auto",
     flexShrink: 0,
+  },
+  yearSelect: {
+    appearance:   "none",
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    color:        "var(--text)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "4px 10px",
+    cursor:       "pointer",
+    letterSpacing:"0.03em",
+    outline:      "none",
+    transition:   "border-color 0.15s",
   },
   avatar: {
     width:           "28px",
