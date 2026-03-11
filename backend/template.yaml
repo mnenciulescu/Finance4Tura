@@ -326,6 +326,25 @@ Resources:
             Path: /admin/users/{username}
             Method: DELETE
 
+  # ──────────────────────────────────────────
+  # AI News (public RSS aggregator)
+  # ──────────────────────────────────────────
+  AiNewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getAiNews.handler
+      CodeUri: .
+      Timeout: 15
+      Events:
+        AiNewsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /ai-news
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL

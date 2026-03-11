@@ -79,6 +79,14 @@ function IconSplit() {
   );
 }
 
+function IconAI() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
+      <path d="M7.5 1 L8.6 6.1 L13.5 7.5 L8.6 8.9 L7.5 14 L6.4 8.9 L1.5 7.5 L6.4 6.1 Z"/>
+    </svg>
+  );
+}
+
 // ── Logo ─────────────────────────────────────────────────────────────────────
 
 function Logo() {
@@ -121,6 +129,7 @@ const links = [
   { to: "/add-expense",     label: "Add Expense",     Icon: IconExpense   },
   { to: "/split-payments",  label: "Split Payments",  Icon: IconSplit     },
   { to: "/statistics",      label: "Statistics",      Icon: IconStats     },
+  { to: "/ai-news",         label: "AI",              Icon: IconAI        },
   { to: "/settings",        label: "Settings",        Icon: IconSettings  },
   { to: "/backstage",       label: "Backstage",       Icon: IconBackstage },
 ];

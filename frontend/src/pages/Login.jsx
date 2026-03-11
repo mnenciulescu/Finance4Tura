@@ -60,6 +60,7 @@ export default function Login() {
     setLoading(true);
     try {
       await signInWithGoogle(response.credential);
+      window.history.replaceState({}, '', '/');
       setTransitioning(true);
     } catch (err) {
       setError(err.message || "Google sign-in failed.");
@@ -81,6 +82,7 @@ export default function Login() {
     try {
       if (mode === "signin") {
         await signIn(username, password);
+        window.history.replaceState({}, '', '/');
         setTransitioning(true);
       } else {
         await signUp(username, password);
