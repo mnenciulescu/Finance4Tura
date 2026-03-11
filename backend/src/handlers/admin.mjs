@@ -38,6 +38,30 @@ function isCallerAdmin(event) {
 
 // ─── GET /admin/users ─────────────────────────────────────────────────────────
 async function listUsers() {
+  // Local dev: DYNAMODB_ENDPOINT is set → skip Cognito, return DynamoDB-only summary
+  const isLocal = !!process.env.DYNAMODB_ENDPOINT;
+  if (isLocal) {
+    const [{ Items: incItems = [] }, { Items: expItems = [] }] = await Promise.all([
+      docClient.send(new ScanCommand({ TableName: INCOMES_TABLE,  ProjectionExpression: "userId" })),
+      docClient.send(new ScanCommand({ TableName: EXPENSES_TABLE, ProjectionExpression: "userId" })),
+    ]);
+    const incomeCounts  = {};
+    const expenseCounts = {};
+    incItems.forEach(i => { incomeCounts[i.userId]  = (incomeCounts[i.userId]  ?? 0) + 1; });
+    expItems.forEach(e => { expenseCounts[e.userId] = (expenseCounts[e.userId] ?? 0) + 1; });
+    return ok([{
+      username: "local-dev",
+      email:    null,
+      status:   "CONFIRMED",
+      enabled:  true,
+      created:  null,
+      role:     "admin",
+      sub:      "local-dev",
+      incomes:  incomeCounts["local-dev"]  ?? 0,
+      expenses: expenseCounts["local-dev"] ?? 0,
+    }]);
+  }
+
   // 1. All Cognito users
   const { Users = [] } = await cognito.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID }));
 
