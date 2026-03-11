@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  LineChart, Line, BarChart, Bar, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { listIncomes } from "../api/incomes";
@@ -132,38 +133,67 @@ export default function Statistics() {
       {/* ── Bottom: chart + special expenses ────────────────── */}
       <div style={s.bottomRow}>
 
-        {/* Chart */}
-        <div style={s.chartPanel}>
-          <div style={s.chartTitle}>
-            {selectedYear} — Expenses by Priority &amp; Free Amount
-            {currentMonthLabel && (
-              <span style={s.currentBadge}>▶ {currentMonthLabel}</span>
-            )}
+        {/* Charts column */}
+        <div style={s.chartsCol}>
+
+          {/* Top: priority lines */}
+          <div style={s.chartPanel}>
+            <div style={s.chartTitle}>
+              {selectedYear} — Expenses by Priority
+              {currentMonthLabel && <span style={s.currentBadge}>▶ {currentMonthLabel}</span>}
+            </div>
+            <div style={s.chartBody}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyData} margin={{ top: 12, right: 20, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickFormatter={v => fmt(v)} width={70} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => v == null ? ["—", name] : [`RON ${fmt(v)}`, name]} />
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
+                  {currentMonthLabel && (
+                    <ReferenceLine x={currentMonthLabel} stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="4 3"
+                      label={{ value: "now", position: "top", fontSize: 10, fill: "var(--accent)" }} />
+                  )}
+                  <Line type="monotone" dataKey="high"   name="High"   stroke={C.High}   strokeWidth={2.5} dot={{ r: 4, fill: C.High }}   activeDot={{ r: 6 }} connectNulls={false} />
+                  <Line type="monotone" dataKey="medium" name="Medium" stroke={C.Medium} strokeWidth={2.5} dot={{ r: 4, fill: C.Medium }} activeDot={{ r: 6 }} connectNulls={false} />
+                  <Line type="monotone" dataKey="low"    name="Low"    stroke={C.Low}    strokeWidth={2.5} dot={{ r: 4, fill: C.Low }}    activeDot={{ r: 6 }} connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div style={s.chartBody}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyData} margin={{ top: 12, right: 20, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 12 }} />
-                <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickFormatter={v => fmt(v)} width={70} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => v == null ? ["—", name] : [`RON ${fmt(v)}`, name]} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
-                {currentMonthLabel && (
-                  <ReferenceLine
-                    x={currentMonthLabel}
-                    stroke="var(--accent)"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    label={{ value: "now", position: "top", fontSize: 10, fill: "var(--accent)" }}
-                  />
-                )}
-                <Line type="monotone" dataKey="high"   name="High"   stroke={C.High}   strokeWidth={2.5} dot={{ r: 4, fill: C.High }}   activeDot={{ r: 6 }} connectNulls={false} />
-                <Line type="monotone" dataKey="medium" name="Medium" stroke={C.Medium} strokeWidth={2.5} dot={{ r: 4, fill: C.Medium }} activeDot={{ r: 6 }} connectNulls={false} />
-                <Line type="monotone" dataKey="low"    name="Low"    stroke={C.Low}    strokeWidth={2.5} dot={{ r: 4, fill: C.Low }}    activeDot={{ r: 6 }} connectNulls={false} />
-                <Line type="monotone" dataKey="free"   name="Free"   stroke={C.Free}   strokeWidth={2.5} dot={{ r: 4, fill: C.Free }}   activeDot={{ r: 6 }} connectNulls={false} strokeDasharray="7 3" />
-              </LineChart>
-            </ResponsiveContainer>
+
+          {/* Bottom: free amount bars */}
+          <div style={s.chartPanel}>
+            <div style={s.chartTitle}>
+              {selectedYear} — Free Amount per Month
+              {currentMonthLabel && <span style={s.currentBadge}>▶ {currentMonthLabel}</span>}
+            </div>
+            <div style={s.chartBody}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData} margin={{ top: 12, right: 20, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickFormatter={v => fmt(v)} width={70} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => v == null ? ["—", name] : [`RON ${fmt(v)}`, name]} />
+                  {currentMonthLabel && (
+                    <ReferenceLine x={currentMonthLabel} stroke="var(--accent)" strokeWidth={1.5} strokeDasharray="4 3"
+                      label={{ value: "now", position: "top", fontSize: 10, fill: "var(--accent)" }} />
+                  )}
+                  <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+                  <Bar dataKey="free" name="Free" radius={[3, 3, 0, 0]}>
+                    {monthlyData.map((entry, idx) => (
+                      <Cell
+                        key={idx}
+                        fill={entry.free == null ? "transparent" : entry.free >= 0 ? C.Free : C.High}
+                        fillOpacity={idx === currentMonth ? 1 : 0.7}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
+
         </div>
 
         {/* Special expenses */}
@@ -224,8 +254,9 @@ const s = {
 
   /* Bottom row */
   bottomRow: { display: "flex", gap: "12px", flex: 1, minHeight: 0 },
+  chartsCol: { display: "flex", flexDirection: "column", flex: 1, gap: "12px", minHeight: 0 },
   chartPanel: {
-    display: "flex", flexDirection: "column", flex: 1, minHeight: "320px",
+    display: "flex", flexDirection: "column", flex: 1, minHeight: "200px",
     background: "var(--surface)", border: "1px solid var(--border)",
     borderRadius: "10px", padding: "14px 16px",
   },
