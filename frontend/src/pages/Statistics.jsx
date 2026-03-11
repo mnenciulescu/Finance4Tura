@@ -128,6 +128,15 @@ export default function Statistics() {
           <div style={s.avgSub}>{monthsWithData.length} month{monthsWithData.length !== 1 ? "s" : ""} with data</div>
         </div>
 
+        {/* Survival / Month */}
+        <div style={{ ...s.avgCard, ...s.avgCardFree }}>
+          <div style={s.avgCardTitle}>Survival / Month</div>
+          <div style={{ ...s.avgFreeValue, color: "#a855f7" }}>
+            RON {fmt1(avg.high + avg.medium * 0.8 + 7000)}
+          </div>
+          <div style={s.avgSub}>High + 80% Medium + RON 7,000</div>
+        </div>
+
       </div>
 
       {/* ── Bottom: chart + special expenses ────────────────── */}
@@ -240,10 +249,10 @@ const s = {
   topRow: { display: "flex", gap: "12px", flexShrink: 0 },
   avgCard: {
     background: "var(--surface)", border: "1px solid var(--border)",
-    borderRadius: "10px", padding: "14px 16px", display: "flex",
-    flexDirection: "column", gap: "8px",
+    borderRadius: "10px", padding: "14px 20px", display: "flex",
+    flexDirection: "column", gap: "8px", minWidth: "220px",
   },
-  avgCardFree: { minWidth: "180px" },
+  avgCardFree: { minWidth: "210px" },
   avgCardTitle: { fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" },
   avgRow: { display: "flex", alignItems: "center", gap: "8px" },
   avgDot: { width: "10px", height: "10px", borderRadius: "50%", flexShrink: 0 },
