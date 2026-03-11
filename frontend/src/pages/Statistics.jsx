@@ -1,21 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { listIncomes } from "../api/incomes";
 import { listExpenses } from "../api/expenses";
+import { useYear } from "../context/YearContext";
 
-const COLORS = {
-  income:    "#6c63ff",
-  expenses:  "#ef4444",
-  balance:   "#22c55e",
-  High:      "#ef4444",
-  Medium:    "#f59e0b",
-  Low:       "#22c55e",
-  Pending:   "#f59e0b",
-  Completed: "#bbf7d0",
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const C = {
+  High:   "#ef4444",
+  Medium: "#f59e0b",
+  Low:    "#22c55e",
+  Free:   "#6c63ff",
 };
+
+const fmt  = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt1 = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const tooltipStyle = {
   background:   "var(--surface-2)",
@@ -26,177 +28,136 @@ const tooltipStyle = {
 };
 
 export default function Statistics() {
+  const { selectedYear } = useYear();
   const [incomes, setIncomes]   = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
 
   useEffect(() => {
-    Promise.all([listIncomes(), listExpenses()])
-      .then(([inc, exp]) => {
-        const sorted = [...inc].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).reverse();
-        setIncomes(sorted);
-        setExpenses(exp);
-      })
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      listIncomes({ from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` }),
+      listExpenses({ from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` }),
+    ])
+      .then(([inc, exp]) => { setIncomes(inc); setExpenses(exp); })
       .catch(() => setError("Failed to load data."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedYear]);
+
+  const today        = new Date();
+  const currentMonth = today.getFullYear() === selectedYear ? today.getMonth() : -1; // 0-indexed
+
+  // Build monthly data points
+  const monthlyData = useMemo(() => {
+    return MONTH_LABELS.map((label, idx) => {
+      const monthStr = `${selectedYear}-${String(idx + 1).padStart(2, "0")}`;
+      const isFuture = selectedYear > today.getFullYear() ||
+                       (selectedYear === today.getFullYear() && idx > today.getMonth());
+
+      const mInc = incomes.filter(i => i.date.startsWith(monthStr));
+      const mExp = expenses.filter(e => e.date.startsWith(monthStr));
+
+      const totalIncome = mInc.reduce((s, i) => s + (i.amount ?? 0), 0);
+      const high   = mExp.filter(e => e.priority === "High").reduce((s, e) => s + (e.amount ?? 0), 0);
+      const medium = mExp.filter(e => e.priority === "Medium").reduce((s, e) => s + (e.amount ?? 0), 0);
+      const low    = mExp.filter(e => e.priority === "Low").reduce((s, e) => s + (e.amount ?? 0), 0);
+      const free   = totalIncome - high - medium - low;
+      const hasData = mInc.length > 0 || mExp.length > 0;
+
+      return {
+        label,
+        high:   isFuture && !hasData ? null : high,
+        medium: isFuture && !hasData ? null : medium,
+        low:    isFuture && !hasData ? null : low,
+        free:   isFuture && !hasData ? null : free,
+        hasData,
+      };
+    });
+  }, [incomes, expenses, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Averages over months that have data
+  const monthsWithData = monthlyData.filter(m => m.hasData);
+  const n = monthsWithData.length || 1;
+  const avg = {
+    high:   monthsWithData.reduce((s, m) => s + (m.high   ?? 0), 0) / n,
+    medium: monthsWithData.reduce((s, m) => s + (m.medium ?? 0), 0) / n,
+    low:    monthsWithData.reduce((s, m) => s + (m.low    ?? 0), 0) / n,
+    free:   monthsWithData.reduce((s, m) => s + (m.free   ?? 0), 0) / n,
+  };
+
+  const currentMonthLabel = currentMonth >= 0 ? MONTH_LABELS[currentMonth] : null;
 
   if (loading) return <div style={s.page}><p style={s.muted}>Loading…</p></div>;
   if (error)   return <div style={s.page}><div style={s.errorBox}>{error}</div></div>;
 
-  // ── Derived data ─────────────────────────────────────────────────────────
-
-  const expByIncome = expenses.reduce((acc, e) => {
-    const key = e.mappedIncomeId ?? "__unmapped__";
-    acc[key] = acc[key] ?? [];
-    acc[key].push(e);
-    return acc;
-  }, {});
-
-  const periodData = incomes.map(inc => {
-    const exps     = expByIncome[inc.incomeId] ?? [];
-    const totalExp = exps.reduce((s, e) => s + (e.amount ?? 0), 0);
-    return { label: inc.date.slice(0, 7), income: inc.amount ?? 0, expenses: totalExp, balance: (inc.amount ?? 0) - totalExp };
-  });
-
-  const totalIncome   = incomes.reduce((s, i) => s + (i.amount ?? 0), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + (e.amount ?? 0), 0);
-  const netBalance    = totalIncome - totalExpenses;
-  const savingsRate   = totalIncome > 0 ? ((netBalance / totalIncome) * 100).toFixed(1) : "—";
-
-  const priorityData = Object.entries(
-    expenses.reduce((acc, e) => { const p = e.priority ?? "Unknown"; acc[p] = (acc[p] ?? 0) + (e.amount ?? 0); return acc; }, {})
-  ).map(([name, value]) => ({ name, value }));
-
-  const statusData = Object.entries(
-    expenses.reduce((acc, e) => { const st = e.status ?? "Unknown"; acc[st] = (acc[st] ?? 0) + (e.amount ?? 0); return acc; }, {})
-  ).map(([name, value]) => ({ name, value }));
-
-  const fmt  = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  const top5 = [...expenses].sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)).slice(0, 5);
-
   return (
     <div style={s.page}>
 
-      {/* ── Stat cards ──────────────────────────────────────────────────────── */}
-      <div style={s.statGrid}>
-        <StatCard label="Total Income"   value={`RON ${fmt(totalIncome)}`}   color={COLORS.income} />
-        <StatCard label="Total Expenses" value={`RON ${fmt(totalExpenses)}`} color={COLORS.expenses} />
-        <StatCard label="Net Balance"    value={`RON ${fmt(netBalance)}`}    color={netBalance >= 0 ? COLORS.balance : COLORS.expenses} />
-        <StatCard label="Savings Rate"   value={savingsRate === "—" ? "—" : `${savingsRate}%`} color={COLORS.balance} />
-      </div>
-
-      {/* ── Main grid ───────────────────────────────────────────────────────── */}
-      <div style={s.mainGrid}>
-
-        {/* Left column — bar + line */}
-        <div style={s.col}>
-          <Panel title="Income vs Expenses">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={periodData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `RON ${fmt(v)}`} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
-                <Bar dataKey="income"   name="Income"   fill={COLORS.income}   radius={[3,3,0,0]} />
-                <Bar dataKey="expenses" name="Expenses" fill={COLORS.expenses} radius={[3,3,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Panel>
-
-          <Panel title="Balance Trend">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={periodData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => `RON ${fmt(v)}`} />
-                <Line type="monotone" dataKey="balance" name="Balance"
-                  stroke={COLORS.balance} strokeWidth={2}
-                  dot={{ r: 3, fill: COLORS.balance }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Panel>
-        </div>
-
-        {/* Right column — pies + table */}
-        <div style={s.col}>
-          <div style={s.pieRow}>
-            <Panel title="By Priority">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                    outerRadius="55%" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
-                    labelLine={{ stroke: "var(--text-muted)" }}>
-                    {priorityData.map(e => <Cell key={e.name} fill={COLORS[e.name] ?? "#6b7194"} />)}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => `RON ${fmt(v)}`} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Panel>
-
-            <Panel title="By Status">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                    outerRadius="55%" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
-                    labelLine={{ stroke: "var(--text-muted)" }}>
-                    {statusData.map(e => <Cell key={e.name} fill={COLORS[e.name] ?? "#6b7194"} />)}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => `RON ${fmt(v)}`} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Panel>
+      {/* ── Average cards ───────────────────────────────────── */}
+      <div style={s.avgGrid}>
+        {[
+          { key: "high",   label: "Avg High / month",   color: C.High   },
+          { key: "medium", label: "Avg Medium / month", color: C.Medium },
+          { key: "low",    label: "Avg Low / month",    color: C.Low    },
+          { key: "free",   label: "Avg Free / month",   color: C.Free   },
+        ].map(({ key, label, color }) => (
+          <div key={key} style={s.avgCard}>
+            <div style={{ ...s.avgValue, color }}>RON {fmt1(avg[key])}</div>
+            <div style={s.avgLabel}>{label}</div>
+            <div style={s.avgSub}>over {monthsWithData.length} month{monthsWithData.length !== 1 ? "s" : ""} with data</div>
           </div>
+        ))}
+      </div>
 
-          <Panel title="Top 5 Expenses">
-            <table style={s.table}>
-              <thead>
-                <tr>{["Summary","Date","Amount","Priority","Status"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {top5.map(e => (
-                  <tr key={e.expenseId} style={s.tr}>
-                    <td style={s.td}>{e.summary}</td>
-                    <td style={s.td}>{e.date}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>RON {fmt(e.amount ?? 0)}</td>
-                    <td style={s.td}>
-                      <span style={{ ...s.badge, background: COLORS[e.priority] + "22", color: COLORS[e.priority], border: `1px solid ${COLORS[e.priority]}44` }}>
-                        {e.priority}
-                      </span>
-                    </td>
-                    <td style={s.td}>
-                      <span style={{ ...s.badge, ...(e.status === "Completed" ? s.badgeDone : s.badgePending) }}>
-                        {e.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Panel>
+      {/* ── Line chart ──────────────────────────────────────── */}
+      <div style={s.chartPanel}>
+        <div style={s.chartTitle}>
+          {selectedYear} — Expenses by Priority &amp; Free Amount
+          {currentMonthLabel && (
+            <span style={s.currentBadge}>▶ {currentMonthLabel} (current)</span>
+          )}
+        </div>
+        <div style={s.chartBody}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={monthlyData} margin={{ top: 12, right: 28, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+              />
+              <YAxis
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                tickFormatter={v => `${fmt(v)}`}
+                width={70}
+              />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(v, name) => v == null ? ["—", name] : [`RON ${fmt(v)}`, name]}
+              />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
+
+              {/* Current month highlight */}
+              {currentMonthLabel && (
+                <ReferenceLine
+                  x={currentMonthLabel}
+                  stroke="var(--accent)"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  label={{ value: "now", position: "top", fontSize: 10, fill: "var(--accent)" }}
+                />
+              )}
+
+              <Line type="monotone" dataKey="high"   name="High"   stroke={C.High}   strokeWidth={2.5} dot={{ r: 4, fill: C.High }}   activeDot={{ r: 6 }} connectNulls={false} />
+              <Line type="monotone" dataKey="medium" name="Medium" stroke={C.Medium} strokeWidth={2.5} dot={{ r: 4, fill: C.Medium }} activeDot={{ r: 6 }} connectNulls={false} />
+              <Line type="monotone" dataKey="low"    name="Low"    stroke={C.Low}    strokeWidth={2.5} dot={{ r: 4, fill: C.Low }}    activeDot={{ r: 6 }} connectNulls={false} />
+              <Line type="monotone" dataKey="free"   name="Free"   stroke={C.Free}   strokeWidth={2.5} dot={{ r: 4, fill: C.Free }}   activeDot={{ r: 6 }} connectNulls={false} strokeDasharray="7 3" />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
-    </div>
-  );
-}
 
-function StatCard({ label, value, color }) {
-  return (
-    <div style={s.statCard}>
-      <div style={{ ...s.statValue, color }}>{value}</div>
-      <div style={s.statLabel}>{label}</div>
-    </div>
-  );
-}
-
-function Panel({ title, children }) {
-  return (
-    <div style={s.panel}>
-      <div style={s.panelTitle}>{title}</div>
-      <div style={s.panelBody}>{children}</div>
     </div>
   );
 }
@@ -207,78 +168,65 @@ const s = {
     flexDirection: "column",
     flex:          1,
     minHeight:     0,
-    gap:           "12px",
-  },
-  statGrid: {
-    display:             "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap:                 "12px",
-    flexShrink:          0,
-  },
-  statCard: {
-    background:   "var(--surface)",
-    border:       "1px solid var(--border)",
-    borderRadius: "10px",
-    padding:      "12px 16px",
-  },
-  statValue: { fontSize: "18px", fontWeight: 700, fontVariantNumeric: "tabular-nums" },
-  statLabel: { fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" },
-  mainGrid: {
-    display:   "flex",
-    gap:       "12px",
-    flex:      1,
-    minHeight: 0,
-  },
-  col: {
-    display:       "flex",
-    flexDirection: "column",
-    flex:          1,
-    gap:           "12px",
-    minWidth:      0,
-    minHeight:     0,
-  },
-  pieRow: {
-    display:   "flex",
-    gap:       "12px",
-    flex:      1,
-    minHeight: 0,
-  },
-  panel: {
-    display:       "flex",
-    flexDirection: "column",
-    flex:          1,
-    minHeight:     0,
-    background:    "var(--surface)",
-    border:        "1px solid var(--border)",
-    borderRadius:  "10px",
-    padding:       "12px 16px",
-    overflow:      "hidden",
-  },
-  panelTitle: {
-    fontSize:     "12px",
-    fontWeight:   600,
-    color:        "var(--text-muted)",
-    marginBottom: "8px",
-    flexShrink:   0,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  },
-  panelBody: {
-    flex:      1,
-    minHeight: 0,
-    display:   "flex",
-    flexDirection: "column",
+    gap:           "16px",
+    overflowY:     "auto",
+    padding:       "4px 0",
   },
   muted:    { color: "var(--text-muted)", fontSize: "13px" },
   errorBox: {
     background: "var(--error-bg)", border: "1px solid var(--danger)",
     borderRadius: "8px", color: "var(--error-text)", padding: "12px 16px", fontSize: "13px",
   },
-  table:       { width: "100%", borderCollapse: "collapse" },
-  th:          { textAlign: "left", fontSize: "11px", color: "var(--text-muted)", padding: "4px 8px", borderBottom: "1px solid var(--border)", fontWeight: 500 },
-  tr:          { borderBottom: "1px solid var(--border)" },
-  td:          { padding: "7px 8px", fontSize: "12px", color: "var(--text)" },
-  badge:       { padding: "2px 6px", borderRadius: "10px", fontSize: "10px", fontWeight: 600 },
-  badgeDone:   { background: "var(--success-bg)", color: "var(--success-text)", border: "1px solid var(--accent)" },
-  badgePending:{ background: "var(--warning-bg)", color: "var(--warning-text)", border: "1px solid var(--warning)" },
+  avgGrid: {
+    display:             "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap:                 "12px",
+    flexShrink:          0,
+  },
+  avgCard: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "10px",
+    padding:      "14px 16px",
+  },
+  avgValue: { fontSize: "20px", fontWeight: 700, fontVariantNumeric: "tabular-nums" },
+  avgLabel: { fontSize: "12px", color: "var(--text-muted)", marginTop: "4px", fontWeight: 500 },
+  avgSub:   { fontSize: "10px", color: "var(--text-muted)", marginTop: "2px", opacity: 0.7 },
+  chartPanel: {
+    display:       "flex",
+    flexDirection: "column",
+    flex:          1,
+    minHeight:     "340px",
+    background:    "var(--surface)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "10px",
+    padding:       "14px 16px",
+  },
+  chartTitle: {
+    fontSize:     "12px",
+    fontWeight:   600,
+    color:        "var(--text-muted)",
+    marginBottom: "8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "10px",
+    flexShrink:   0,
+  },
+  currentBadge: {
+    fontSize:     "11px",
+    fontWeight:   600,
+    color:        "var(--accent)",
+    background:   "rgba(22,163,74,0.1)",
+    border:       "1px solid rgba(22,163,74,0.3)",
+    borderRadius: "6px",
+    padding:      "2px 8px",
+    textTransform: "none",
+    letterSpacing: "0",
+  },
+  chartBody: {
+    flex:      1,
+    minHeight: 0,
+  },
 };
