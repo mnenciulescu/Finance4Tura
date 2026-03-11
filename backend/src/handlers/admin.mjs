@@ -20,8 +20,12 @@ const CORS = { "Content-Type": "application/json", "Access-Control-Allow-Origin"
 const ok   = (body, statusCode = 200) => ({ statusCode, headers: CORS, body: JSON.stringify(body) });
 const err  = (statusCode, message)    => ({ statusCode, headers: CORS, body: JSON.stringify({ message }) });
 
-// Parse cognito:groups claim from API Gateway authorizer context
+// Parse cognito:groups claim from API Gateway authorizer context.
+// Local dev (sam local start-api) has no authorizer → grant admin automatically.
 function isCallerAdmin(event) {
+  const sub = event.requestContext?.authorizer?.claims?.sub;
+  if (!sub || sub === "local-dev") return true; // local dev — no auth enforced
+
   const raw = event.requestContext?.authorizer?.claims?.["cognito:groups"];
   if (!raw) return false;
   try {
