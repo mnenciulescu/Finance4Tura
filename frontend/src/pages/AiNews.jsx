@@ -2,12 +2,18 @@ import { useState, useEffect } from "react";
 import client from "../api/client";
 
 const SOURCE_COLORS = {
-  "The Verge":       "#fa4c00",
-  "TechCrunch":      "#0aa84f",
-  "MIT Tech Review": "#a00000",
-  "VentureBeat":     "#2563eb",
-  "Wired":           "#222222",
-  "Google AI":       "#4285f4",
+  "TechCrunch":   "#0aa84f",
+  "VentureBeat":  "#2563eb",
+  "Google AI":    "#4285f4",
+  "Ars Technica": "#f60",
+  "MIT News":     "#8b0000",
+  "AI News":      "#7c3aed",
+  "KDnuggets":    "#e11d48",
+  "InfoQ AI":     "#0891b2",
+  "CNET AI":      "#cc0000",
+  "The Next Web": "#ff6600",
+  "Science Daily":"#059669",
+  "ZDNet AI":     "#1d4ed8",
 };
 
 export default function AiNews() {
@@ -15,6 +21,19 @@ export default function AiNews() {
   const [failed,   setFailed]   = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!loading) { setProgress(100); return; }
+    setProgress(0);
+    const iv = setInterval(() => {
+      setProgress(p => {
+        const step = p < 30 ? 7 : p < 55 ? 4 : p < 75 ? 2 : p < 88 ? 0.8 : 0;
+        return Math.min(p + step, 88);
+      });
+    }, 250);
+    return () => clearInterval(iv);
+  }, [loading]);
 
   const load = () => {
     setLoading(true);
@@ -33,12 +52,21 @@ export default function AiNews() {
         <div>
           <h1 style={s.title}>AI News</h1>
           <p style={s.subtitle}>
-            Aggregated from The Verge · TechCrunch · MIT Tech Review · VentureBeat · Wired · Google AI
+            TechCrunch · VentureBeat · Google AI · Ars Technica · MIT News · AI News · KDnuggets · InfoQ · CNET · The Next Web · Science Daily · ZDNet
           </p>
         </div>
         <button style={{ ...s.refreshBtn, opacity: loading ? 0.6 : 1 }} onClick={load} disabled={loading}>
           {loading ? "Loading…" : "↻ Refresh"}
         </button>
+      </div>
+
+      <div style={s.progressTrack}>
+        <div style={{
+          ...s.progressFill,
+          width:      `${progress}%`,
+          opacity:    loading ? 1 : 0,
+          transition: progress === 0 ? "none" : "width 0.25s ease, opacity 0.4s ease 0.1s",
+        }} />
       </div>
 
       {error && <div style={s.error}>{error}</div>}
@@ -217,6 +245,19 @@ const s = {
     textDecoration: "none",
     fontWeight:     500,
     fontSize:       "12px",
+  },
+  progressTrack: {
+    height:       "3px",
+    background:   "var(--border)",
+    borderRadius: "2px",
+    overflow:     "hidden",
+    flexShrink:   0,
+  },
+  progressFill: {
+    height:           "100%",
+    background:       "var(--accent)",
+    borderRadius:     "2px",
+    boxShadow:        "0 0 8px var(--accent)",
   },
   skel: {
     height:       "14px",
