@@ -8,7 +8,7 @@ import {
 } from "../api/splitPayments";
 
 function defaultForm() {
-  return { title: "", amount: "", currency: "RON", occurrenceCount: 2, occurrenceType: "amount" };
+  return { title: "", amount: "", currency: "RON", occurrenceCount: 2, occurrenceType: "amount", date: dayjs().format("YYYY-MM-DD") };
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export default function SplitPayment() {
     const count = Math.min(36, parseInt(form.occurrenceCount, 10));
     try {
       const entry = await createSplitPayment({
-        createdDate:     dayjs().format("YYYY-MM-DD"),
+        createdDate:     form.date || dayjs().format("YYYY-MM-DD"),
         title:           form.title.trim(),
         totalAmount:     parseFloat(form.amount),
         currency:        form.currency,
@@ -190,11 +190,10 @@ export default function SplitPayment() {
             </div>
 
             <div style={s.modalBody}>
-              {/* Date (read-only) */}
-              <div style={s.dateRow}>
-                <span style={s.dateLabel}>Created on</span>
-                <span style={s.dateValue}>{dayjs().format("YYYY-MM-DD")}</span>
-              </div>
+              {/* Date */}
+              <FormField label="Date">
+                <input style={s.input} type="date" {...field("date")} />
+              </FormField>
 
               {/* Title */}
               <FormField label="Title *" error={errors.title}>
