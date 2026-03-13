@@ -91,17 +91,32 @@ Define and provision all DynamoDB tables needed by the application.
 | `mappedIncomeDate` | String | Denormalized |
 | `status` | String | `Pending` \| `Completed` – Default `Pending` |
 
+#### `SplitPayments`
+| Attribute | Type | Notes |
+|-----------|------|-------|
+| `splitPaymentId` | String (PK) | UUID |
+| `userId` | String | Cognito sub — filters records per user |
+| `title` | String | Mandatory |
+| `totalAmount` | Number | Mandatory |
+| `currency` | String | `RON` \| `EUR` \| `USD`; default `RON` |
+| `occurrenceCount` | Number | 1–36 |
+| `occurrenceType` | String | `amount` \| `date` |
+| `createdDate` | String | ISO 8601 (`YYYY-MM-DD`) |
+| `occurrences` | List | Array of `{ index, value }` objects; `value` is the amount or date string entered by the user |
+
 ### Tasks
-- Both tables defined in `backend/template.yaml` and auto-provisioned on `sam deploy`.
+- All three tables defined in `backend/template.yaml` and auto-provisioned on `sam deploy`.
 - GSI on `Incomes`: `date-index` (partition key: `date`) for efficient date-range queries.
 - GSI on `Expenses`: `date-index` (partition key: `date`).
+- `SplitPayments` has no GSI; records are fetched via scan filtered by `userId`.
 
 ### Tests – Phase 1
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 1.1 | Run `docker/init-tables.sh` | Both tables appear in `aws dynamodb list-tables --endpoint-url http://localhost:8000` output |
+| 1.1 | Run `docker/init-tables.sh` | All three tables appear in `aws dynamodb list-tables --endpoint-url http://localhost:8000` output |
 | 1.2 | Insert a sample Income item manually | Item visible via `aws dynamodb scan --table-name Incomes --endpoint-url http://localhost:8000` |
 | 1.3 | Insert a sample Expense item manually | Item visible via `aws dynamodb scan --table-name Expenses --endpoint-url http://localhost:8000` |
+| 1.4 | Insert a sample SplitPayment item manually | Item visible via `aws dynamodb scan --table-name SplitPayments --endpoint-url http://localhost:8000` |
 
 ---
 
@@ -314,12 +329,23 @@ Deploy the full application to AWS and implement per-user data isolation.
 ## Phase 10 – Split Payments Module ✅
 
 ### Goal
-A desktop-only module for logging advance payments split across multiple occurrences and tracking when the total is fully covered.
+A desktop-only module for logging advance payments split across multiple occurrences and tracking when the total is fully covered. Data is stored in DynamoDB and synced via the backend API.
 
 ### Behavior
 - Accessible via **"Split Payments"** in the desktop top navigation bar (`/split-payments`). Not present in the mobile tab bar.
 - Page shows a data table of all split payment entries plus an **"Add New Split Payment"** button.
-- Data is persisted in `localStorage` (`split_payments_v1`) — no backend API required.
+- Data is persisted in the `SplitPayments` DynamoDB table, scoped per user via `userId`.
+- On load, calls `GET /split-payments` to fetch the user's entries.
+- Occurrence values are updated via `PUT /split-payments/{splitPaymentId}` (debounced 600ms) on every cell change.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/split-payments` | List all entries for the authenticated user |
+| `POST` | `/split-payments` | Create a new split payment entry |
+| `PUT` | `/split-payments/{splitPaymentId}` | Update an existing entry (e.g. update occurrence values) |
+| `DELETE` | `/split-payments/{splitPaymentId}` | Delete an entry |
 
 ### Create Form Fields
 | Field | Type | Notes |
@@ -335,17 +361,17 @@ A desktop-only module for logging advance payments split across multiple occurre
 - **Fixed**: Created Date, Title, Total Amount, Currency
 - **Dynamic**: one editable input cell per occurrence (number input for `amount` type; date input for `date` type); cells turn green when a value is entered
 - **Coverage badge**: shows `paid / total`; turns green with ✓ when all occurrences are filled
-- **Delete** (✕) removes the entry from the list and localStorage
+- **Delete** (✕) removes the entry from DynamoDB
 
 ### Tests – Phase 10
 | # | Test | Expected Result |
 |---|---|---|
-| 10.1 | Navigate to `/split-payments` | Page loads; empty-state message shown |
-| 10.2 | Add entry with 3 amount occurrences | Row appears with 3 number inputs; coverage shows `0/3` |
-| 10.3 | Enter a value in first cell | Cell turns green; coverage updates to `1/3` |
+| 10.1 | Navigate to `/split-payments` | Page loads; entries fetched from API; empty-state message shown if none |
+| 10.2 | Add entry with 3 amount occurrences | `POST /split-payments` called; row appears with 3 number inputs; coverage shows `0/3` |
+| 10.3 | Enter a value in first cell | Cell turns green; coverage updates to `1/3`; `PUT /split-payments/{id}` called after 600ms debounce |
 | 10.4 | Fill all cells | Coverage shows `3/3 ✓` |
-| 10.5 | Refresh page | Entries still present (localStorage) |
-| 10.6 | Delete entry | Row removed; localStorage updated |
+| 10.5 | Refresh page | Entries still present (fetched from DynamoDB) |
+| 10.6 | Delete entry | `DELETE /split-payments/{id}` called; row removed |
 | 10.7 | Open on mobile | "Split Payments" absent from bottom tab bar |
 
 ---
@@ -364,3 +390,4 @@ A desktop-only module for logging advance payments split across multiple occurre
 | API | AWS SAM Lambda | `sam local` mirrors production; deploys unchanged to AWS |
 | API response caching | `Cache-Control: no-store` on all responses | Prevents API Gateway's internal CloudFront from caching per-user data |
 | Vite polyfill | `define: { global: 'globalThis' }` | Required for `amazon-cognito-identity-js` to run in the browser |
+| Split Payments storage | DynamoDB (`SplitPayments` table) via API | Consistent with the rest of the app; data persists across devices and browsers |

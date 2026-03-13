@@ -46,5 +46,12 @@ create_table_if_missing "Expenses" \
    ]' \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# SplitPayments table
+create_table_if_missing "SplitPayments" \
+  "--table-name SplitPayments \
+   --attribute-definitions AttributeName=splitPaymentId,AttributeType=S \
+   --key-schema AttributeName=splitPaymentId,KeyType=HASH \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 echo "Done. Tables:"
 aws dynamodb list-tables --endpoint-url "$ENDPOINT"

@@ -67,10 +67,12 @@ When toggled to `paid` for the first time, `paidDate` is set to today's date.
 When toggled back to unpaid, `paidDate` is cleared.
 
 ### FR-7 Data Persistence
-All split payment entries **must** persist across page refreshes and browser sessions using `localStorage` (key: `split_payments_v1`). No backend API call is required for this module.
+All split payment entries **must** persist across page refreshes and browser sessions in the `SplitPayments` DynamoDB table, scoped per authenticated user (`userId`).
+
+On page load the frontend calls `GET /split-payments` to fetch all entries for the current user. Creating an entry calls `POST /split-payments`. Updating any occurrence value calls `PUT /split-payments/{splitPaymentId}` (debounced 600 ms). Deleting an entry calls `DELETE /split-payments/{splitPaymentId}`.
 
 ### FR-8 Delete Entry
-Clicking the delete button (✕) on a row **must** permanently remove that entry from the list and from localStorage.
+Clicking the delete button (✕) on a row **must** call `DELETE /split-payments/{splitPaymentId}` and, on success, permanently remove that entry from the list.
 
 ---
 
@@ -78,10 +80,11 @@ Clicking the delete button (✕) on a row **must** permanently remove that entry
 
 | # | Requirement |
 |---|---|
-| NFR-1 | The feature is frontend-only; no new backend Lambda, DynamoDB table, or API Gateway route is required. |
+| NFR-1 | Data is persisted in DynamoDB via the backend API (`SplitPaymentsFunction` Lambda + `SplitPayments` table). |
 | NFR-2 | The module must follow the existing design system (CSS variables, `var(--surface)`, `var(--border)`, `var(--text)`, etc.). |
 | NFR-3 | The table must be horizontally scrollable when the number of occurrence columns overflows the viewport. |
 | NFR-4 | The feature must not be present in the mobile tab bar or accessible through any mobile navigation element. |
+| NFR-5 | Occurrence cell updates must be debounced (600 ms) to avoid excessive API calls on rapid input. |
 
 ---
 
@@ -95,7 +98,7 @@ Clicking the delete button (✕) on a row **must** permanently remove that entry
 | 10.4 | Click first occurrence cell | Cell turns green; coverage badge updates to `1/3` |
 | 10.5 | Click all occurrence cells | All cells green; coverage badge shows `3/3 ✓` |
 | 10.6 | Click a green occurrence cell | Cell reverts to grey; coverage badge decrements |
-| 10.7 | Refresh the page | Entries are still present (localStorage persisted) |
-| 10.8 | Click ✕ on a row | Row removed immediately; localStorage updated |
+| 10.7 | Refresh the page | Entries are still present (fetched from DynamoDB via `GET /split-payments`) |
+| 10.8 | Click ✕ on a row | `DELETE /split-payments/{id}` called; row removed immediately |
 | 10.9 | Create entry with type = date; mark an occurrence as paid | Cell displays today's date; toggle back clears the date |
 | 10.10 | View app on mobile | "Split Payments" link is absent from bottom tab bar; feature not accessible via mobile navigation |

@@ -1,20 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import dayjs from "dayjs";
-
-const STORAGE_KEY = "split_payments_v1";
-
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? []; }
-  catch { return []; }
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function genId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import {
+  listSplitPayments,
+  createSplitPayment,
+  updateSplitPayment,
+  deleteSplitPayment,
+} from "../api/splitPayments";
 
 function defaultForm() {
   return { title: "", amount: "", currency: "RON", occurrenceCount: 2, occurrenceType: "amount" };
@@ -23,60 +14,80 @@ function defaultForm() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SplitPayment() {
-  const [entries, setEntries] = useState(loadData);
+  const [entries, setEntries]   = useState([]);
+  const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(defaultForm);
   const [errors, setErrors]     = useState({});
 
+  // Debounce timers per occurrence: key = `${entryId}-${occIdx}`
+  const debounceTimers = useRef({});
+
   const maxOcc = entries.reduce((m, e) => Math.max(m, e.occurrenceCount), 0);
+
+  useEffect(() => {
+    listSplitPayments()
+      .then(data => setEntries(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   function field(key) {
     return { value: form[key], onChange: e => setForm(f => ({ ...f, [key]: e.target.value })) };
   }
 
-  function handleSave() {
+  async function handleSave() {
     const errs = {};
-    if (!form.title.trim())          errs.title  = "Required";
-    if (!form.amount || +form.amount <= 0) errs.amount = "Must be > 0";
+    if (!form.title.trim())               errs.title           = "Required";
+    if (!form.amount || +form.amount <= 0) errs.amount          = "Must be > 0";
     if (!form.occurrenceCount || +form.occurrenceCount < 1) errs.occurrenceCount = "Min 1";
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     const count = Math.min(36, parseInt(form.occurrenceCount, 10));
-    const entry = {
-      id:              genId(),
-      createdDate:     dayjs().format("YYYY-MM-DD"),
-      title:           form.title.trim(),
-      totalAmount:     parseFloat(form.amount),
-      currency:        form.currency,
-      occurrenceCount: count,
-      occurrenceType:  form.occurrenceType,
-      occurrences:     Array.from({ length: count }, (_, i) => ({ index: i, value: "" })),
-    };
-    const updated = [...entries, entry];
-    setEntries(updated);
-    saveData(updated);
-    setShowForm(false);
-    setForm(defaultForm());
-    setErrors({});
+    try {
+      const entry = await createSplitPayment({
+        createdDate:     dayjs().format("YYYY-MM-DD"),
+        title:           form.title.trim(),
+        totalAmount:     parseFloat(form.amount),
+        currency:        form.currency,
+        occurrenceCount: count,
+        occurrenceType:  form.occurrenceType,
+        occurrences:     Array.from({ length: count }, (_, i) => ({ index: i, value: "" })),
+      });
+      setEntries(prev => [...prev, entry]);
+      setShowForm(false);
+      setForm(defaultForm());
+      setErrors({});
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function updateOcc(entryId, occIdx, value) {
+    // Update local state immediately for responsive UI
     const updated = entries.map(e => {
-      if (e.id !== entryId) return e;
-      return {
-        ...e,
-        occurrences: e.occurrences.map((o, i) => i !== occIdx ? o : { ...o, value }),
-      };
+      if (e.splitPaymentId !== entryId) return e;
+      return { ...e, occurrences: e.occurrences.map((o, i) => i !== occIdx ? o : { ...o, value }) };
     });
     setEntries(updated);
-    saveData(updated);
+
+    // Debounce the API call by 600ms
+    const key = `${entryId}-${occIdx}`;
+    clearTimeout(debounceTimers.current[key]);
+    debounceTimers.current[key] = setTimeout(() => {
+      const entry = updated.find(e => e.splitPaymentId === entryId);
+      if (entry) updateSplitPayment(entryId, { occurrences: entry.occurrences }).catch(console.error);
+    }, 600);
   }
 
-  function deleteEntry(id) {
-    const updated = entries.filter(e => e.id !== id);
-    setEntries(updated);
-    saveData(updated);
+  async function deleteEntry(id) {
+    try {
+      await deleteSplitPayment(id);
+      setEntries(prev => prev.filter(e => e.splitPaymentId !== id));
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function handleClose() {
@@ -98,7 +109,9 @@ export default function SplitPayment() {
       </div>
 
       {/* ── Table / empty state ─────────────────────────────────────────────── */}
-      {entries.length === 0 ? (
+      {loading ? (
+        <div style={s.emptyState}>Loading…</div>
+      ) : entries.length === 0 ? (
         <div style={s.emptyState}>No split payments yet. Click <strong>Add New Split Payment</strong> to get started.</div>
       ) : (
         <div style={s.tableWrap}>
@@ -123,7 +136,7 @@ export default function SplitPayment() {
                 const isFull    = paidCount === entry.occurrenceCount;
 
                 return (
-                  <tr key={entry.id} style={s.tr}>
+                  <tr key={entry.splitPaymentId} style={s.tr}>
                     <td style={s.td}>{entry.createdDate}</td>
                     <td style={{ ...s.td, fontWeight: 500 }}>{entry.title}</td>
                     <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -144,7 +157,7 @@ export default function SplitPayment() {
                             min={isAmount ? "0" : undefined}
                             step={isAmount ? "any" : undefined}
                             placeholder={isAmount ? "0.00" : undefined}
-                            onChange={e => updateOcc(entry.id, i, e.target.value)}
+                            onChange={e => updateOcc(entry.splitPaymentId, i, e.target.value)}
                             style={{ ...s.occInput, ...(isAmount ? {} : s.occInputDate), ...(hasPaid ? s.occInputPaid : {}) }}
                           />
                         </td>
@@ -157,7 +170,7 @@ export default function SplitPayment() {
                       </span>
                     </td>
                     <td style={{ ...s.td, textAlign: "center" }}>
-                      <button style={s.deleteBtn} title="Delete entry" onClick={() => deleteEntry(entry.id)}>✕</button>
+                      <button style={s.deleteBtn} title="Delete entry" onClick={() => deleteEntry(entry.splitPaymentId)}>✕</button>
                     </td>
                   </tr>
                 );

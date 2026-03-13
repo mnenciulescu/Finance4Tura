@@ -11,6 +11,7 @@ Globals:
         DYNAMODB_ENDPOINT: !Ref DynamoDbEndpoint
         INCOMES_TABLE: Incomes
         EXPENSES_TABLE: Expenses
+        SPLIT_PAYMENTS_TABLE: SplitPayments
 
 Parameters:
   DynamoDbEndpoint:
@@ -27,6 +28,11 @@ Parameters:
     Type: String
     Default: ""
     Description: Google OAuth 2.0 Client ID for GIS token verification.
+  AnthropicApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Anthropic API key for AI article summarisation (optional — falls back to sentence extraction if blank).
 
 Resources:
   # ──────────────────────────────────────────
@@ -73,6 +79,18 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+
+  SplitPaymentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SplitPayments
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: splitPaymentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: splitPaymentId
+          KeyType: HASH
 
   # ──────────────────────────────────────────
   # API Gateway
@@ -327,6 +345,43 @@ Resources:
             Method: DELETE
 
   # ──────────────────────────────────────────
+  # Split Payments
+  # ──────────────────────────────────────────
+  SplitPaymentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/splitPayments.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SplitPaymentsTable
+      Events:
+        SplitPaymentsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /split-payments
+            Method: GET
+        SplitPaymentsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /split-payments
+            Method: POST
+        SplitPaymentPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /split-payments/{splitPaymentId}
+            Method: PUT
+        SplitPaymentDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /split-payments/{splitPaymentId}
+            Method: DELETE
+
+  # ──────────────────────────────────────────
   # AI News (public RSS aggregator)
   # ──────────────────────────────────────────
   AiNewsFunction:
@@ -334,7 +389,10 @@ Resources:
     Properties:
       Handler: src/handlers/getAiNews.handler
       CodeUri: .
-      Timeout: 15
+      Timeout: 25
+      Environment:
+        Variables:
+          ANTHROPIC_API_KEY: !Ref AnthropicApiKey
       Events:
         AiNewsGet:
           Type: Api
