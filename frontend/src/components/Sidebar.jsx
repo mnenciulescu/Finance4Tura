@@ -127,7 +127,7 @@ function Logo() {
 const links = [
   { to: "/add-income",      label: "Add Income",      Icon: IconIncome    },
   { to: "/add-expense",     label: "Add Expense",     Icon: IconExpense   },
-  { to: "/split-payments",  label: "Split Payments",  Icon: IconSplit     },
+  { to: "/split-payments",  label: "Split Pay",       Icon: IconSplit     },
   { to: "/statistics",      label: "Statistics",      Icon: IconStats     },
   { to: "/ai-news",         label: "AI",              Icon: IconAI        },
   { to: "/settings",        label: "Settings",        Icon: IconSettings  },

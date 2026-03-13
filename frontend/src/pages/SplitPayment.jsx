@@ -102,7 +102,7 @@ export default function SplitPayment() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={s.pageHeader}>
         <div>
-          <h2 style={s.title}>Split Payments</h2>
+          <h2 style={s.title}>Split Pay</h2>
           <p style={s.subtitle}>Track advance payments split across multiple occurrences and monitor full coverage.</p>
         </div>
         <button style={s.addBtn} onClick={() => setShowForm(true)}>+ Add New Split Payment</button>

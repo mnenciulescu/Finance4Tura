@@ -25,7 +25,7 @@ async function listSplitPayments(userId) {
     FilterExpression: "userId = :uid",
     ExpressionAttributeValues: { ":uid": userId },
   }));
-  const items = (result.Items ?? []).sort((a, b) => a.createdDate.localeCompare(b.createdDate));
+  const items = (result.Items ?? []).sort((a, b) => b.createdDate.localeCompare(a.createdDate));
   return ok(items);
 }
 
