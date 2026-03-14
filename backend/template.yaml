@@ -12,6 +12,8 @@ Globals:
         INCOMES_TABLE: Incomes
         EXPENSES_TABLE: Expenses
         SPLIT_PAYMENTS_TABLE: SplitPayments
+        INV_OPERATIONS_TABLE: InvestmentOperations
+        INV_SNAPSHOTS_TABLE: PortfolioSnapshots
 
 Parameters:
   DynamoDbEndpoint:
@@ -71,6 +73,48 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: expenseId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  InvestmentOperationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: InvestmentOperations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: operationId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: operationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PortfolioSnapshotsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PortfolioSnapshots
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: snapshotId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: snapshotId
           KeyType: HASH
       GlobalSecondaryIndexes:
         - IndexName: date-index
@@ -342,6 +386,80 @@ Resources:
           Properties:
             RestApiId: !Ref Api
             Path: /admin/users/{username}
+            Method: DELETE
+
+  # ──────────────────────────────────────────
+  # Investments — Operations
+  # ──────────────────────────────────────────
+  InvestmentOperationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/investmentOperations.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InvestmentOperationsTable
+      Events:
+        InvOpsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/operations
+            Method: GET
+        InvOpsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/operations
+            Method: POST
+        InvOpPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/operations/{operationId}
+            Method: PUT
+        InvOpDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/operations/{operationId}
+            Method: DELETE
+
+  # ──────────────────────────────────────────
+  # Investments — Portfolio Snapshots
+  # ──────────────────────────────────────────
+  PortfolioSnapshotsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/portfolioSnapshots.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioSnapshotsTable
+      Events:
+        InvSnapsLatest:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/snapshots/latest
+            Method: GET
+        InvSnapsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/snapshots
+            Method: GET
+        InvSnapsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/snapshots
+            Method: POST
+        InvSnapDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /investments/snapshots/{snapshotId}
             Method: DELETE
 
   # ──────────────────────────────────────────

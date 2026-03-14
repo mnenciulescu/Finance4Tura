@@ -79,6 +79,17 @@ function IconSplit() {
   );
 }
 
+function IconInvestments() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="1,12 4,8.5 7,10 11,5 14,3"/>
+      <polyline points="11,3 14,3 14,6"/>
+      <line x1="1" y1="14" x2="14" y2="14"/>
+    </svg>
+  );
+}
+
 function IconAI() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
@@ -127,8 +138,9 @@ function Logo() {
 const links = [
   { to: "/add-income",      label: "Add Income",      Icon: IconIncome    },
   { to: "/add-expense",     label: "Add Expense",     Icon: IconExpense   },
-  { to: "/split-payments",  label: "Split Pay",       Icon: IconSplit     },
-  { to: "/statistics",      label: "Statistics",      Icon: IconStats     },
+  { to: "/split-payments",  label: "Split Pay",       Icon: IconSplit        },
+  { to: "/investments",     label: "Investments",     Icon: IconInvestments  },
+  { to: "/statistics",      label: "Statistics",      Icon: IconStats        },
   { to: "/ai-news",         label: "AI",              Icon: IconAI        },
   { to: "/settings",        label: "Settings",        Icon: IconSettings  },
   { to: "/backstage",       label: "Backstage",       Icon: IconBackstage },

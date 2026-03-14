@@ -46,6 +46,36 @@ create_table_if_missing "Expenses" \
    ]' \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# InvestmentOperations table
+create_table_if_missing "InvestmentOperations" \
+  "--table-name InvestmentOperations \
+   --attribute-definitions AttributeName=operationId,AttributeType=S AttributeName=date,AttributeType=S \
+   --key-schema AttributeName=operationId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"date-index\",
+       \"KeySchema\": [{\"AttributeName\": \"date\", \"KeyType\": \"HASH\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# PortfolioSnapshots table
+create_table_if_missing "PortfolioSnapshots" \
+  "--table-name PortfolioSnapshots \
+   --attribute-definitions AttributeName=snapshotId,AttributeType=S AttributeName=date,AttributeType=S \
+   --key-schema AttributeName=snapshotId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"date-index\",
+       \"KeySchema\": [{\"AttributeName\": \"date\", \"KeyType\": \"HASH\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 # SplitPayments table
 create_table_if_missing "SplitPayments" \
   "--table-name SplitPayments \

@@ -10,6 +10,7 @@ import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import Backstage from "./pages/Backstage";
 import SplitPayment from "./pages/SplitPayment";
+import Investments from "./pages/Investments";
 import Admin from "./pages/Admin";
 import AiNews from "./pages/AiNews";
 
@@ -28,6 +29,7 @@ function AppRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/backstage" element={<Backstage />} />
           <Route path="/split-payments" element={<SplitPayment />} />
+          <Route path="/investments" element={<Investments />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/ai-news" element={<AiNews />} />
           <Route path="*" element={<Navigate to="/" replace />} />
