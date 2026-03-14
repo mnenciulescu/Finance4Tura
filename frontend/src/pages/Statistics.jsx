@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import useIsMobile from "../hooks/useIsMobile";
 import {
   LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -85,6 +86,7 @@ export default function Statistics() {
     [expenses]
   );
   const specialTotal = specialExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
+  const isMobile = useIsMobile();
 
   const currentMonthLabel = currentMonth >= 0 ? MONTH_LABELS[currentMonth] : null;
 
@@ -205,29 +207,31 @@ export default function Statistics() {
 
         </div>
 
-        {/* Special expenses */}
-        <div style={s.specialPanel}>
-          <div style={s.specialTitle}>★ Special Expenses</div>
-          {specialExpenses.length === 0 ? (
-            <p style={s.muted}>No special expenses this year.</p>
-          ) : (
-            <>
-              <div style={s.specialList}>
-                {specialExpenses.map(e => (
-                  <div key={e.expenseId} style={s.specialRow}>
-                    <div style={s.specialDate}>{formatDay(e.date)}</div>
-                    <div style={s.specialSummary}>{e.summary}</div>
-                    <div style={s.specialAmount}>RON {fmt(e.amount)}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={s.specialFooter}>
-                <span style={s.specialTotalLabel}>Total</span>
-                <span style={s.specialTotalValue}>RON {fmt(specialTotal)}</span>
-              </div>
-            </>
-          )}
-        </div>
+        {/* Special expenses — desktop only */}
+        {!isMobile && (
+          <div style={s.specialPanel}>
+            <div style={s.specialTitle}>★ Special Expenses</div>
+            {specialExpenses.length === 0 ? (
+              <p style={s.muted}>No special expenses this year.</p>
+            ) : (
+              <>
+                <div style={s.specialList}>
+                  {specialExpenses.map(e => (
+                    <div key={e.expenseId} style={s.specialRow}>
+                      <div style={s.specialDate}>{formatDay(e.date)}</div>
+                      <div style={s.specialSummary}>{e.summary}</div>
+                      <div style={s.specialAmount}>RON {fmt(e.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={s.specialFooter}>
+                  <span style={s.specialTotalLabel}>Total</span>
+                  <span style={s.specialTotalValue}>RON {fmt(specialTotal)}</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
       </div>
     </div>
