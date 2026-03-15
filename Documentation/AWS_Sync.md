@@ -25,6 +25,7 @@ Refer to `AWS_Deploy.md` for the one-time setup steps.
 | Both | Run backend first, then frontend |
 | DynamoDB schema | Update `template.yaml`, then `sam deploy` |
 | Investment seed data | `node src/seed-investments.mjs` (from `backend/`) |
+| SP500 seed data | `node src/seed-sp500.mjs` (from `backend/`) |
 | Cognito settings | AWS Console or CLI (see section 7) |
 
 ---
@@ -106,18 +107,73 @@ cd backend && sam build --no-cached && sam deploy
 
 ## 4. Seeding Investment History
 
-The investment history (operations + portfolio snapshots) is seeded via `backend/src/seed-investments.mjs`. This is a one-off script — run it after deploying a fresh environment.
+The investment history (operations + portfolio snapshots) is seeded via `backend/src/seed-investments.mjs`. The S&P 500 monthly closing prices are seeded separately via `backend/src/seed-sp500.mjs`. These are one-off scripts — run them after deploying a fresh environment.
+
+### Seed investments (operations + snapshots)
 
 ```bash
-# Seed production (uses your configured AWS credentials, real userId)
+# Production (uses your configured AWS credentials, real userId)
 cd backend
 node src/seed-investments.mjs
 
-# Seed local DynamoDB (uses host AWS credentials, userId = "local-dev")
+# Local DynamoDB (uses host AWS credentials, userId = "local-dev")
 DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
+
+# Local-dev specific seed (uses "local-dev" userId explicitly)
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments-local.mjs
 ```
 
-> **Local DynamoDB note**: DynamoDB Local scopes tables by AWS access key + region. `init-tables.sh` and the seed script both use the host's real AWS credentials (no hardcoded `local`/`local`). If tables are missing locally, run `docker/init-tables.sh` first.
+### Seed S&P 500 monthly data
+
+```bash
+# Production
+cd backend
+node src/seed-sp500.mjs
+
+# Local DynamoDB
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-sp500.mjs
+```
+
+### Seed incomes and expenses (local dev)
+
+```bash
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-local.mjs
+# or via the convenience wrapper:
+node scripts/seed-local.mjs
+```
+
+> **Local DynamoDB note**: DynamoDB Local scopes tables by AWS access key + region. `init-tables.sh` and the seed scripts both use the host's real AWS credentials (no hardcoded `local`/`local`). If tables are missing locally, run `docker/init-tables.sh` first (it creates all tables including `SP500Monthly`).
+
+---
+
+## 5. Syncing AWS Data to Local
+
+`backend/src/sync-from-aws.mjs` downloads all data from the 6 live AWS DynamoDB tables and writes it into the local DynamoDB instance, remapping the real Cognito userId to `"local-dev"`. This lets you work locally with production data without modifying any real records.
+
+### Tables synced
+
+| Table | Notes |
+|---|---|
+| `Incomes` | userId remapped to `"local-dev"` |
+| `Expenses` | userId remapped to `"local-dev"` |
+| `SplitPayments` | userId remapped to `"local-dev"` |
+| `InvestmentOperations` | userId remapped to `"local-dev"` |
+| `PortfolioSnapshots` | userId remapped to `"local-dev"` |
+| `SP500Monthly` | No userId — copied as-is |
+
+### Running the sync
+
+```bash
+cd backend
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
+```
+
+Prerequisites:
+- Local DynamoDB must be running (`docker compose up -d` in `docker/`)
+- All local tables must exist (`docker/init-tables.sh` or `node create-tables.mjs`)
+- AWS CLI must be configured with credentials that have read access to the production tables
+
+> After sync, start the local SAM API and frontend dev server — the app will show real production data scoped to `"local-dev"`.
 
 ---
 
@@ -193,6 +249,7 @@ aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 /aws/lambda/finance4tura-backend-SplitPaymentsFunction-*
 /aws/lambda/finance4tura-backend-InvestmentOperationsFunction-*
 /aws/lambda/finance4tura-backend-PortfolioSnapshotsFunction-*
+/aws/lambda/finance4tura-backend-SP500Function-*
 /aws/lambda/finance4tura-backend-AiNewsFunction-*
 /aws/lambda/finance4tura-backend-AdminFunction-*
 /aws/lambda/finance4tura-backend-HealthFunction-*

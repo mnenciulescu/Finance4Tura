@@ -11,7 +11,7 @@ This guide documents the one-time setup used to deploy Finance4Tura to AWS.
 | Frontend hosting | S3 + CloudFront | `d34ylrmixnmvem.cloudfront.net` |
 | Authentication | Cognito User Pool | `eu-central-1_CD7AdBFwQ` |
 | API | API Gateway + Lambda (SAM) | `https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod` |
-| Database | DynamoDB | Tables: `Incomes`, `Expenses`, `SplitPayments`, `InvestmentOperations`, `PortfolioSnapshots` |
+| Database | DynamoDB | Tables: `Incomes`, `Expenses`, `SplitPayments`, `InvestmentOperations`, `PortfolioSnapshots`, `SP500Monthly` |
 | CloudFormation stack | SAM | `finance4tura-backend` |
 | AWS region | — | `eu-central-1` |
 
@@ -29,6 +29,17 @@ This guide documents the one-time setup used to deploy Finance4Tura to AWS.
 ## 1. DynamoDB Tables
 
 Tables are defined in `backend/template.yaml` and provisioned automatically by SAM on first `sam deploy`. No manual setup required.
+
+The following tables are created:
+
+| Table | PK | Notes |
+|---|---|---|
+| `Incomes` | `incomeId` | GSI: `date-index` on `date` |
+| `Expenses` | `expenseId` | GSI: `date-index` on `date` |
+| `SplitPayments` | `splitPaymentId` | No GSI |
+| `InvestmentOperations` | `operationId` | GSI: `date-index` on `date` |
+| `PortfolioSnapshots` | `snapshotId` | GSI: `date-index` on `date` |
+| `SP500Monthly` | `monthId` | No GSI; stores monthly S&P 500 closing prices |
 
 ---
 
@@ -338,3 +349,42 @@ Google users never set a password. The backend derives a stable deterministic pa
 | Cognito | 50,000 MAU free | Free for personal use |
 
 For a personal budgeting app with low traffic, **total monthly cost is effectively $0** within free tier limits.
+
+---
+
+## 9. Viewing Logs
+
+### Lambda function logs (real-time)
+
+```bash
+# Tail logs for a specific function
+sam logs -n IncomesFunction --stack-name finance4tura-backend --tail
+
+# Or using CloudWatch directly
+aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
+```
+
+### Lambda log groups
+
+```
+/aws/lambda/finance4tura-backend-GoogleAuthFunction-*
+/aws/lambda/finance4tura-backend-IncomesFunction-*
+/aws/lambda/finance4tura-backend-ExpensesFunction-*
+/aws/lambda/finance4tura-backend-SplitPaymentsFunction-*
+/aws/lambda/finance4tura-backend-InvestmentOperationsFunction-*
+/aws/lambda/finance4tura-backend-PortfolioSnapshotsFunction-*
+/aws/lambda/finance4tura-backend-SP500Function-*
+/aws/lambda/finance4tura-backend-AiNewsFunction-*
+/aws/lambda/finance4tura-backend-AdminFunction-*
+/aws/lambda/finance4tura-backend-HealthFunction-*
+/aws/lambda/finance4tura-backend-PreSignUpFunction-*
+```
+
+Get the exact log group names:
+
+```bash
+aws logs describe-log-groups \
+  --region eu-central-1 \
+  --query "logGroups[?contains(logGroupName, 'finance4tura')].logGroupName" \
+  --output table
+```

@@ -2,12 +2,13 @@
 
 ## Overview
 
-A new **desktop-only** page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything lives on a single page with three logical sections:
+A **desktop-only** page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything lives on a single scrollable page with four logical sections:
 
-1. **Current Holdings** — latest known value per platform, shown as summary cards.
-2. **Portfolio Chart** — a line chart showing the evolution of each platform's value over time.
-3. **Operations Log** — a table of all deposits and withdrawals, with the ability to add new entries.
-4. **Snapshot Log** — a table of all portfolio value readings, with the ability to add new readings per platform.
+1. **Current Holdings** — latest known value per platform, shown as summary cards. Shares row with the S&P Simulation chart.
+2. **S&P Simulation Chart** — shows what the portfolio would look like had all historical deposits been invested in the S&P 500, alongside the real portfolio total.
+3. **P&L Evolution (%)** — combined chart showing portfolio period-return % and S&P 500 monthly % change, plus an average comparison bar chart.
+4. **Operations Log** — a table of all deposits and withdrawals, with the ability to add, edit, and delete entries.
+5. **Portfolio Snapshots** — a table of all portfolio value readings, with the ability to add, edit, and delete snapshot records.
 
 The page is **not accessible on mobile** — it does not appear in the mobile tab bar and the route is not linked from any mobile navigation element.
 
@@ -138,6 +139,19 @@ Tracks the total value held on a platform at a point in time. Each record is a *
 
 ---
 
+### Table 3: `SP500Monthly`
+
+Stores monthly S&P 500 closing prices used for benchmark simulation.
+
+| Attribute | Type | Notes |
+|---|---|---|
+| `monthId` | String (PK) | `YYYY-MM` format (e.g. `2023-01`) |
+| `close` | Number | S&P 500 closing price for that month |
+
+No GSI — all rows are fetched in full for simulation calculations.
+
+---
+
 ## API Endpoints
 
 ### Operations
@@ -156,7 +170,14 @@ Tracks the total value held on a platform at a point in time. Each record is a *
 | `GET` | `/investments/snapshots` | List all; supports `?from=&to=&platform=` |
 | `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform (powers Current Holdings cards) |
 | `POST` | `/investments/snapshots` | Record a new platform value reading |
+| `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
 | `DELETE` | `/investments/snapshots/{snapshotId}` | Delete a snapshot |
+
+### S&P 500 Data
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/sp500` | Returns all rows from the `SP500Monthly` table |
 
 ---
 
@@ -165,24 +186,25 @@ Tracks the total value held on a platform at a point in time. Each record is a *
 The `/investments` page is a single scrollable page with four vertical sections:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  CURRENT HOLDINGS                                   │
-│  [ eToro ] [ Binance ] [ Fidelity ] [ Tradeville ]  │
-│  [ ING Funds RON ] [ ING Funds EUR ]                │
-│  Latest value per platform + date of last reading   │
-├─────────────────────────────────────────────────────┤
-│  PORTFOLIO EVOLUTION  (line chart)                  │
-│  One line per platform · X axis = date              │
-│  Toggleable platform visibility                     │
-├─────────────────────────────────────────────────────┤
-│  OPERATIONS LOG                   [+ Add Operation] │
-│  Table: Date · Platform · Type · Amount · Currency  │
-│         Notes · Edit · Delete                       │
-├─────────────────────────────────────────────────────┤
-│  PORTFOLIO SNAPSHOTS              [+ Add Snapshot]  │
-│  Table: Date · Platform · Amount · Currency         │
-│         Delete                                      │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  CURRENT HOLDINGS (30%)  │  S&P SIMULATION CHART (70%)              │
+│  [ eToro ]  [ Binance ]  │  Amber line: S&P simulation              │
+│  [ Fidelity ] [Tradeville]│  Grey line: Portfolio total             │
+│  [ ING RON ] [ ING EUR ] │  Platform lines (togglable)             │
+│  Latest value + date     │  Dots at operation months; tooltip       │
+├──────────────────────────────────────────────────────────────────────┤
+│  P&L EVOLUTION (%)                                           (full)  │
+│  Left: indigo portfolio period-return line + green S&P monthly %    │
+│  Right (30%): bar chart — avg portfolio P&L % vs avg S&P %         │
+│  Reference lines at averages                                        │
+├──────────────────────────────────────────────────────────────────────┤
+│  PORTFOLIO SNAPSHOTS                       [+ Add Snapshot]  (full)  │
+│  Table: Date · Platform · Amount · Currency · Edit · Delete         │
+├──────────────────────────────────────────────────────────────────────┤
+│  OPERATIONS LOG                         [+ Add Operation]   (full)  │
+│  Table: Date · Platform · Type · Amount · Currency · Notes          │
+│         Edit · Delete                                               │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -196,15 +218,35 @@ A **"Investments"** link appears in the **desktop Topbar only**. It must not app
 - Displays one card per platform showing: platform name, latest recorded amount, currency, and the date of the last snapshot.
 - If no snapshot exists for a platform yet, the card shows "No data".
 - Powered by `GET /investments/snapshots/latest`.
+- Occupies the left 30% of the top row; the S&P Simulation chart fills the remaining 70%.
 
-### FR-3 Portfolio Evolution Chart
-- A `recharts` LineChart with one line per platform.
-- X axis: date (chronological). Y axis: amount in native currency.
-- Each line connects the snapshot readings for that platform over time (gaps between readings are bridged by carrying the last known value forward, so lines are continuous).
-- Platform lines are togglable via a legend (click to show/hide).
-- Powered by all records from `GET /investments/snapshots`.
+### FR-3 S&P Simulation Chart
+- A `recharts` ComposedChart displayed in the top row (right 70%).
+- **Amber line** — "S&P simulation": shows what the portfolio value would be if all historical deposits had been invested in the S&P 500.
+  - Starting value = closest portfolio total (carry-forward, in EUR) to January 2023.
+  - For each subsequent month: `runningValue = runningValue × (sp500Close[thisMonth] / sp500Close[prevMonth])`.
+  - At each operation month (except the first): `runningValue += netCashFlowInEUR` (sum of deposits minus withdrawals converted to EUR via live FX rates from `frankfurter.app`).
+- **Grey line** — "Portfolio total": carry-forward real portfolio total in EUR derived from actual snapshot records.
+- **Individual platform lines** (togglable via legend): one line per platform showing carry-forward values in EUR.
+- **Dots** rendered at operation months marking the S&P simulation data points.
+- **Tooltip** at operation-month dots shows a numbered breakdown:
+  1. Value at last operation point
+  2. S&P growth since then
+  3. Value after S&P growth
+  4. Each deposit/withdrawal with net cash
+  5. = Simulated value
+- Powered by `GET /investments/snapshots`, `GET /investments/operations`, and `GET /sp500`.
 
-### FR-4 Operations Log Section
+### FR-4 P&L Evolution Chart
+- A full-width `recharts` ComposedChart section below the top row.
+- **Left panel (70%)**: combined line chart with `connectNulls`:
+  - **Indigo line** — portfolio period-return %: `(currentPortfolio - prevPortfolio - netCash) / prevPortfolio × 100` per snapshot period.
+  - **Green line** — S&P 500 monthly % change: `(close[month] - close[prevMonth]) / close[prevMonth] × 100`.
+- **Right panel (30%)**: bar chart showing average portfolio P&L % vs average S&P 500 % over the same period.
+- Reference lines at the average values for each series.
+- All amounts converted to EUR for portfolio calculations.
+
+### FR-5 Operations Log Section
 - Table of all deposit/withdrawal records, newest first.
 - Columns: Date, Platform, Type, Amount, Currency, Notes, Edit (pencil), Delete (✕).
 - **+ Add Operation** button opens a modal form:
@@ -217,23 +259,27 @@ A **"Investments"** link appears in the **desktop Topbar only**. It must not app
 - Clicking **Edit** on a row opens the same modal pre-filled with that row's data; saves via `PUT`.
 - Clicking **Delete** removes the row after confirmation.
 
-### FR-5 Portfolio Snapshots Section
+### FR-6 Portfolio Snapshots Section
 - Table of all snapshot records, newest first.
-- Columns: Date, Platform, Amount, Currency, Delete (✕).
+- Columns: Date, Platform, Amount, Currency, Edit (pencil), Delete (✕).
 - **+ Add Snapshot** button opens a modal form:
   - Date (date picker, pre-filled today, editable)
   - Platform (dropdown, 6 options)
   - Amount (number ≥ 0)
   - Currency (dropdown, pre-filled from platform default, editable)
-- Clicking **Delete** removes the row; Current Holdings cards and the chart update accordingly.
+- Clicking **Edit** on a row opens the same modal pre-filled with that row's data; saves via `PUT /investments/snapshots/{snapshotId}`.
+- Clicking **Delete** removes the row; Current Holdings cards and charts update accordingly.
 
-### FR-6 Platform List
+### FR-7 Platform List
 Fixed application constant — no CRUD in the UI. Same 6 platforms used in all sections.
 
-### FR-7 Currency Defaults
-Selecting a platform in any form pre-fills currency with that platform's default. The currency field remains editable for edge cases.
+### FR-8 Currency / FX Conversion
+- All portfolio amounts are converted to EUR for chart calculations (S&P Simulation, P&L Evolution, portfolio total line).
+- Live exchange rates fetched from `https://api.frankfurter.app/latest?base=EUR`.
+- USD → EUR and RON → EUR conversions applied at fetch time using the live rate.
+- Platform default currencies: eToro = USD, Binance = USD, Fidelity = USD, Tradeville = USD, ING Funds RON = RON, ING Funds EUR = EUR.
 
-### FR-8 Desktop Only
+### FR-9 Desktop Only
 The feature is desktop-only. It must not appear in mobile navigation and must not be accessible from any mobile navigation element.
 
 ---
@@ -242,13 +288,51 @@ The feature is desktop-only. It must not appear in mobile navigation and must no
 
 | # | Requirement |
 |---|---|
-| NFR-1 | Two new DynamoDB tables: `InvestmentOperations`, `PortfolioSnapshots`, defined in `backend/template.yaml`. |
-| NFR-2 | Two new Lambda handlers and routes registered in SAM template. |
-| NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership. |
-| NFR-4 | Historical data from `Portfolio.xlsx` to be seeded via a one-off migration script. |
+| NFR-1 | Three DynamoDB tables: `InvestmentOperations`, `PortfolioSnapshots`, `SP500Monthly`, defined in `backend/template.yaml`. |
+| NFR-2 | Lambda handlers and routes for investments, snapshots, and SP500 registered in SAM template. |
+| NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership (SP500Monthly is shared/unscoped). |
+| NFR-4 | Historical data seeded via dedicated one-off scripts (see Seed Scripts section). |
 | NFR-5 | Follows the existing design system (CSS variables, modal and table patterns from other pages). |
 | NFR-6 | Desktop only — not present in mobile tab bar or any mobile navigation. |
-| NFR-7 | Chart uses `recharts` (already a project dependency). |
+| NFR-7 | Charts use `recharts` (already a project dependency). |
+
+---
+
+## Seed / Local Dev Scripts
+
+All scripts live in `backend/src/` unless noted.
+
+| Script | Purpose |
+|---|---|
+| `backend/src/seed-investments.mjs` | Seeds 32 historical operations and ~68 portfolio snapshots. Production: uses real AWS credentials. Local: prefix with `DYNAMODB_ENDPOINT=http://localhost:8000`. |
+| `backend/src/seed-investments-local.mjs` | Seeds investment operations and snapshots specifically for `local-dev` userId. |
+| `backend/src/seed-sp500.mjs` | Seeds the `SP500Monthly` table from historical S&P 500 monthly close data. Run once per environment. |
+| `backend/src/seed-local.mjs` | Seeds incomes and expenses for the `local-dev` userId. |
+| `backend/src/sync-from-aws.mjs` | Syncs all 6 AWS DynamoDB tables to local DynamoDB, remapping the real Cognito userId to `"local-dev"`. |
+| `backend/create-tables.mjs` | Creates all local DynamoDB tables programmatically (alternative to `docker/init-tables.sh`). |
+| `scripts/seed-local.mjs` | Convenience wrapper that calls `backend/src/seed-local.mjs`. |
+
+`docker/init-tables.sh` also creates the `SP500Monthly` table as part of local bootstrap.
+
+### Running seed scripts
+
+```bash
+# Seed investments (production)
+cd backend
+node src/seed-investments.mjs
+
+# Seed investments (local DynamoDB)
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
+
+# Seed S&P 500 data (local)
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-sp500.mjs
+
+# Seed incomes/expenses (local)
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-local.mjs
+
+# Sync AWS data to local (remaps userId → "local-dev")
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
+```
 
 ---
 
@@ -256,15 +340,20 @@ The feature is desktop-only. It must not appear in mobile navigation and must no
 
 | # | Test | Expected Result |
 |---|---|---|
-| I-1 | Navigate to `/investments` on desktop | Single page loads with all four sections visible |
+| I-1 | Navigate to `/investments` on desktop | Single page loads with all four sections visible (Holdings + S&P chart top row, P&L Evolution, Snapshots, Operations) |
 | I-2 | View on mobile | "Investments" absent from bottom tab bar; route not accessible from mobile navigation |
 | I-3 | Current Holdings cards on first load (after seed) | Each active platform shows its latest amount and snapshot date |
-| I-4 | Portfolio Evolution chart on first load | Lines visible for eToro, Binance, Tradeville, ING Funds RON, ING Funds EUR; Fidelity line starts from 2025-05-27 |
+| I-4 | S&P Simulation chart on first load | Amber S&P simulation line and grey portfolio total line rendered; individual platform lines visible and togglable |
 | I-5 | Toggle a platform line in the chart legend | Line disappears / reappears |
-| I-6 | Click **+ Add Operation**, fill form, save | `POST /investments/operations` called; new row appears at top of Operations table |
-| I-7 | Edit an existing operation | `PUT /investments/operations/{id}` called; row updates |
-| I-8 | Delete an operation | `DELETE` called; row removed |
-| I-9 | Click **+ Add Snapshot** for eToro | `POST /investments/snapshots` called; eToro Holdings card updates to new value; chart gains new data point |
-| I-10 | Delete a snapshot | Record removed; Holdings card reverts to previous snapshot value |
-| I-11 | Refresh page | All data persists (fetched from DynamoDB) |
-| I-12 | Seed script runs against local DynamoDB | All 32 operations and 68 snapshot records imported without errors |
+| I-6 | S&P Simulation tooltip at an operation dot | Shows numbered breakdown: ① value at last op-point → ② S&P growth → ③ after growth → ④ each deposit/withdrawal → net cash → = simulated value |
+| I-7 | P&L Evolution chart on first load | Indigo portfolio % line and green S&P 500 % line both rendered; right bar chart shows average comparison |
+| I-8 | Click **+ Add Operation**, fill form, save | `POST /investments/operations` called; new row appears at top of Operations table |
+| I-9 | Edit an existing operation | `PUT /investments/operations/{id}` called; row updates |
+| I-10 | Delete an operation | `DELETE` called; row removed |
+| I-11 | Click **+ Add Snapshot** for eToro | `POST /investments/snapshots` called; eToro Holdings card updates to new value; charts update |
+| I-12 | Edit an existing snapshot | `PUT /investments/snapshots/{id}` called; row updates in table and charts refresh |
+| I-13 | Delete a snapshot | Record removed; Holdings card reverts to previous snapshot value |
+| I-14 | Refresh page | All data persists (fetched from DynamoDB) |
+| I-15 | Seed script runs against local DynamoDB | All 32 operations and snapshot records imported without errors |
+| I-16 | `seed-sp500.mjs` runs against local DynamoDB | SP500Monthly table populated; S&P Simulation chart renders correctly |
+| I-17 | `sync-from-aws.mjs` runs | All 6 tables synced locally; userId remapped to `"local-dev"`; local app shows production data |

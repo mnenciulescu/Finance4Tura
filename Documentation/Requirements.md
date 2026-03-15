@@ -384,7 +384,7 @@ A desktop-only module for logging advance payments split across multiple occurre
 ## Phase 11 – Investments Module ✅
 
 ### Goal
-A desktop-only page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything on a single scrollable page.
+A desktop-only page (`/investments`) to track the user's investment portfolio across multiple platforms, with S&P 500 benchmark simulation and P&L comparison charts.
 
 ### Platforms
 Fixed list — no CRUD in the UI:
@@ -426,6 +426,14 @@ GSI: `date-index` on `date`.
 
 GSI: `date-index` on `date`. One record per platform per reading (not one wide row for all platforms).
 
+#### `SP500Monthly`
+| Attribute | Type | Notes |
+|---|---|---|
+| `monthId` | String (PK) | `YYYY-MM` (e.g. `2023-01`) |
+| `close` | Number | S&P 500 monthly closing price |
+
+No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (no `userId`).
+
 ### Endpoints
 
 | Method | Path | Description |
@@ -437,33 +445,61 @@ GSI: `date-index` on `date`. One record per platform per reading (not one wide r
 | `GET` | `/investments/snapshots` | List all snapshots |
 | `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform |
 | `POST` | `/investments/snapshots` | Record a new snapshot |
+| `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
 | `DELETE` | `/investments/snapshots/{snapshotId}` | Delete snapshot |
+| `GET` | `/sp500` | Returns all rows from SP500Monthly table |
 
 ### Page Sections
-1. **Current Holdings** — one card per platform (latest amount + date); powered by `GET /investments/snapshots/latest`.
-2. **Portfolio Evolution** — `recharts` LineChart, one line per platform, carry-forward between readings; togglable platform visibility.
-3. **Operations Log** — table (newest first) with add/edit/delete; modal form with date, type, platform, amount, currency, notes.
-4. **Snapshot Log** — table (newest first) with add/delete; modal form with date, platform, amount, currency.
+1. **Current Holdings** (top row, left 30%) — one card per platform (latest amount + date); powered by `GET /investments/snapshots/latest`.
+2. **S&P Simulation** (top row, right 70%) — amber S&P simulation line vs grey portfolio total carry-forward; individual platform lines togglable; dots at operation months with detailed tooltip.
+3. **P&L Evolution (%)** — full-width section; indigo portfolio period-return line + green S&P 500 monthly % line; right panel bar chart showing average portfolio P&L % vs average S&P 500 %.
+4. **Portfolio Snapshots** — full-width table (newest first) with add/edit/delete; modal form with date, platform, amount, currency.
+5. **Operations Log** — full-width table (newest first) with add/edit/delete; modal form with date, type, platform, amount, currency, notes.
 
-### Seed Script
-`backend/src/seed-investments.mjs` — seeds 32 historical operations and 68 portfolio snapshots.
+### S&P Simulation Logic
+- Starting value = closest portfolio total in EUR (carry-forward from snapshots) to January 2023.
+- For each subsequent month: `runningValue = runningValue × (sp500Close[thisMonth] / sp500Close[prevMonth])`.
+- At each operation month (except the first): `runningValue += netCashFlowInEUR` (deposits minus withdrawals, converted to EUR via `frankfurter.app` live rates).
+- Grey portfolio total line shows carry-forward of real snapshot totals in EUR.
+- Tooltip at operation-month dots: ① Value at last op-point → ② S&P growth since then → ③ After S&P growth → ④ Each deposit/withdrawal → Net cash → = Simulated value.
 
-- **Production**: `node src/seed-investments.mjs` (uses real AWS credentials and userId `e3c47852-9051-7092-9877-6b4e5186bc40`)
-- **Local**: `DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs` (uses host AWS credentials, userId `"local-dev"`)
+### P&L Evolution Logic
+- Portfolio P&L% per period: `(currentPortfolio - prevPortfolio - netCash) / prevPortfolio × 100`.
+- S&P 500 monthly %: `(close[month] - close[prevMonth]) / close[prevMonth] × 100`.
+- Both rendered on same chart with `connectNulls`.
+- Right panel: bar chart of average portfolio P&L % vs average S&P 500 % with reference lines.
+
+### Seed Scripts
+| Script | Purpose |
+|---|---|
+| `backend/src/seed-investments.mjs` | Seeds 32 historical operations and ~68 snapshots (production or local) |
+| `backend/src/seed-investments-local.mjs` | Seeds operations and snapshots for `local-dev` userId |
+| `backend/src/seed-sp500.mjs` | Seeds `SP500Monthly` table from historical S&P 500 data |
+| `backend/src/seed-local.mjs` | Seeds incomes/expenses for `local-dev` userId |
+| `backend/src/sync-from-aws.mjs` | Syncs all 6 AWS DynamoDB tables to local, remapping real userId → `"local-dev"` |
+| `backend/create-tables.mjs` | Creates all local DynamoDB tables programmatically |
+| `scripts/seed-local.mjs` | Convenience wrapper for `seed-local.mjs` |
+
+`docker/init-tables.sh` also creates the `SP500Monthly` table as part of local bootstrap.
 
 ### Tests – Phase 11
 | # | Test | Expected Result |
 |---|---|---|
-| 11.1 | Navigate to `/investments` on desktop | All four sections visible |
+| 11.1 | Navigate to `/investments` on desktop | All sections visible: Holdings + S&P chart (top row), P&L Evolution, Snapshots, Operations |
 | 11.2 | View on mobile | "Investments" absent from mobile tab bar |
 | 11.3 | Current Holdings after seed | Each platform shows its latest amount and snapshot date |
-| 11.4 | Portfolio chart after seed | Lines visible for all platforms with data |
-| 11.5 | Toggle a platform chip | Line hides/shows |
-| 11.6 | Add operation | Row appears at top of Operations table |
-| 11.7 | Edit operation | Row updates |
-| 11.8 | Add snapshot | Holdings card updates; chart gains data point |
-| 11.9 | Delete snapshot | Holdings card reverts to previous value |
-| 11.10 | Refresh | All data persists |
+| 11.4 | S&P Simulation chart after seed | Amber S&P simulation line and grey portfolio total line rendered |
+| 11.5 | Toggle a platform chip | Line hides/shows in S&P Simulation chart |
+| 11.6 | Hover operation dot on S&P chart | Tooltip shows numbered breakdown of simulation step |
+| 11.7 | P&L Evolution chart after seed | Indigo portfolio % line and green S&P % line rendered; bar chart shows averages |
+| 11.8 | Add operation | Row appears at top of Operations table; charts update |
+| 11.9 | Edit operation | Row updates |
+| 11.10 | Add snapshot | Holdings card updates; charts gain data point |
+| 11.11 | Edit snapshot | `PUT /investments/snapshots/{id}` called; row and charts update |
+| 11.12 | Delete snapshot | Holdings card reverts to previous value |
+| 11.13 | Refresh | All data persists |
+| 11.14 | `seed-sp500.mjs` runs | SP500Monthly populated; S&P Simulation renders correctly |
+| 11.15 | `sync-from-aws.mjs` runs | All 6 tables synced locally with userId remapped to `"local-dev"` |
 
 ---
 
@@ -507,3 +543,6 @@ A page (`/ai-news`) that fetches and displays AI-curated financial news from mul
 | Investments chart carry-forward | Fill gaps by using the last known value for each platform | Produces continuous lines even when platforms are not updated simultaneously |
 | Local DynamoDB credentials | No explicit credentials in `dynamo.mjs`; uses host AWS credentials via Docker | Matches the credential namespace used by `init-tables.sh` and the AWS CLI; seed script uses the same pattern |
 | Statistics — Special Expenses | Hidden on mobile | The special expenses panel is complex and not touch-friendly; removed from mobile Stats view |
+| S&P 500 benchmark simulation | Starting from closest snapshot total to Jan 2023; monthly compounding + net cash flow added at operation months | Provides a realistic "what if" comparison against a passive index strategy using actual deposit timing |
+| FX conversion | Live rates from `frankfurter.app` at fetch time | Avoids storing historical rates; EUR is the common denominator for multi-currency portfolio comparisons |
+| SP500Monthly table | Separate DynamoDB table with `monthId` PK, unscoped by userId | S&P 500 data is shared reference data; scoping by user would be wasteful and unnecessary |
