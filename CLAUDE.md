@@ -65,7 +65,8 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook switches between desktop (Sidebar) and mobile (MobileLayout)
-- Split Payments module (`/split-payments`) is desktop-only; data stored in `localStorage` (`split_payments_v1`)
+- Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
+- Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 
@@ -90,6 +91,21 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - `mappedIncomeId`, `mappedIncomeSummary`, `mappedIncomeDate` — denormalized from Incomes
 - GSI: `date-index` on `date`
 
+**InvestmentOperations** table (PK: `operationId`):
+- `userId`, `date`, `type` (`Deposit`|`Withdrawal`), `platform`, `amount`, `currency`
+- Platforms: `eToro`, `Binance`, `Fidelity`, `Tradeville`, `ING Funds RON`, `ING Funds EUR`
+
+**PortfolioSnapshots** table (PK: `snapshotId`):
+- `userId`, `date`, `platform`, `amount`, `currency`
+- One record per platform per snapshot date; used for portfolio valuation over time
+
+**SP500Monthly** table (PK: `monthId`):
+- `monthId` (format: `YYYY-MM`), `close` (S&P 500 closing price for that month)
+- No `userId` — shared reference data, seeded from CSV
+
+**SplitPayments** table (PK: `splitPaymentId`):
+- `userId`, `date`, `description`, `totalAmount`, `currency`, `participants` (array with name + share)
+
 ### Key Business Logic
 
 **Repeating events**: Expanded into individual DynamoDB records at creation time. All occurrences share a `seriesId`.
@@ -99,6 +115,8 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 **Edit series behavior**: Editing a single occurrence sets `isException=true` on that record only. The `/series` endpoint handles bulk future updates.
 
 **Google Sign-In flow**: Google ID token → `verifyGoogleToken` (tokeninfo API) → `AdminGetUser` / `AdminCreateUser` + `AdminSetUserPassword` → `AdminInitiateAuth` → Cognito JWT returned.
+
+**S&P Simulation logic** (Investments page): Starting from the closest portfolio snapshot to Jan 2023, simulate what the portfolio would be worth if invested in S&P 500. For each month: `runningValue *= sp500Close[thisMonth] / sp500Close[prevMonth]`. At each operation month (from 2nd onward): `runningValue += netCashFlowInEUR` (deposits/withdrawals converted to EUR). Actual portfolio (carry-forward of latest snapshot per platform) is shown alongside for comparison.
 
 ## API Endpoints
 
@@ -120,6 +138,38 @@ PUT    /expenses/{expenseId}
 PUT    /expenses/{expenseId}/series
 DELETE /expenses/{expenseId}                # supports ?deleteSeries=true
 GET    /expenses/resolve-income?date=       # preview income mapping for a date
+
+GET    /investments/operations              # list all operations for userId
+POST   /investments/operations              # create operation
+PUT    /investments/operations/{operationId}
+DELETE /investments/operations/{operationId}
+
+GET    /investments/snapshots/latest        # most recent snapshot per platform
+GET    /investments/snapshots               # all snapshots for userId
+POST   /investments/snapshots              # create snapshot
+PUT    /investments/snapshots/{snapshotId}
+DELETE /investments/snapshots/{snapshotId}
+
+GET    /sp500                               # all SP500Monthly records (no auth required)
+
+GET    /split-payments
+POST   /split-payments
+PUT    /split-payments/{splitPaymentId}
+DELETE /split-payments/{splitPaymentId}
+```
+
+## Local Dev Seed Scripts
+
+```bash
+# Sync all tables from AWS → local DynamoDB (remaps real userId → local-dev)
+cd backend
+node src/sync-from-aws.mjs
+
+# Seed investment operations + snapshots for local-dev (historical data)
+node src/seed-investments-local.mjs
+
+# General local seed (incomes/expenses)
+node src/seed-local.mjs
 ```
 
 ## AWS Infrastructure
@@ -144,3 +194,6 @@ GET    /expenses/resolve-income?date=       # preview income mapping for a date
 | API | AWS SAM Lambda (`sam local` mirrors production) |
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
+| S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
+| Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
+| `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |

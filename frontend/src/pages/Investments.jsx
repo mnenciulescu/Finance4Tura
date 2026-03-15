@@ -452,11 +452,34 @@ export default function Investments() {
   // Testing chart: cumulative simulation — S&P 500 monthly growth + deposits/withdrawals.
   // First op-month point = startPortfolio. Each subsequent month: grow by S&P %, then
   // at operation months add/subtract cash flows (converted to EUR).
-  const { data: testingChartData, years: testingChartYears } = useMemo(() => {
+  const { data: testingChartData, years: testingChartYears, xMax: testingChartXMax } = useMemo(() => {
     if (!sp500.length) return { data: [], years: [] };
 
     const allSorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
-    const visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
+    const sp500Visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
+
+    // Extend chart to the last snapshot or operation date, whichever is later
+    const lastSnapMonth  = snapshotsInEUR.length
+      ? snapshotsInEUR.reduce((max, s) => s.date.slice(0, 7) > max ? s.date.slice(0, 7) : max, "")
+      : "";
+    const lastOpMonth = operations.length
+      ? operations.reduce((max, op) => op.date.slice(0, 7) > max ? op.date.slice(0, 7) : max, "")
+      : "";
+    const targetEndMonth = [lastSnapMonth, lastOpMonth, sp500Visible.at(-1)?.monthId ?? ""]
+      .filter(Boolean)
+      .reduce((max, m) => m > max ? m : max, "");
+    const lastSp500Month = sp500Visible.at(-1)?.monthId ?? "";
+    const extraMonths = [];
+    if (targetEndMonth > lastSp500Month) {
+      let cur = dayjs(lastSp500Month + "-01").add(1, "month");
+      const end = dayjs(targetEndMonth + "-01");
+      while (!cur.isAfter(end)) {
+        extraMonths.push({ monthId: cur.format("YYYY-MM"), close: null });
+        cur = cur.add(1, "month");
+      }
+    }
+    const visible = [...sp500Visible, ...extraMonths];
+
     const years = [...new Set(visible.map(d => d.monthId.slice(0, 4)))].sort();
     const baseYear = parseInt(years[0] ?? "2023");
 
@@ -532,7 +555,8 @@ export default function Investments() {
 
       if (i > 0) {
         const prevClose = visible[i - 1].close;
-        if (prevClose > 0) {
+        // Only apply S&P growth when both this month and previous have real close data
+        if (prevClose > 0 && d.close != null) {
           spPct = parseFloat(((d.close - prevClose) / prevClose * 100).toFixed(2));
           runningValue = runningValue * (d.close / prevClose);
         }
@@ -540,7 +564,7 @@ export default function Investments() {
         if (opMonths.has(d.monthId)) {
           // Capture snapshot for tooltip before touching runningValue with cash
           prevOpValue        = lastOpValue;
-          spGrowthSinceLastOp = lastOpClose > 0
+          spGrowthSinceLastOp = (lastOpClose > 0 && d.close != null)
             ? parseFloat(((d.close - lastOpClose) / lastOpClose * 100).toFixed(2))
             : null;
           valueBeforeCash = parseFloat(runningValue.toFixed(2));
@@ -550,11 +574,11 @@ export default function Investments() {
 
           // Advance last-op anchors
           lastOpValue = parseFloat(runningValue.toFixed(2));
-          lastOpClose = d.close;
+          if (d.close != null) lastOpClose = d.close;
         }
       } else {
         // First month is the anchor (no growth applied yet)
-        lastOpClose = d.close;
+        lastOpClose = d.close ?? 1;
       }
 
       const platformValues = Object.fromEntries(PLATFORMS.map(p => [p, platformAt(p, d.monthId)]));
@@ -562,7 +586,7 @@ export default function Investments() {
         date: d.monthId,
         x: dateToX(d.monthId + "-01"),
         close: d.close,
-        adjusted: parseFloat(runningValue.toFixed(2)),
+        adjusted: d.close != null ? parseFloat(runningValue.toFixed(2)) : null,
         portfolio: portfolioAt(d.monthId),
         ...platformValues,
         spPct,
@@ -575,7 +599,7 @@ export default function Investments() {
       };
     });
 
-    return { data, years };
+    return { data, years, xMax: data.at(-1)?.x ?? years.length };
   }, [sp500, operations, snapshotsInEUR, fxRates]);
 
   const avgSP500 = useMemo(() => {
@@ -797,26 +821,13 @@ export default function Investments() {
 
         <div style={s.chartCol}>
         {/* ── S&P Simulation ─────────────────────────────────────────────────── */}
-        <Section title="S&P simulation">
+        <Section title="Portfolio evolution">
         {testingChartData.length < 2 ? (
           <p style={s.muted}>S&P 500 data unavailable.</p>
         ) : (
           <>
           {/* Legend toggles */}
           <div style={s.legendRow}>
-            {/* S&P simulation chip */}
-            <button
-              onClick={() => toggleSimLine("adjusted")}
-              style={{
-                ...s.legendChip,
-                opacity:         hiddenSim.has("adjusted") ? 0.35 : 1,
-                borderColor:     "#f59e0b",
-                color:           hiddenSim.has("adjusted") ? "var(--text-muted)" : "#f59e0b",
-                backgroundColor: hiddenSim.has("adjusted") ? "transparent" : "#f59e0b22",
-              }}
-            >
-              S&P simulation
-            </button>
             {/* Portfolio total chip */}
             <button
               onClick={() => toggleSimLine(TOTAL_KEY)}
@@ -846,6 +857,19 @@ export default function Investments() {
                 {p}
               </button>
             ))}
+            {/* S&P simulation chip */}
+            <button
+              onClick={() => toggleSimLine("adjusted")}
+              style={{
+                ...s.legendChip,
+                opacity:         hiddenSim.has("adjusted") ? 0.35 : 1,
+                borderColor:     "#f59e0b",
+                color:           hiddenSim.has("adjusted") ? "var(--text-muted)" : "#f59e0b",
+                backgroundColor: hiddenSim.has("adjusted") ? "transparent" : "#f59e0b22",
+              }}
+            >
+              S&P simulation
+            </button>
           </div>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={testingChartData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
@@ -853,7 +877,7 @@ export default function Investments() {
               <XAxis
                 dataKey="x"
                 type="number"
-                domain={[0, testingChartYears.length]}
+                domain={[0, testingChartXMax]}
                 ticks={testingChartYears.map((_, i) => i)}
                 tickFormatter={i => testingChartYears[i] ?? ""}
                 tick={{ fontSize: 11, fill: "var(--text-muted)" }}

@@ -4,8 +4,8 @@
 
 A **desktop-only** page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything lives on a single scrollable page with four logical sections:
 
-1. **Current Holdings** — latest known value per platform, shown as summary cards. Shares row with the S&P Simulation chart.
-2. **S&P Simulation Chart** — shows what the portfolio would look like had all historical deposits been invested in the S&P 500, alongside the real portfolio total.
+1. **Current Holdings** — latest known value per platform, shown as summary cards. Shares row with the Portfolio Evolution chart.
+2. **Portfolio Evolution Chart** — shows what the portfolio would look like had all historical deposits been invested in the S&P 500 (S&P simulation line), alongside the real portfolio total and individual platform lines.
 3. **P&L Evolution (%)** — combined chart showing portfolio period-return % and S&P 500 monthly % change, plus an average comparison bar chart.
 4. **Operations Log** — a table of all deposits and withdrawals, with the ability to add, edit, and delete entries.
 5. **Portfolio Snapshots** — a table of all portfolio value readings, with the ability to add, edit, and delete snapshot records.
@@ -187,11 +187,14 @@ The `/investments` page is a single scrollable page with four vertical sections:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  CURRENT HOLDINGS (30%)  │  S&P SIMULATION CHART (70%)              │
-│  [ eToro ]  [ Binance ]  │  Amber line: S&P simulation              │
-│  [ Fidelity ] [Tradeville]│  Grey line: Portfolio total             │
-│  [ ING RON ] [ ING EUR ] │  Platform lines (togglable)             │
-│  Latest value + date     │  Dots at operation months; tooltip       │
+│  CURRENT HOLDINGS (30%)  │  PORTFOLIO EVOLUTION CHART (70%)         │
+│  [ eToro ]  [ Binance ]  │  Legend: [Portfolio total] [eToro] ...   │
+│  [ Fidelity ] [Tradeville]│         [Binance] ... [S&P simulation]  │
+│  [ ING RON ] [ ING EUR ] │  Grey line: Portfolio total              │
+│  Latest value + date     │  Platform lines (togglable, hidden by    │
+│                          │    default)                              │
+│                          │  Amber line: S&P simulation (last)       │
+│                          │  Dots at operation months; rich tooltip  │
 ├──────────────────────────────────────────────────────────────────────┤
 │  P&L EVOLUTION (%)                                           (full)  │
 │  Left: indigo portfolio period-return line + green S&P monthly %    │
@@ -218,24 +221,204 @@ A **"Investments"** link appears in the **desktop Topbar only**. It must not app
 - Displays one card per platform showing: platform name, latest recorded amount, currency, and the date of the last snapshot.
 - If no snapshot exists for a platform yet, the card shows "No data".
 - Powered by `GET /investments/snapshots/latest`.
-- Occupies the left 30% of the top row; the S&P Simulation chart fills the remaining 70%.
+- Occupies the left 30% of the top row; the Portfolio Evolution chart fills the remaining 70%.
 
-### FR-3 S&P Simulation Chart
-- A `recharts` ComposedChart displayed in the top row (right 70%).
-- **Amber line** — "S&P simulation": shows what the portfolio value would be if all historical deposits had been invested in the S&P 500.
-  - Starting value = closest portfolio total (carry-forward, in EUR) to January 2023.
-  - For each subsequent month: `runningValue = runningValue × (sp500Close[thisMonth] / sp500Close[prevMonth])`.
-  - At each operation month (except the first): `runningValue += netCashFlowInEUR` (sum of deposits minus withdrawals converted to EUR via live FX rates from `frankfurter.app`).
-- **Grey line** — "Portfolio total": carry-forward real portfolio total in EUR derived from actual snapshot records.
-- **Individual platform lines** (togglable via legend): one line per platform showing carry-forward values in EUR.
-- **Dots** rendered at operation months marking the S&P simulation data points.
-- **Tooltip** at operation-month dots shows a numbered breakdown:
-  1. Value at last operation point
-  2. S&P growth since then
-  3. Value after S&P growth
-  4. Each deposit/withdrawal with net cash
-  5. = Simulated value
-- Powered by `GET /investments/snapshots`, `GET /investments/operations`, and `GET /sp500`.
+### FR-3 Portfolio Evolution Chart
+
+A `recharts` `LineChart` displayed in the top row (right 70%). Section title: **"Portfolio evolution"**. Contains three categories of lines, all togglable via legend buttons above the chart.
+
+#### Legend buttons (left → right order)
+1. **Portfolio total** (grey `#94a3b8`)
+2. Individual platform chips (one per active platform, colour-coded)
+3. **S&P simulation** (amber `#f59e0b`) — always last
+
+Platform lines are **hidden by default** on first render; Portfolio total and S&P simulation are visible by default.
+
+#### Lines rendered
+
+| Line | `dataKey` | Colour | Dots | Default |
+|---|---|---|---|---|
+| Portfolio total | `portfolio` | `#94a3b8` | At operation months | Visible |
+| eToro | `eToro` | `#22c55e` | At operation months | Hidden |
+| Binance | `Binance` | `#f59e0b` | At operation months | Hidden |
+| Fidelity | `Fidelity` | `#3b82f6` | At operation months | Hidden |
+| Tradeville | `Tradeville` | `#a855f7` | At operation months | Hidden |
+| ING Funds RON | `ING Funds RON` | `#ef4444` | At operation months | Hidden |
+| ING Funds EUR | `ING Funds EUR` | `#f97316` | At operation months | Hidden |
+| S&P simulation | `adjusted` | `#f59e0b` | At operation months | Visible |
+
+All lines use `connectNulls={true}`.
+
+---
+
+#### Data computation — `testingChartData` useMemo
+
+Inputs: `sp500` (all SP500Monthly records), `operations`, `snapshotsInEUR` (snapshots converted to EUR), `fxRates`.
+
+**Step 1 — Filter visible months**
+
+```js
+const allSorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
+const visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
+```
+
+Only months from 2023 onward are shown.
+
+**Step 2 — Find `startPortfolio`**
+
+The S&P simulation needs an anchor value. Find the snapshot date closest to the first visible month (`visible[0].monthId`):
+
+```js
+const chartStartMonth = visible[0]?.monthId ?? "2023-01";
+// Build totalByDate: { "YYYY-MM-DD": sumOfAllPlatformsInEUR }
+snapshotsInEUR.forEach(s => { totalByDate[s.date] = (totalByDate[s.date] ?? 0) + s.amount; });
+// Pick the snapshot date whose timestamp is closest to chartStartMonth
+const closestSnapDate = snapshotDates.reduce((best, d) =>
+  Math.abs(new Date(d) - new Date(chartStartMonth + "-01")) <
+  Math.abs(new Date(best) - new Date(chartStartMonth + "-01")) ? d : best
+);
+const startPortfolio = totalByDate[closestSnapDate]; // EUR total at that date
+```
+
+If no snapshots exist, the chart renders nothing.
+
+**Step 3 — Carry-forward helpers**
+
+```js
+// portfolioAt(monthId): sum of latest snapshot per platform up to end of that month
+function portfolioAt(monthId) {
+  const endOfMonth = monthId + "-31";
+  return PLATFORMS.reduce((sum, p) => {
+    const arr = snapshotsByPlatform[p] ?? [];
+    let latest = null;
+    for (const s of arr) { if (s.date <= endOfMonth) latest = s; else break; }
+    return sum + (latest?.amount ?? 0);
+  }, 0);
+}
+
+// platformAt(platform, monthId): latest snapshot for a single platform up to end of that month
+function platformAt(platform, monthId) { /* same logic, single platform */ }
+```
+
+Snapshots are pre-sorted ascending by date per platform. "End of month" is `monthId + "-31"` (intentionally beyond the last day so all dates in that month match).
+
+**Step 4 — Cash flows per month**
+
+```js
+const opCashByMonth = {}; // { "YYYY-MM": netEUR }
+operations.forEach(op => {
+  const month = op.date.slice(0, 7);
+  const eur = toEUR(op.amount, op.currency, fxRates);
+  opCashByMonth[month] = (opCashByMonth[month] ?? 0) + (op.type === "Withdrawal" ? -eur : eur);
+});
+const opMonths = new Set(operations.map(op => op.date.slice(0, 7)));
+```
+
+`toEUR(amount, currency, rates)` converts using live rates from `frankfurter.app` (USD→EUR, RON→EUR; EUR stays as-is).
+
+**Step 5 — Build data points (the core simulation loop)**
+
+State carried across iterations:
+- `runningValue` — starts at `startPortfolio`; the S&P simulation value
+- `lastOpValue` — `runningValue` at the most recent operation month (for tooltip ①)
+- `lastOpClose` — S&P 500 close at the most recent operation month (for tooltip ②)
+
+```js
+let runningValue = startPortfolio;
+let lastOpValue  = startPortfolio;
+let lastOpClose  = visible[0]?.close ?? 1;
+
+const data = visible.map((d, i) => {
+  let spPct = null, spGrowthSinceLastOp = null,
+      valueBeforeCash = null, cashFlow = null, prevOpValue = null;
+
+  if (i > 0) {
+    const prevClose = visible[i - 1].close;
+
+    // Apply S&P 500 monthly growth to runningValue
+    if (prevClose > 0) {
+      spPct = (d.close - prevClose) / prevClose * 100;
+      runningValue = runningValue * (d.close / prevClose);
+    }
+
+    // If this month has operations, add/subtract cash flows
+    if (opMonths.has(d.monthId)) {
+      prevOpValue         = lastOpValue;                          // tooltip ①
+      spGrowthSinceLastOp = (d.close - lastOpClose) / lastOpClose * 100; // tooltip ②
+      valueBeforeCash     = runningValue;                         // tooltip ③
+
+      cashFlow     = opCashByMonth[d.monthId] ?? 0;
+      runningValue += cashFlow;                                   // apply cash
+
+      lastOpValue = runningValue;   // advance anchors
+      lastOpClose = d.close;
+    }
+  } else {
+    lastOpClose = d.close; // first month: set anchor, no growth applied
+  }
+
+  return {
+    date: d.monthId, x: dateToX(d.monthId + "-01"), close: d.close,
+    adjusted:  runningValue,          // S&P simulation line
+    portfolio: portfolioAt(d.monthId), // Portfolio total line
+    ...platformValues,                 // one key per platform
+    // Tooltip context (only populated at operation months, i > 0):
+    spPct, spGrowthSinceLastOp, valueBeforeCash, prevOpValue, cashFlow,
+    hasOp: opMonths.has(d.monthId),
+    ops: operations.filter(op => op.date.slice(0, 7) === d.monthId),
+  };
+});
+```
+
+**Key invariant**: S&P growth is applied first (`runningValue *= ratio`), then cash is added/subtracted (`runningValue += cashFlow`). The first month is the anchor — no growth or cash is applied.
+
+---
+
+#### Tooltip behaviour
+
+- **Non-operation months**: shows `adjusted` (S&P simulation value) and `spPct` (S&P % change this month).
+- **Operation months** (i > 0, `hasOp === true`): shows a numbered step-by-step breakdown:
+
+```
+① Value at last op-point:    12,345 EUR
+② S&P 500 growth since then: +4.23%
+③ After S&P growth:          12,867 EUR
+── ── ──
+④ Deposit · eToro            +636.65 USD
+④ Deposit · ING Funds RON    +530 RON
+   Net cash (EUR):            +1,100 EUR
+── ── ──
+= S&P simulation:            13,967 EUR
+```
+
+All EUR amounts formatted with `ro-RO` locale (dots as thousands separator, commas as decimal).
+
+---
+
+#### X-axis
+
+Uses a numeric `x` value computed as fractional year position:
+
+```js
+function dateToX(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return (y - baseYear) + (new Date(y, m-1, d) - new Date(y, 0, 1)) /
+                          (new Date(y+1, 0, 1) - new Date(y, 0, 1));
+}
+```
+
+X-axis ticks are placed at integer year boundaries; tick labels show the 4-digit year.
+
+---
+
+#### Data sources
+
+| Data | API call | Used for |
+|---|---|---|
+| S&P 500 monthly closes | `GET /sp500` | Growth multiplier each month; `lastOpClose` anchor |
+| Portfolio snapshots | `GET /investments/snapshots` | `portfolioAt`, `platformAt`, `startPortfolio` |
+| Investment operations | `GET /investments/operations` | `opMonths`, `opCashByMonth`, tooltip `ops` list |
+| FX rates | `GET https://api.frankfurter.app/latest?base=EUR` | `toEUR` conversion for cash flows |
 
 ### FR-4 P&L Evolution Chart
 - A full-width `recharts` ComposedChart section below the top row.
@@ -340,12 +523,12 @@ DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
 
 | # | Test | Expected Result |
 |---|---|---|
-| I-1 | Navigate to `/investments` on desktop | Single page loads with all four sections visible (Holdings + S&P chart top row, P&L Evolution, Snapshots, Operations) |
+| I-1 | Navigate to `/investments` on desktop | Single page loads with all four sections visible (Holdings + Portfolio Evolution chart top row, P&L Evolution, Snapshots, Operations) |
 | I-2 | View on mobile | "Investments" absent from bottom tab bar; route not accessible from mobile navigation |
 | I-3 | Current Holdings cards on first load (after seed) | Each active platform shows its latest amount and snapshot date |
-| I-4 | S&P Simulation chart on first load | Amber S&P simulation line and grey portfolio total line rendered; individual platform lines visible and togglable |
-| I-5 | Toggle a platform line in the chart legend | Line disappears / reappears |
-| I-6 | S&P Simulation tooltip at an operation dot | Shows numbered breakdown: ① value at last op-point → ② S&P growth → ③ after growth → ④ each deposit/withdrawal → net cash → = simulated value |
+| I-4 | Portfolio Evolution chart on first load | Grey portfolio total line and amber S&P simulation line rendered; individual platform lines hidden but togglable via legend |
+| I-5 | Toggle a platform line in the chart legend | Line disappears / reappears; S&P simulation chip is the last button in the legend row |
+| I-6 | S&P simulation tooltip at an operation dot | Shows numbered breakdown: ① value at last op-point → ② S&P 500 growth since then → ③ value after S&P growth → ④ each deposit/withdrawal → net cash (EUR) → = S&P simulation value |
 | I-7 | P&L Evolution chart on first load | Indigo portfolio % line and green S&P 500 % line both rendered; right bar chart shows average comparison |
 | I-8 | Click **+ Add Operation**, fill form, save | `POST /investments/operations` called; new row appears at top of Operations table |
 | I-9 | Edit an existing operation | `PUT /investments/operations/{id}` called; row updates |
