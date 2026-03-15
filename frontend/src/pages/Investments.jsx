@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
   LineChart, Line, BarChart, Bar, Cell, LabelList,
@@ -9,6 +9,7 @@ import {
   listOperations, createOperation, updateOperation, deleteOperation,
   listSnapshots, createSnapshot, deleteSnapshot,
   listSP500,
+  syncSP500,
 } from "../api/investments";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -278,6 +279,11 @@ export default function Investments() {
   const [hidden,     setHidden]     = useState(new Set(PLATFORMS)); // start with platforms hidden; Total visible
   const [hiddenSim,  setHiddenSim]  = useState(new Set(PLATFORMS)); // sim chart: platforms hidden; Total+sim visible
 
+  // SP500 sync state — null means no sync running; string[] = log lines being displayed
+  const [syncLog,     setSyncLog]     = useState(null);
+  const [syncVisible, setSyncVisible] = useState(0);
+  const syncDoneRef = useRef(false);
+
   // Operations modal
   const [showOpModal,  setShowOpModal]  = useState(false);
   const [editingOpId,  setEditingOpId]  = useState(null);
@@ -305,6 +311,44 @@ export default function Investments() {
       .then(d => { if (d?.rates) setFxRates(d.rates); })
       .catch(() => {});
   }, []);
+
+  // ── SP500 auto-sync: check on load, fetch missing months if stale ─────────────
+  useEffect(() => {
+    if (!sp500.length || syncLog !== null) return;
+    const lastMonthId = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId)).at(-1)?.monthId;
+    const target = dayjs().subtract(1, "month").format("YYYY-MM");
+    if (!lastMonthId || lastMonthId >= target) return; // already up to date
+
+    syncDoneRef.current = false;
+    setSyncLog(["Checking S&P 500 database..."]);
+    setSyncVisible(1);
+
+    syncSP500()
+      .then(({ log }) => {
+        setSyncLog(["Checking S&P 500 database...", ...log]);
+        syncDoneRef.current = true;
+      })
+      .catch(e => {
+        setSyncLog(prev => [...(prev ?? []), `Error: ${e.message}`]);
+        syncDoneRef.current = true;
+      });
+  }, [sp500]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Animate log lines appearing; when all shown, reload SP500 and show chart
+  useEffect(() => {
+    if (!syncLog) return;
+    if (syncVisible < syncLog.length) {
+      const t = setTimeout(() => setSyncVisible(v => v + 1), 80);
+      return () => clearTimeout(t);
+    }
+    if (!syncDoneRef.current) return; // API still in flight — wait
+    const t = setTimeout(() => {
+      setSyncLog(null);
+      setSyncVisible(0);
+      listSP500().then(setSP500).catch(() => {});
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [syncLog, syncVisible]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ── Derived data ─────────────────────────────────────────────────────────────
@@ -822,7 +866,25 @@ export default function Investments() {
         <div style={s.chartCol}>
         {/* ── S&P Simulation ─────────────────────────────────────────────────── */}
         <Section title="Portfolio evolution">
-        {testingChartData.length < 2 ? (
+        {syncLog ? (
+          /* ── Sync log panel ── */
+          <div style={{
+            background: "#0f172a", borderRadius: 8, padding: "18px 22px",
+            fontFamily: "'Courier New', Courier, monospace", fontSize: 13, lineHeight: 1.7,
+            minHeight: 220, display: "flex", flexDirection: "column",
+          }}>
+            {syncLog.slice(0, syncVisible).map((line, i) => {
+              const color = /stored|done|already up to date/i.test(line) ? "#22c55e"
+                : /error|failed/i.test(line) ? "#ef4444"
+                : /fetching|checking/i.test(line) ? "#f59e0b"
+                : "#94a3b8";
+              return <div key={i} style={{ color, marginBottom: 2 }}>{line}</div>;
+            })}
+            {syncVisible < syncLog.length && (
+              <span style={{ color: "#f59e0b" }}>▋</span>
+            )}
+          </div>
+        ) : testingChartData.length < 2 ? (
           <p style={s.muted}>S&P 500 data unavailable.</p>
         ) : (
           <>

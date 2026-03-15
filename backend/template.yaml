@@ -526,6 +526,7 @@ Resources:
     Properties:
       Handler: src/handlers/sp500.handler
       CodeUri: .
+      Timeout: 30
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SP500MonthlyTable
@@ -536,6 +537,12 @@ Resources:
             RestApiId: !Ref Api
             Path: /sp500
             Method: GET
+        SP500Sync:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /sp500/sync
+            Method: POST
 
   # ──────────────────────────────────────────
   # AI News (public RSS aggregator)
