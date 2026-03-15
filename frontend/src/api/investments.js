@@ -9,5 +9,5 @@ export const listSnapshots   = (params)   => client.get("/investments/snapshots"
 export const createSnapshot  = (body)     => client.post("/investments/snapshots", body).then(r => r.data);
 export const deleteSnapshot  = (id)       => client.delete(`/investments/snapshots/${id}`).then(r => r.data);
 
-export const listSP500   = () => client.get("/sp500").then(r => r.data);
-export const syncSP500   = () => client.post("/sp500/sync").then(r => r.data);
+export const listSP500  = ()       => client.get("/sp500").then(r => r.data);
+export const postSP500  = (record) => client.post("/sp500", record).then(r => r.data);

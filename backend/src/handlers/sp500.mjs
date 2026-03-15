@@ -7,11 +7,10 @@ const CORS = { "Content-Type": "application/json", "Access-Control-Allow-Origin"
 const ok  = body => ({ statusCode: 200, headers: CORS, body: JSON.stringify(body) });
 const err = (status, message) => ({ statusCode: status, headers: CORS, body: JSON.stringify({ message }) });
 
-// "2026-03" → previous complete month "2026-02"
 function lastCompleteMonthId() {
   const now = new Date();
-  const m = now.getUTCMonth();          // 0-indexed: 0=Jan … 11=Dec
-  const prevM = m === 0 ? 12 : m;      // previous month number (1-indexed)
+  const m    = now.getUTCMonth();
+  const prevM = m === 0 ? 12 : m;
   const prevY = m === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
   return `${prevY}-${String(prevM).padStart(2, "0")}`;
 }
@@ -29,15 +28,28 @@ async function handleGet() {
   return ok(sorted);
 }
 
-async function handleSync() {
+// POST /sp500 with { sync: true }  → fetch missing months from Yahoo Finance and store them
+// POST /sp500 with { monthId, close } → upsert a single record
+async function handlePost(event) {
+  const body = JSON.parse(event.body ?? "{}");
+
+  if (!body.sync) {
+    // Single-record write
+    const { monthId, close } = body;
+    if (!monthId || close == null) return err(400, "monthId and close are required");
+    await docClient.send(new PutCommand({
+      TableName: TABLE,
+      Item: { monthId, close: parseFloat(Number(close).toFixed(2)) },
+    }));
+    return ok({ monthId, close });
+  }
+
+  // Sync mode: fetch missing months from Yahoo Finance
   const log = [];
 
-  // 1. Find what we already have
   const { Items = [] } = await docClient.send(new ScanCommand({ TableName: TABLE }));
   const existingMonths = new Set(Items.map(i => i.monthId));
-  const lastMonthId = Items.length
-    ? [...existingMonths].sort().at(-1)
-    : "2020-01";
+  const lastMonthId = Items.length ? [...existingMonths].sort().at(-1) : "2020-01";
   const target = lastCompleteMonthId();
 
   log.push(`Last month in database : ${lastMonthId}`);
@@ -48,7 +60,6 @@ async function handleSync() {
     return ok({ log, newRecords: 0 });
   }
 
-  // 2. Fetch missing months from Yahoo Finance
   const fromDate = new Date(`${lastMonthId}-01T00:00:00Z`);
   fromDate.setUTCMonth(fromDate.getUTCMonth() + 1);
   const period1 = Math.floor(fromDate.getTime() / 1000);
@@ -59,11 +70,10 @@ async function handleSync() {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1mo&period1=${period1}&period2=${period2}`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Finance4Tura/1.0)", "Accept": "application/json" },
-    signal: AbortSignal.timeout(12000),
   });
 
   if (!res.ok) {
-    log.push(`Yahoo Finance request failed: HTTP ${res.status}`);
+    log.push(`Yahoo Finance returned HTTP ${res.status}`);
     return err(502, JSON.stringify(log));
   }
 
@@ -79,7 +89,6 @@ async function handleSync() {
     ?? result.indicators?.quote?.[0]?.close
     ?? [];
 
-  // 3. Store each new complete month
   let count = 0;
   for (let i = 0; i < timestamps.length; i++) {
     const monthId = unixToMonthId(timestamps[i]);
@@ -95,8 +104,8 @@ async function handleSync() {
   }
 
   log.push(count > 0
-    ? `Done — added ${count} new month(s) to SP500Monthly.`
-    : "No new complete months found in Yahoo Finance response.");
+    ? `Done — added ${count} new month(s).`
+    : "No new complete months found.");
 
   return ok({ log, newRecords: count });
 }
@@ -104,7 +113,7 @@ async function handleSync() {
 export async function handler(event) {
   try {
     if (event.httpMethod === "GET")  return await handleGet();
-    if (event.httpMethod === "POST") return await handleSync();
+    if (event.httpMethod === "POST") return await handlePost(event);
     return err(405, "Method not allowed");
   } catch (e) {
     console.error(e);

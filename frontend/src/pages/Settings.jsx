@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { syncSP500 } from "../api/investments";
+import { postSP500 } from "../api/investments";
 
 export const PRIVACY_KEY = "incomePrivacy";
 export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "true";
@@ -31,37 +31,34 @@ export default function Settings() {
   const [draftTheme,   setDraftTheme]   = useState(getTheme());
 
   // SP500 sync
-  const [syncLog,     setSyncLog]     = useState(null);   // null = idle; string[] = running/done
-  const [syncVisible, setSyncVisible] = useState(0);
+  const [syncLog,     setSyncLog]     = useState(null);  // null = idle; string[] = all lines
+  const [syncVisible, setSyncVisible] = useState(0);     // how many lines currently shown
   const [syncing,     setSyncing]     = useState(false);
-  const syncDoneRef = useRef(false);
 
-  const handleSyncSP500 = () => {
-    if (syncing) return;
-    syncDoneRef.current = false;
-    setSyncing(true);
-    setSyncLog(["Checking S&P 500 database..."]);
-    setSyncVisible(1);
-
-    syncSP500()
-      .then(({ log }) => {
-        setSyncLog(["Checking S&P 500 database...", ...log]);
-        syncDoneRef.current = true;
-        setSyncing(false);
-      })
-      .catch(e => {
-        setSyncLog(prev => [...(prev ?? []), `Error: ${e.message}`]);
-        syncDoneRef.current = true;
-        setSyncing(false);
-      });
-  };
-
-  // Animate log lines one by one
+  // Animate log lines appearing one by one
   useEffect(() => {
     if (!syncLog || syncVisible >= syncLog.length) return;
     const t = setTimeout(() => setSyncVisible(v => v + 1), 80);
     return () => clearTimeout(t);
   }, [syncLog, syncVisible]);
+
+  const handleSyncSP500 = () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncLog(["Checking S&P 500 database..."]);
+    setSyncVisible(1);
+
+    // Lambda fetches Yahoo Finance and returns complete log
+    postSP500({ sync: true })
+      .then(({ log }) => {
+        setSyncLog(["Checking S&P 500 database...", ...log]);
+        setSyncing(false);
+      })
+      .catch(e => {
+        setSyncLog(prev => [...(prev ?? []), `Error: ${e.message}`]);
+        setSyncing(false);
+      });
+  };
 
   const handleThemeToggle = (isLight) => {
     const next = isLight ? "light" : "dark";
@@ -146,7 +143,9 @@ export default function Settings() {
                   : "#94a3b8";
                 return <div key={i} style={{ color, marginBottom: 2 }}>{line}</div>;
               })}
-              {syncVisible < syncLog.length && <span style={{ color: "#f59e0b" }}>▋</span>}
+              {(syncing || syncVisible < syncLog.length) && (
+                <span style={{ color: "#f59e0b" }}>▋</span>
+              )}
             </div>
           )}
         </section>
