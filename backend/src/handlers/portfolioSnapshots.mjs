@@ -57,6 +57,20 @@ async function createSnapshot(body, userId) {
   return ok(item, 201);
 }
 
+// ─── PUT /investments/snapshots/{snapshotId} ──────────────────────────────────
+async function updateSnapshot(snapshotId, body, userId) {
+  const result = await docClient.send(new GetCommand({ TableName: TABLE, Key: { snapshotId } }));
+  if (!result.Item || result.Item.userId !== userId) return err(404, "Not found");
+
+  const { date, platform, amount, currency } = body;
+  if (!date || !platform || amount == null)
+    return err(400, "date, platform, and amount are required");
+
+  const item = { ...result.Item, date, platform, amount, currency: currency || result.Item.currency };
+  await docClient.send(new PutCommand({ TableName: TABLE, Item: item }));
+  return ok(item);
+}
+
 // ─── DELETE /investments/snapshots/{snapshotId} ───────────────────────────────
 async function deleteSnapshot(snapshotId, userId) {
   const result = await docClient.send(new GetCommand({ TableName: TABLE, Key: { snapshotId } }));
@@ -78,6 +92,7 @@ export async function handler(event) {
     if (method === "GET" && path.endsWith("/latest")) return await latestSnapshots(userId);
     if (method === "GET"    && !snapshotId)           return await listSnapshots(userId, qs);
     if (method === "POST")                            return await createSnapshot(JSON.parse(event.body || "{}"), userId);
+    if (method === "PUT"    &&  snapshotId)           return await updateSnapshot(snapshotId, JSON.parse(event.body || "{}"), userId);
     if (method === "DELETE" &&  snapshotId)           return await deleteSnapshot(snapshotId, userId);
     return err(404, "Not found");
   } catch (e) {

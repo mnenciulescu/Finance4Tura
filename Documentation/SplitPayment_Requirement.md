@@ -12,12 +12,12 @@ A new desktop-only module that allows the user to log advance payments split int
 The Split Payment module **must** be available only in the desktop (web) interface. It **must not** appear in the mobile bottom-tab navigation, nor be accessible from any mobile navigation element.
 
 ### FR-2 Navigation Entry
-A dedicated "Split Payments" link **must** appear in the top navigation bar (desktop only), alongside the existing navigation items (Add Income, Add Expense, Statistics, Settings, Backstage).
+A dedicated **"Split Pay"** link **must** appear in the top navigation bar (desktop only), alongside the other navigation items.
 Route: `/split-payments`
 
 ### FR-3 Page Layout
-The Split Payments page **must** contain:
-- A page heading ("Split Payments") and a short descriptive subtitle.
+The Split Pay page **must** contain:
+- A page heading ("Split Pay") and a short descriptive subtitle.
 - An **"Add New Split Payment"** button, positioned in the page header area.
 - A data table listing all existing split payment entries (see FR-5).
 - An empty-state message when no entries exist.
@@ -27,7 +27,7 @@ Pressing "Add New Split Payment" **must** open a modal form with the following f
 
 | Field | Type | Constraints |
 |---|---|---|
-| Created Date | Read-only, auto-filled | Current date (`YYYY-MM-DD`), not editable by the user |
+| Date | Date input, editable | Pre-filled with today's date (`YYYY-MM-DD`); user can change it |
 | Title | Text input | Mandatory |
 | Amount | Number input | Mandatory; must be > 0 |
 | Currency | Dropdown | Options: `RON`, `EUR`, `USD`; default `RON` |
@@ -93,7 +93,7 @@ Clicking the delete button (✕) on a row **must** call `DELETE /split-payments/
 | # | Test | Expected Result |
 |---|---|---|
 | 10.1 | Navigate to `/split-payments` on desktop | Page loads with heading, subtitle, "Add New Split Payment" button, and empty-state message |
-| 10.2 | Click "Add New Split Payment" | Modal opens with all form fields; Created Date pre-filled with today |
+| 10.2 | Click "Add New Split Payment" | Modal opens with all form fields; Date pre-filled with today; date is editable |
 | 10.3 | Submit form with all required fields (title, amount, currency, 3 occurrences, type = amount) | Row appears with 3 occurrence cells each showing `amount/3`; coverage badge shows `0/3` |
 | 10.4 | Click first occurrence cell | Cell turns green; coverage badge updates to `1/3` |
 | 10.5 | Click all occurrence cells | All cells green; coverage badge shows `3/3 ✓` |

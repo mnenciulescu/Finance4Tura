@@ -1,17 +1,21 @@
 /**
- * Seed production AWS DynamoDB with investment history for user nenciulescu.
+ * Seed DynamoDB with investment history for user nenciulescu.
  * Data sourced from Documentation/Portfolio.xlsx.
  *
- * Usage: node scripts/seed-investments.mjs
- * Requires: AWS credentials configured (aws configure) with access to eu-central-1 DynamoDB.
+ * Usage (production):  node src/seed-investments.mjs
+ * Usage (local):       DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
 
+const endpoint = process.env.DYNAMODB_ENDPOINT || undefined;
 const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: "eu-central-1" })
+  new DynamoDBClient({
+    region: "eu-central-1",
+    ...(endpoint ? { endpoint, credentials: { accessKeyId: "local", secretAccessKey: "local" } } : {}),
+  })
 );
 
 const USER_ID    = "e3c47852-9051-7092-9877-6b4e5186bc40"; // nenciulescu

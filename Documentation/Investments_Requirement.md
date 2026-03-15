@@ -22,7 +22,7 @@ Fixed list — no free-text entry, no CRUD for platforms in the UI. The same lis
 | eToro | USD |
 | Binance | USD |
 | Fidelity | USD |
-| Tradeville | RON |
+| Tradeville | USD |
 | ING Funds RON | RON |
 | ING Funds EUR | EUR |
 
@@ -190,7 +190,7 @@ The `/investments` page is a single scrollable page with four vertical sections:
 ## Functional Requirements
 
 ### FR-1 Navigation
-A **"Investments"** link appears in the **desktop Sidebar only**. It must not appear in the mobile bottom tab bar, and the route must not be reachable from any mobile navigation element.
+A **"Investments"** link appears in the **desktop Topbar only**. It must not appear in the mobile bottom tab bar, and the route must not be reachable from any mobile navigation element.
 
 ### FR-2 Current Holdings Section
 - Displays one card per platform showing: platform name, latest recorded amount, currency, and the date of the last snapshot.
@@ -267,4 +267,4 @@ The feature is desktop-only. It must not appear in mobile navigation and must no
 | I-9 | Click **+ Add Snapshot** for eToro | `POST /investments/snapshots` called; eToro Holdings card updates to new value; chart gains new data point |
 | I-10 | Delete a snapshot | Record removed; Holdings card reverts to previous snapshot value |
 | I-11 | Refresh page | All data persists (fetched from DynamoDB) |
-| I-12 | Seed script runs against local DynamoDB | All 32 operations and 20 snapshot rows imported without errors |
+| I-12 | Seed script runs against local DynamoDB | All 32 operations and 68 snapshot records imported without errors |

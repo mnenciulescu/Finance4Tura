@@ -11,7 +11,7 @@ This guide documents the one-time setup used to deploy Finance4Tura to AWS.
 | Frontend hosting | S3 + CloudFront | `d34ylrmixnmvem.cloudfront.net` |
 | Authentication | Cognito User Pool | `eu-central-1_CD7AdBFwQ` |
 | API | API Gateway + Lambda (SAM) | `https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod` |
-| Database | DynamoDB | Tables: `Incomes`, `Expenses`, `SplitPayments` |
+| Database | DynamoDB | Tables: `Incomes`, `Expenses`, `SplitPayments`, `InvestmentOperations`, `PortfolioSnapshots` |
 | CloudFormation stack | SAM | `finance4tura-backend` |
 | AWS region | — | `eu-central-1` |
 

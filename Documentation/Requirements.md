@@ -197,17 +197,19 @@ Shared helper function `resolveIncome(expenseDate, userId)`:
 Build the core application shell.
 
 ### Layout
-- **Sidebar** (left): navigation links (Dashboard, Add Income, Add Expense, Statistics, Backstage), username display, Sign out button.
-- **Main area** (center): page content.
-- **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/backstage`.
+- **Desktop Topbar** (horizontal, sticky): Logo/Dashboard · Add Income · Add Expense · Split Pay · Investments · Statistics · AI · Settings · Backstage · Admin (admin users only). Year selector, avatar, and Sign out button on the right.
+- **Mobile bottom tab bar**: Dashboard · Add Income · Add Expense · Statistics · Settings. Split Pay and Investments are excluded from mobile navigation.
+- **Main area**: page content below the Topbar.
+- **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/settings`, `/backstage`, `/split-payments`, `/investments`, `/ai-news`, `/admin`.
 
 ### Tests – Phase 4
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 4.1 | Open app on desktop | Sidebar visible; navigation links work |
+| 4.1 | Open app on desktop | Topbar visible with all navigation links |
 | 4.2 | Click `Add Income` | Navigates to `/add-income` |
 | 4.3 | Click `Add Expense` | Navigates to `/add-expense` |
 | 4.4 | Unauthenticated access | Login page shown instead of app |
+| 4.5 | Open app on mobile | Bottom tab bar shown; Split Pay and Investments tabs absent |
 
 ---
 
@@ -332,7 +334,7 @@ Deploy the full application to AWS and implement per-user data isolation.
 A desktop-only module for logging advance payments split across multiple occurrences and tracking when the total is fully covered. Data is stored in DynamoDB and synced via the backend API.
 
 ### Behavior
-- Accessible via **"Split Payments"** in the desktop top navigation bar (`/split-payments`). Not present in the mobile tab bar.
+- Accessible via **"Split Pay"** in the desktop top navigation bar (`/split-payments`). Not present in the mobile tab bar.
 - Page shows a data table of all split payment entries plus an **"Add New Split Payment"** button.
 - Data is persisted in the `SplitPayments` DynamoDB table, scoped per user via `userId`.
 - On load, calls `GET /split-payments` to fetch the user's entries.
@@ -350,7 +352,7 @@ A desktop-only module for logging advance payments split across multiple occurre
 ### Create Form Fields
 | Field | Type | Notes |
 |-------|------|-------|
-| Created Date | Read-only | Auto-filled with today's date |
+| Date | Editable date input | Pre-filled with today's date; user can change it |
 | Title | Text input | Mandatory |
 | Amount | Number input | Mandatory, > 0 |
 | Currency | Dropdown | `RON`, `EUR`, `USD`; default `RON` |
@@ -366,13 +368,121 @@ A desktop-only module for logging advance payments split across multiple occurre
 ### Tests – Phase 10
 | # | Test | Expected Result |
 |---|---|---|
-| 10.1 | Navigate to `/split-payments` | Page loads; entries fetched from API; empty-state message shown if none |
-| 10.2 | Add entry with 3 amount occurrences | `POST /split-payments` called; row appears with 3 number inputs; coverage shows `0/3` |
+| 10.1 | Navigate to `/split-payments` | Page loads; entries fetched from API; empty-state message shown if none; entries sorted newest first |
+| 10.2 | Add entry with 3 amount occurrences | `POST /split-payments` called; row appears at top with 3 number inputs; coverage shows `0/3` |
 | 10.3 | Enter a value in first cell | Cell turns green; coverage updates to `1/3`; `PUT /split-payments/{id}` called after 600ms debounce |
 | 10.4 | Fill all cells | Coverage shows `3/3 ✓` |
 | 10.5 | Refresh page | Entries still present (fetched from DynamoDB) |
 | 10.6 | Delete entry | `DELETE /split-payments/{id}` called; row removed |
-| 10.7 | Open on mobile | "Split Payments" absent from bottom tab bar |
+| 10.7 | Open on mobile | "Split Pay" absent from bottom tab bar |
+| 10.8 | Add entry with custom date | Date field pre-filled with today; user can set a different date |
+
+---
+
+---
+
+## Phase 11 – Investments Module ✅
+
+### Goal
+A desktop-only page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything on a single scrollable page.
+
+### Platforms
+Fixed list — no CRUD in the UI:
+
+| Platform | Default Currency |
+|---|---|
+| eToro | USD |
+| Binance | USD |
+| Fidelity | USD |
+| Tradeville | USD |
+| ING Funds RON | RON |
+| ING Funds EUR | EUR |
+
+### Tables
+
+#### `InvestmentOperations`
+| Attribute | Type | Notes |
+|---|---|---|
+| `operationId` | String (PK) | UUID |
+| `userId` | String | Cognito sub |
+| `date` | String | ISO 8601 |
+| `type` | String | `Deposit` \| `Withdrawal` |
+| `platform` | String | One of the 6 platforms |
+| `amount` | Number | Always positive |
+| `currency` | String | Defaults from platform |
+| `notes` | String | Optional |
+
+GSI: `date-index` on `date`.
+
+#### `PortfolioSnapshots`
+| Attribute | Type | Notes |
+|---|---|---|
+| `snapshotId` | String (PK) | UUID |
+| `userId` | String | Cognito sub |
+| `date` | String | ISO 8601 |
+| `platform` | String | One of the 6 platforms |
+| `amount` | Number | Total value on that platform at that date |
+| `currency` | String | Defaults from platform |
+
+GSI: `date-index` on `date`. One record per platform per reading (not one wide row for all platforms).
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/investments/operations` | List; supports `?from=&to=&platform=&type=` |
+| `POST` | `/investments/operations` | Create operation |
+| `PUT` | `/investments/operations/{operationId}` | Edit operation |
+| `DELETE` | `/investments/operations/{operationId}` | Delete operation |
+| `GET` | `/investments/snapshots` | List all snapshots |
+| `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform |
+| `POST` | `/investments/snapshots` | Record a new snapshot |
+| `DELETE` | `/investments/snapshots/{snapshotId}` | Delete snapshot |
+
+### Page Sections
+1. **Current Holdings** — one card per platform (latest amount + date); powered by `GET /investments/snapshots/latest`.
+2. **Portfolio Evolution** — `recharts` LineChart, one line per platform, carry-forward between readings; togglable platform visibility.
+3. **Operations Log** — table (newest first) with add/edit/delete; modal form with date, type, platform, amount, currency, notes.
+4. **Snapshot Log** — table (newest first) with add/delete; modal form with date, platform, amount, currency.
+
+### Seed Script
+`backend/src/seed-investments.mjs` — seeds 32 historical operations and 68 portfolio snapshots.
+
+- **Production**: `node src/seed-investments.mjs` (uses real AWS credentials and userId `e3c47852-9051-7092-9877-6b4e5186bc40`)
+- **Local**: `DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs` (uses host AWS credentials, userId `"local-dev"`)
+
+### Tests – Phase 11
+| # | Test | Expected Result |
+|---|---|---|
+| 11.1 | Navigate to `/investments` on desktop | All four sections visible |
+| 11.2 | View on mobile | "Investments" absent from mobile tab bar |
+| 11.3 | Current Holdings after seed | Each platform shows its latest amount and snapshot date |
+| 11.4 | Portfolio chart after seed | Lines visible for all platforms with data |
+| 11.5 | Toggle a platform chip | Line hides/shows |
+| 11.6 | Add operation | Row appears at top of Operations table |
+| 11.7 | Edit operation | Row updates |
+| 11.8 | Add snapshot | Holdings card updates; chart gains data point |
+| 11.9 | Delete snapshot | Holdings card reverts to previous value |
+| 11.10 | Refresh | All data persists |
+
+---
+
+## Phase 12 – AI News Page ✅
+
+### Goal
+A page (`/ai-news`) that fetches and displays AI-curated financial news from multiple sources.
+
+### Behavior
+- Accessible via **"AI"** link in the desktop top navigation bar and (optionally) the mobile tab bar.
+- Shows a feed of news articles with title, source, and link.
+- Includes a progress indicator while articles are loading.
+- HTML entities in article titles are decoded for clean display.
+
+### Tests – Phase 12
+| # | Test | Expected Result |
+|---|---|---|
+| 12.1 | Navigate to `/ai-news` | Page loads; loading indicator shown; articles appear |
+| 12.2 | Article titles | No raw HTML entities (e.g. `&amp;` rendered as `&`) |
 
 ---
 
@@ -391,3 +501,9 @@ A desktop-only module for logging advance payments split across multiple occurre
 | API response caching | `Cache-Control: no-store` on all responses | Prevents API Gateway's internal CloudFront from caching per-user data |
 | Vite polyfill | `define: { global: 'globalThis' }` | Required for `amazon-cognito-identity-js` to run in the browser |
 | Split Payments storage | DynamoDB (`SplitPayments` table) via API | Consistent with the rest of the app; data persists across devices and browsers |
+| Split Pay nav label | "Split Pay" (shortened) | Fits the compact topbar without wrapping |
+| Investments — desktop only | Not in mobile tab bar | Complex multi-section page not suited for mobile; portfolio data is a power-user feature |
+| Investments snapshots | One DynamoDB record per platform per reading | Allows recording a single platform without entering all six; matches real usage patterns |
+| Investments chart carry-forward | Fill gaps by using the last known value for each platform | Produces continuous lines even when platforms are not updated simultaneously |
+| Local DynamoDB credentials | No explicit credentials in `dynamo.mjs`; uses host AWS credentials via Docker | Matches the credential namespace used by `init-tables.sh` and the AWS CLI; seed script uses the same pattern |
+| Statistics — Special Expenses | Hidden on mobile | The special expenses panel is complex and not touch-friendly; removed from mobile Stats view |

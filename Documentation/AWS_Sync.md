@@ -24,7 +24,8 @@ Refer to `AWS_Deploy.md` for the one-time setup steps.
 | Backend only | `sam build --no-cached && sam deploy` |
 | Both | Run backend first, then frontend |
 | DynamoDB schema | Update `template.yaml`, then `sam deploy` |
-| Cognito settings | AWS Console or CLI (see section 5) |
+| Investment seed data | `node src/seed-investments.mjs` (from `backend/`) |
+| Cognito settings | AWS Console or CLI (see section 7) |
 
 ---
 
@@ -103,7 +104,24 @@ cd backend && sam build --no-cached && sam deploy
 
 ---
 
-## 4. DynamoDB Schema Changes
+## 4. Seeding Investment History
+
+The investment history (operations + portfolio snapshots) is seeded via `backend/src/seed-investments.mjs`. This is a one-off script — run it after deploying a fresh environment.
+
+```bash
+# Seed production (uses your configured AWS credentials, real userId)
+cd backend
+node src/seed-investments.mjs
+
+# Seed local DynamoDB (uses host AWS credentials, userId = "local-dev")
+DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
+```
+
+> **Local DynamoDB note**: DynamoDB Local scopes tables by AWS access key + region. `init-tables.sh` and the seed script both use the host's real AWS credentials (no hardcoded `local`/`local`). If tables are missing locally, run `docker/init-tables.sh` first.
+
+---
+
+## 6. DynamoDB Schema Changes
 
 DynamoDB is schemaless — adding new attributes to items requires no table changes. Just update the Lambda handler code and redeploy.
 
@@ -117,7 +135,7 @@ The only cases that require a table-level change are:
 
 ---
 
-## 5. Cognito Changes
+## 7. Cognito Changes
 
 ### Add a user manually
 
@@ -154,7 +172,7 @@ aws cognito-idp admin-delete-user \
 
 ---
 
-## 6. Viewing Logs
+## 8. Viewing Logs
 
 ### Lambda function logs (real-time)
 
@@ -172,6 +190,11 @@ aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 /aws/lambda/finance4tura-backend-GoogleAuthFunction-*
 /aws/lambda/finance4tura-backend-IncomesFunction-*
 /aws/lambda/finance4tura-backend-ExpensesFunction-*
+/aws/lambda/finance4tura-backend-SplitPaymentsFunction-*
+/aws/lambda/finance4tura-backend-InvestmentOperationsFunction-*
+/aws/lambda/finance4tura-backend-PortfolioSnapshotsFunction-*
+/aws/lambda/finance4tura-backend-AiNewsFunction-*
+/aws/lambda/finance4tura-backend-AdminFunction-*
 /aws/lambda/finance4tura-backend-HealthFunction-*
 /aws/lambda/finance4tura-backend-PreSignUpFunction-*
 ```
@@ -187,7 +210,7 @@ aws logs describe-log-groups \
 
 ---
 
-## 7. Rolling Back a Bad Deploy
+## 9. Rolling Back a Bad Deploy
 
 ### Frontend rollback
 
@@ -206,7 +229,7 @@ Fix the code locally and redeploy — that's the simplest path. Alternatively, u
 
 ---
 
-## 8. Recommended Workflow for Local → Cloud
+## 10. Recommended Workflow for Local → Cloud
 
 ```
 1. Make and test changes locally
