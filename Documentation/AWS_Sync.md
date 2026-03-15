@@ -25,7 +25,8 @@ Refer to `AWS_Deploy.md` for the one-time setup steps.
 | Both | Run backend first, then frontend |
 | DynamoDB schema | Update `template.yaml`, then `sam deploy` |
 | Investment seed data | `node src/seed-investments.mjs` (from `backend/`) |
-| SP500 seed data | `node src/seed-sp500.mjs` (from `backend/`) |
+| SP500 seed data (initial) | `node src/seed-sp500.mjs` (from `backend/`) |
+| SP500 latest data (ongoing) | Settings → Data → "Get latest S&P 500 data" → Run |
 | Cognito settings | AWS Console or CLI (see section 7) |
 
 ---
@@ -125,14 +126,26 @@ DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments-local.mjs
 
 ### Seed S&P 500 monthly data
 
+The seed script is used for the **initial historical backfill**. For ongoing updates (fetching the latest missing months after the app is live), use the Settings UI instead.
+
 ```bash
-# Production
+# Production — initial historical seed
 cd backend
 node src/seed-sp500.mjs
 
 # Local DynamoDB
 DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-sp500.mjs
 ```
+
+### Update SP500 data via Settings (recommended for ongoing use)
+
+Once the app is deployed and the SP500 table has historical data, use the built-in Settings sync to fetch any missing months:
+
+1. Open the app → **Settings** → **Data** section.
+2. Click **Run** next to "Get latest S&P 500 data".
+3. An animated terminal log shows progress. Green lines indicate stored records; a final "Done" line confirms completion.
+
+This calls `POST /sp500` with `{ sync: true }`, which triggers a Lambda that fetches missing months from Yahoo Finance and stores them in `SP500Monthly`. The Lambda has a 30-second timeout.
 
 ### Seed incomes and expenses (local dev)
 

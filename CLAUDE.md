@@ -116,7 +116,9 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 **Google Sign-In flow**: Google ID token → `verifyGoogleToken` (tokeninfo API) → `AdminGetUser` / `AdminCreateUser` + `AdminSetUserPassword` → `AdminInitiateAuth` → Cognito JWT returned.
 
-**S&P Simulation logic** (Investments page): Starting from the closest portfolio snapshot to Jan 2023, simulate what the portfolio would be worth if invested in S&P 500. For each month: `runningValue *= sp500Close[thisMonth] / sp500Close[prevMonth]`. At each operation month (from 2nd onward): `runningValue += netCashFlowInEUR` (deposits/withdrawals converted to EUR). Actual portfolio (carry-forward of latest snapshot per platform) is shown alongside for comparison.
+**Portfolio Evolution chart** (Investments page): Starting from the closest portfolio snapshot to Jan 2023, simulate what the portfolio would be worth if invested in S&P 500. For each month: `runningValue *= sp500Close[thisMonth] / sp500Close[prevMonth]` (only when `close != null`). At each operation month (from 2nd onward): `runningValue += netCashFlowInEUR` (deposits/withdrawals converted to EUR). Actual portfolio (carry-forward of latest snapshot per platform) shown alongside. Chart auto-sizes X-axis to last data point; extends to `max(lastSnapshotMonth, lastOperationMonth)` even beyond last SP500 close. Legend order: Portfolio total → platform lines → S&P simulation (last).
+
+**SP500 sync**: Not automatic. Use **Settings → Data → "Get latest S&P 500 data" → Run** to fetch missing months from Yahoo Finance (Lambda calls Yahoo Finance server-side; browser cannot call Yahoo Finance directly due to CORS). SP500Function timeout is 30s.
 
 ## API Endpoints
 
@@ -151,6 +153,8 @@ PUT    /investments/snapshots/{snapshotId}
 DELETE /investments/snapshots/{snapshotId}
 
 GET    /sp500                               # all SP500Monthly records (no auth required)
+POST   /sp500  { sync: true }              # fetch missing months from Yahoo Finance; returns { log, newRecords }
+POST   /sp500  { monthId, close }          # upsert a single SP500Monthly record
 
 GET    /split-payments
 POST   /split-payments

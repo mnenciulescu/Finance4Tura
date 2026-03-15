@@ -447,21 +447,33 @@ No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (n
 | `POST` | `/investments/snapshots` | Record a new snapshot |
 | `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
 | `DELETE` | `/investments/snapshots/{snapshotId}` | Delete snapshot |
-| `GET` | `/sp500` | Returns all rows from SP500Monthly table |
+| `GET` | `/sp500` | Returns all rows from SP500Monthly table sorted by monthId |
+| `POST` | `/sp500` with `{ sync: true }` | Fetches missing months from Yahoo Finance and stores them; returns `{ log, newRecords }` |
+| `POST` | `/sp500` with `{ monthId, close }` | Upserts a single SP500Monthly record |
 
 ### Page Sections
 1. **Current Holdings** (top row, left 30%) — one card per platform (latest amount + date); powered by `GET /investments/snapshots/latest`.
-2. **S&P Simulation** (top row, right 70%) — amber S&P simulation line vs grey portfolio total carry-forward; individual platform lines togglable; dots at operation months with detailed tooltip.
+2. **Portfolio evolution** (top row, right 70%) — amber S&P simulation line vs grey portfolio total carry-forward; individual platform lines togglable; dots at operation months with detailed tooltip. Legend order: Portfolio total → platform lines → S&P simulation (last).
 3. **P&L Evolution (%)** — full-width section; indigo portfolio period-return line + green S&P 500 monthly % line; right panel bar chart showing average portfolio P&L % vs average S&P 500 %.
 4. **Portfolio Snapshots** — full-width table (newest first) with add/edit/delete; modal form with date, platform, amount, currency.
 5. **Operations Log** — full-width table (newest first) with add/edit/delete; modal form with date, type, platform, amount, currency, notes.
 
-### S&P Simulation Logic
+### Portfolio Evolution Chart Logic
 - Starting value = closest portfolio total in EUR (carry-forward from snapshots) to January 2023.
 - For each subsequent month: `runningValue = runningValue × (sp500Close[thisMonth] / sp500Close[prevMonth])`.
 - At each operation month (except the first): `runningValue += netCashFlowInEUR` (deposits minus withdrawals, converted to EUR via `frankfurter.app` live rates).
+- S&P growth is applied only when `close != null` and `prevClose > 0`; otherwise the simulation line shows `null` (no dot rendered).
 - Grey portfolio total line shows carry-forward of real snapshot totals in EUR.
+- Chart X-axis auto-sizes to the last data point (`data.at(-1)?.x`); no empty space on the right.
+- Chart extends to `max(lastSnapshotMonth, lastOperationMonth)` even when SP500 data ends earlier — extra months are appended with `close: null`.
 - Tooltip at operation-month dots: ① Value at last op-point → ② S&P growth since then → ③ After S&P growth → ④ Each deposit/withdrawal → Net cash → = Simulated value.
+
+### SP500 Data Sync (Settings)
+- SP500 data is not auto-fetched on chart load. The chart renders with whatever data is in `SP500Monthly`.
+- To update SP500 data: **Settings → Data → "Get latest S&P 500 data" → Run**.
+- Calls `POST /sp500` with `{ sync: true }`. The Lambda fetches missing months from Yahoo Finance (`query1.finance.yahoo.com`) and stores them in `SP500Monthly`.
+- An animated terminal-style log panel shows progress line by line (green = stored/done, amber = fetching/checking, red = error, grey = info).
+- The SP500Function Lambda has a 30-second timeout to accommodate Yahoo Finance round-trips.
 
 ### P&L Evolution Logic
 - Portfolio P&L% per period: `(currentPortfolio - prevPortfolio - netCash) / prevPortfolio × 100`.
@@ -485,12 +497,12 @@ No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (n
 ### Tests – Phase 11
 | # | Test | Expected Result |
 |---|---|---|
-| 11.1 | Navigate to `/investments` on desktop | All sections visible: Holdings + S&P chart (top row), P&L Evolution, Snapshots, Operations |
+| 11.1 | Navigate to `/investments` on desktop | All sections visible: Holdings + Portfolio evolution chart (top row), P&L Evolution, Snapshots, Operations |
 | 11.2 | View on mobile | "Investments" absent from mobile tab bar |
 | 11.3 | Current Holdings after seed | Each platform shows its latest amount and snapshot date |
-| 11.4 | S&P Simulation chart after seed | Amber S&P simulation line and grey portfolio total line rendered |
-| 11.5 | Toggle a platform chip | Line hides/shows in S&P Simulation chart |
-| 11.6 | Hover operation dot on S&P chart | Tooltip shows numbered breakdown of simulation step |
+| 11.4 | Portfolio evolution chart after seed | Amber S&P simulation line rendered last in legend; grey portfolio total line rendered; no empty space on the right of the chart |
+| 11.5 | Toggle a platform chip | Line hides/shows in Portfolio evolution chart |
+| 11.6 | Hover operation dot on Portfolio evolution chart | Tooltip shows numbered breakdown of simulation step |
 | 11.7 | P&L Evolution chart after seed | Indigo portfolio % line and green S&P % line rendered; bar chart shows averages |
 | 11.8 | Add operation | Row appears at top of Operations table; charts update |
 | 11.9 | Edit operation | Row updates |
@@ -498,8 +510,9 @@ No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (n
 | 11.11 | Edit snapshot | `PUT /investments/snapshots/{id}` called; row and charts update |
 | 11.12 | Delete snapshot | Holdings card reverts to previous value |
 | 11.13 | Refresh | All data persists |
-| 11.14 | `seed-sp500.mjs` runs | SP500Monthly populated; S&P Simulation renders correctly |
+| 11.14 | `seed-sp500.mjs` runs | SP500Monthly populated; Portfolio evolution chart renders correctly |
 | 11.15 | `sync-from-aws.mjs` runs | All 6 tables synced locally with userId remapped to `"local-dev"` |
+| 11.16 | Settings → Data → "Get latest S&P 500 data" → Run | Terminal log appears; missing SP500 months fetched from Yahoo Finance and stored; log shows green "Done" line on completion |
 
 ---
 

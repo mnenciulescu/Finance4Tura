@@ -537,11 +537,11 @@ Resources:
             RestApiId: !Ref Api
             Path: /sp500
             Method: GET
-        SP500Sync:
+        SP500Post:
           Type: Api
           Properties:
             RestApiId: !Ref Api
-            Path: /sp500/sync
+            Path: /sp500
             Method: POST
 
   # ──────────────────────────────────────────

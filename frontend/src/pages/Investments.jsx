@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
 import {
-  LineChart, Line, BarChart, Bar, Cell, LabelList,
+  LineChart, Line,
   XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine,
+  Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   listOperations, createOperation, updateOperation, deleteOperation,
@@ -52,219 +52,6 @@ function toEUR(amount, currency, rates) {
   if (!rates || currency === "EUR") return amount;
   const rate = rates[currency]; // e.g. rates.USD = 1.08 means 1 EUR = 1.08 USD
   return rate ? amount / rate : amount;
-}
-
-// Build chart data with all actual snapshot dates as data points.
-// Uses a numeric x-axis so each calendar year gets equal horizontal space,
-// while individual dates are placed proportionally within their year slot.
-// Returns { data, years } where years = sorted unique year strings (for axis ticks).
-function buildChartData(snapshots, lastNYears = null) {
-  if (!snapshots.length) return { data: [], years: [] };
-
-  const allDates = [...new Set(snapshots.map(s => s.date))].sort();
-
-  // Optionally restrict visible date points to the last N calendar years.
-  // Carry-forward lookups still use the full snapshot history so lines start
-  // at the correct value even when historical dates are hidden.
-  let visibleDates = allDates;
-  if (lastNYears) {
-    const allYears = [...new Set(allDates.map(d => d.slice(0, 4)))].sort();
-    const cutoffYear = allYears[Math.max(0, allYears.length - lastNYears)];
-    visibleDates = allDates.filter(d => d.slice(0, 4) >= cutoffYear);
-  }
-
-  const years = [...new Set(visibleDates.map(d => d.slice(0, 4)))].sort();
-  const baseYear = parseInt(years[0]);
-
-  function dateToX(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const t = new Date(y, m - 1, d);
-    const yearStart = new Date(y, 0, 1);
-    const yearEnd   = new Date(y + 1, 0, 1);
-    return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
-  }
-
-  const data = visibleDates.map(date => {
-    const point = { date, x: dateToX(date) };
-    let total = 0;
-    for (const p of PLATFORMS) {
-      const latest = snapshots
-        .filter(s => s.platform === p && s.date <= date)
-        .sort((a, b) => b.date.localeCompare(a.date))[0];
-      if (latest) { point[p] = latest.amount; total += latest.amount; }
-    }
-    if (total > 0) point[TOTAL_KEY] = total;
-    return point;
-  });
-
-  return { data, years };
-}
-
-// Build P&L% chart data — fresh period return method.
-//
-// For each period between consecutive snapshot dates:
-//   pnl% = (currentPortfolio − prevPortfolio) / prevPortfolio × 100
-//
-// When an operation (deposit or withdrawal) falls in a period, the pnl at that
-// point is forced to 0% and prev resets to the current portfolio value so the
-// next period starts fresh from the post-cash-flow baseline.
-// The first point is always 0% (baseline).
-function buildPnLChartData(snapshotsEUR, ops, fxRates, lastNYears = null) {
-  if (!snapshotsEUR.length) return { data: [], years: [] };
-
-  const allDates = [...new Set(snapshotsEUR.map(s => s.date))].sort();
-
-  let visibleDates = allDates;
-  if (lastNYears) {
-    const allYears = [...new Set(allDates.map(d => d.slice(0, 4)))].sort();
-    const cutoffYear = allYears[Math.max(0, allYears.length - lastNYears)];
-    visibleDates = allDates.filter(d => d.slice(0, 4) >= cutoffYear);
-  }
-
-  const years = [...new Set(visibleDates.map(d => d.slice(0, 4)))].sort();
-  const baseYear = parseInt(years[0]);
-
-  function dateToX(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const t = new Date(y, m - 1, d);
-    const yearStart = new Date(y, 0, 1);
-    const yearEnd   = new Date(y + 1, 0, 1);
-    return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
-  }
-
-  function portfolioAt(date) {
-    return PLATFORMS.reduce((sum, p) => {
-      const latest = snapshotsEUR
-        .filter(s => s.platform === p && s.date <= date)
-        .sort((a, b) => b.date.localeCompare(a.date))[0];
-      return sum + (latest?.amount ?? 0);
-    }, 0);
-  }
-
-  let prev = portfolioAt(visibleDates[0]);
-
-  const data = visibleDates.map((date, i) => {
-    const portfolio = portfolioAt(date);
-
-    if (i === 0) {
-      return { date, x: dateToX(date), pnl: 0, portfolio, prevPortfolio: null, opsInPeriod: [] };
-    }
-
-    const prevDate    = visibleDates[i - 1];
-    const opsInPeriod = ops.filter(op => op.date > prevDate && op.date <= date);
-
-    // Net cash injected this period (deposits positive, withdrawals negative) in EUR
-    const netCash = opsInPeriod.reduce((sum, op) => {
-      const eur = toEUR(op.amount, op.currency, fxRates);
-      return sum + (op.type === "Withdrawal" ? -eur : eur);
-    }, 0);
-
-    // Period return, net of cash flows — never forced to 0%
-    const pnl = prev > 0
-      ? parseFloat(((portfolio - prev - netCash) / prev * 100).toFixed(2))
-      : null;
-
-    const pt = { date, x: dateToX(date), pnl, portfolio, prevPortfolio: prev, opsInPeriod, netCash };
-    prev = portfolio;
-    return pt;
-  });
-
-  return { data, years };
-}
-
-
-// ── Custom tooltip ────────────────────────────────────────────────────────────
-
-function ChartTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const date = payload[0]?.payload?.date ?? "";
-  return (
-    <div style={st.tooltip}>
-      <div style={st.tooltipDate}>{date}</div>
-      {payload.map(p => (
-        <div key={p.dataKey} style={{ ...st.tooltipRow, color: p.color }}>
-          <span>{p.dataKey}</span>
-          <span style={st.tooltipVal}>{fmtNum(p.value)} EUR</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-function PnLStepTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const pt = payload[0]?.payload;
-  if (!pt) return null;
-  const { date, portfolio, prevPortfolio, opsInPeriod, netCash, pnl, pct, spClose } = pt;
-  const pnlColor = pnl == null ? "var(--text-muted)" : pnl >= 0 ? "#22c55e" : "#ef4444";
-  const pctColor = pct == null ? "var(--text-muted)" : pct >= 0 ? "#22c55e" : "#ef4444";
-  const marketGain = prevPortfolio != null ? portfolio - prevPortfolio - (netCash ?? 0) : null;
-
-  const divider = <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />;
-  const row = (label, value, color) => (
-    <div style={{ ...st.tooltipRow, color: color ?? "var(--text-muted)", marginBottom: "2px" }}>
-      <span>{label}</span>
-      <span style={st.tooltipVal}>{value}</span>
-    </div>
-  );
-
-  return (
-    <div style={{ ...st.tooltip, minWidth: "240px" }}>
-      <div style={st.tooltipDate}>{date}</div>
-
-      {/* P&L snapshot breakdown */}
-      {portfolio != null && (
-        prevPortfolio == null ? (
-          <div style={{ color: "var(--text-muted)", fontSize: "11px", marginTop: "4px" }}>Baseline point</div>
-        ) : (
-          <>
-            {divider}
-            {row("① Previous portfolio", `${fmtNum(prevPortfolio)} EUR`)}
-            {opsInPeriod?.length > 0 && (
-              <>
-                {opsInPeriod.map((op, i) => (
-                  <div key={i} style={{ ...st.tooltipRow, color: op.type === "Deposit" ? "#22c55e" : "#ef4444", marginBottom: "2px" }}>
-                    <span>② {op.type} · {op.platform}</span>
-                    <span style={st.tooltipVal}>{op.type === "Deposit" ? "+" : "−"}{fmtNum(op.amount)} {op.currency}</span>
-                  </div>
-                ))}
-                {row("   Net cash (EUR)", `${netCash >= 0 ? "+" : "−"}${fmtNum(Math.abs(netCash))} EUR`)}
-              </>
-            )}
-            {row(opsInPeriod?.length ? "③ Current portfolio" : "② Current portfolio", `${fmtNum(portfolio)} EUR`, "var(--text)")}
-            {divider}
-            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>
-              Market gain = ③ − ① {opsInPeriod?.length ? "− net cash" : ""}
-            </div>
-            {row("", `${marketGain >= 0 ? "+" : ""}${fmtNum(marketGain)} EUR`, marketGain >= 0 ? "#22c55e" : "#ef4444")}
-            <div style={{ fontSize: "11px", color: "var(--text-muted)", margin: "4px 0 2px" }}>
-              Period return = gain ÷ ①
-            </div>
-            <div style={{ ...st.tooltipRow, color: pnlColor, fontWeight: 700 }}>
-              <span>Portfolio P&amp;L</span>
-              <span style={st.tooltipVal}>{pnl != null ? `${pnl >= 0 ? "+" : ""}${fmtNum(pnl)}%` : "—"}</span>
-            </div>
-          </>
-        )
-      )}
-
-      {/* S&P 500 row — shown whenever monthly data is available */}
-      {pct != null && (
-        <>
-          {portfolio != null && divider}
-          <div style={{ ...st.tooltipRow, color: "#10b981", marginBottom: "2px" }}>
-            <span>S&amp;P 500 close</span>
-            <span style={st.tooltipVal}>{fmtNum(spClose)}</span>
-          </div>
-          <div style={{ ...st.tooltipRow, color: pctColor, fontWeight: 700 }}>
-            <span>S&amp;P 500 monthly</span>
-            <span style={st.tooltipVal}>{pct >= 0 ? "+" : ""}{fmtNum(pct)}%</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -322,132 +109,6 @@ export default function Investments() {
     }
     return result;
   }, [snapshotsInEUR]);
-
-  const { data: chartData, years: chartYears } = useMemo(() => buildChartData(snapshotsInEUR, 3), [snapshotsInEUR]);
-
-  const { data: pnlData, years: pnlYears } = useMemo(
-    () => buildPnLChartData(snapshotsInEUR, operations, fxRates, 3),
-    [snapshotsInEUR, operations, fxRates]
-  );
-
-  const avgPnl = useMemo(() => {
-    // Skip the first point (always 0% baseline) and null values
-    const vals = pnlData.slice(1).map(d => d.pnl).filter(v => v != null);
-    if (!vals.length) return null;
-    return parseFloat((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2));
-  }, [pnlData]);
-
-  // Build S&P 500 monthly % change chart data using the same year range as P&L Evolution.
-  const { data: sp500ChartData, years: sp500Years } = useMemo(() => {
-    if (!sp500.length || !pnlYears.length) return { data: [], years: [] };
-
-    const cutoffYear = pnlYears[0];
-    const years = pnlYears;
-    const baseYear = parseInt(years[0]);
-
-    function dateToX(dateStr) {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const t = new Date(y, m - 1, d);
-      const yearStart = new Date(y, 0, 1);
-      const yearEnd   = new Date(y + 1, 0, 1);
-      return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
-    }
-
-    const sorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
-    const allMonthIds = sorted.map(d => d.monthId);
-    const lookup = Object.fromEntries(sorted.map(d => [d.monthId, d.close]));
-    const visibleMonthIds = allMonthIds.filter(m => m.slice(0, 4) >= cutoffYear);
-
-    const data = visibleMonthIds.map(monthId => {
-      const close = lookup[monthId];
-      const idx = allMonthIds.indexOf(monthId);
-      const prevClose = idx > 0 ? lookup[allMonthIds[idx - 1]] : null;
-      const pct = prevClose && prevClose > 0
-        ? parseFloat(((close - prevClose) / prevClose * 100).toFixed(2))
-        : null;
-      return { date: monthId, x: dateToX(monthId + "-01"), pct, close };
-    });
-
-    return { data, years };
-  }, [sp500, pnlYears]);
-
-  // S&P 500 rescaled to portfolio value — same monthly % dynamics, starts at closest portfolio total.
-  const { data: sp500PriceData, years: sp500PriceYears } = useMemo(() => {
-    if (!sp500.length) return { data: [], years: [] };
-    const opMonths = new Set(operations.map(op => op.date.slice(0, 7)));
-    const allSorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
-    const closeLookup = Object.fromEntries(allSorted.map(d => [d.monthId, d.close]));
-    const allMonthIds = allSorted.map(d => d.monthId);
-
-    const visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
-    const years = [...new Set(visible.map(d => d.monthId.slice(0, 4)))].sort();
-    const baseYear = parseInt(years[0] ?? "2023");
-
-    function dateToX(dateStr) {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const t = new Date(y, m - 1, d);
-      const yearStart = new Date(y, 0, 1);
-      const yearEnd   = new Date(y + 1, 0, 1);
-      return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
-    }
-
-    // Find closest S&P 500 close for a given YYYY-MM
-    function closeFor(monthId) {
-      if (closeLookup[monthId]) return { close: closeLookup[monthId], month: monthId };
-      const refMs = new Date(monthId + "-01").getTime();
-      const nearest = allMonthIds.reduce((best, m) =>
-        Math.abs(new Date(m + "-01").getTime() - refMs) < Math.abs(new Date(best + "-01").getTime() - refMs) ? m : best
-      );
-      return { close: closeLookup[nearest], month: nearest };
-    }
-
-    // Compute total portfolio in EUR per snapshot date, find closest to chart start
-    const chartStartMonth = visible[0]?.monthId ?? "2023-01";
-    const totalByDate = {};
-    snapshotsInEUR.forEach(s => {
-      totalByDate[s.date] = (totalByDate[s.date] ?? 0) + s.amount;
-    });
-    const snapshotDates = Object.keys(totalByDate).sort();
-    const refTime = new Date(chartStartMonth + "-01").getTime();
-    const closestSnapDate = snapshotDates.length
-      ? snapshotDates.reduce((best, d) =>
-          Math.abs(new Date(d).getTime() - refTime) < Math.abs(new Date(best).getTime() - refTime) ? d : best
-        )
-      : null;
-    const startPortfolio = closestSnapDate ? totalByDate[closestSnapDate] : null;
-
-    // S&P 500 close at chart start month (for rescaling)
-    const startSpClose = closeFor(chartStartMonth).close;
-
-    // Sorted op months for "vs prev op" tooltip
-    const opMonthsSorted = [...opMonths].sort();
-
-    const data = visible.map(d => {
-      // Rescaled value: preserves S&P 500 % dynamics, starts at portfolio value
-      const adjusted = startPortfolio != null && startSpClose > 0
-        ? parseFloat((startPortfolio * (d.close / startSpClose)).toFixed(2))
-        : null;
-
-      // % change vs previous operation month
-      const prevOpMonth = opMonthsSorted.filter(m => m < d.monthId).pop() ?? null;
-      const prevOpEntry = prevOpMonth ? closeFor(prevOpMonth) : null;
-      const pct = prevOpEntry && prevOpEntry.close > 0
-        ? parseFloat(((d.close - prevOpEntry.close) / prevOpEntry.close * 100).toFixed(2))
-        : null;
-
-      return {
-        date: d.monthId,
-        x: dateToX(d.monthId + "-01"),
-        close: d.close,
-        adjusted,
-        pct,
-        prevOpMonth: prevOpEntry?.month ?? null,
-        hasOp: opMonths.has(d.monthId),
-        ops: operations.filter(op => op.date.slice(0, 7) === d.monthId),
-      };
-    });
-    return { data, years };
-  }, [sp500, operations, snapshotsInEUR]);
 
   // Testing chart: cumulative simulation — S&P 500 monthly growth + deposits/withdrawals.
   // First op-month point = startPortfolio. Each subsequent month: grow by S&P %, then
@@ -601,28 +262,6 @@ export default function Investments() {
 
     return { data, years, xMax: data.at(-1)?.x ?? years.length };
   }, [sp500, operations, snapshotsInEUR, fxRates]);
-
-  const avgSP500 = useMemo(() => {
-    const vals = sp500ChartData.map(d => d.pct).filter(v => v != null);
-    if (!vals.length) return null;
-    return parseFloat((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2));
-  }, [sp500ChartData]);
-
-  // Merge pnlData and sp500ChartData into one array for the combined chart.
-  const combinedChartData = useMemo(() => {
-    const map = new Map();
-    pnlData.forEach(d => map.set(d.x, { ...d, pct: null, spClose: null }));
-    sp500ChartData.forEach(d => {
-      const existing = map.get(d.x);
-      if (existing) {
-        existing.pct = d.pct;
-        existing.spClose = d.close;
-      } else {
-        map.set(d.x, { x: d.x, date: d.date, pnl: null, pct: d.pct, spClose: d.close });
-      }
-    });
-    return [...map.values()].sort((a, b) => a.x - b.x);
-  }, [pnlData, sp500ChartData]);
 
   const totalPortfolioEUR = useMemo(() =>
     Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
@@ -1019,225 +658,127 @@ export default function Investments() {
         </div>
       </div>
 
-      {/* ── P&L Evolution ────────────────────────────────────────────────────── */}
-      <Section title="P&L Evolution (%)">
-        {pnlData.length < 2 ? (
-          <p style={s.muted}>Add at least two snapshot readings to see the chart.</p>
-        ) : (
-          <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
-            {/* Left: lines chart — 70% */}
-            <div style={{ flex: "0 0 70%" }}>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={combinedChartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis
-                    dataKey="x"
-                    type="number"
-                    domain={[0, pnlYears.length]}
-                    ticks={pnlYears.map((_, i) => i)}
-                    tickFormatter={i => pnlYears[i] ?? ""}
-                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "var(--border)" }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={48}
-                    tickFormatter={v => `${v}%`}
-                  />
-                  <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="4 4" />
-                  <Tooltip content={<PnLStepTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="pct"
-                    name="S&P 500"
-                    stroke="#10b981"
-                    strokeWidth={1.5}
-                    dot={false}
-                    activeDot={{ r: 3, fill: "#10b981" }}
-                    connectNulls={true}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="pnl"
-                    name="Portfolio P&L"
-                    stroke="#6366f1"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: "#6366f1" }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={true}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+      {/* ── Portfolio Snapshots + Operations Log (side by side) ─────────────── */}
+      <div style={s.bottomRow}>
 
-            {/* Right: averages bar chart — 30% */}
-            <div style={{ flex: "0 0 calc(30% - 12px)" }}>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart
-                  data={[
-                    { name: "Portfolio", value: avgPnl,   color: "#6366f1" },
-                    { name: "S&P 500",   value: avgSP500, color: "#10b981" },
-                  ]}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "var(--border)" }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={44}
-                    tickFormatter={v => `${v}%`}
-                  />
-                  <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="4 4" />
-                  <Tooltip
-                    formatter={(v, name) => [`${v >= 0 ? "+" : ""}${fmtNum(v)}%`, `Avg monthly ${name}`]}
-                    contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px" }}
-                    cursor={{ fill: "rgba(128,128,128,0.08)" }}
-                  />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {[avgPnl, avgSP500].map((_, i) => (
-                      <Cell key={i} fill={i === 0 ? "#6366f1" : "#10b981"} />
-                    ))}
-                    <LabelList
-                      dataKey="value"
-                      position="top"
-                      formatter={v => `${v >= 0 ? "+" : ""}${fmtNum(v)}%`}
-                      style={{ fontSize: 12, fontWeight: 700, fill: "var(--text)" }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-        <p style={{ ...s.muted, marginTop: "6px", fontSize: "10px" }}>
-          <span style={{ color: "#6366f1", fontWeight: 600 }}>■</span> Portfolio period return (per snapshot) &nbsp;
-          <span style={{ color: "#10b981", fontWeight: 600 }}>■</span> S&P 500 monthly % change. Cash flows subtracted so deposits don't distort market return.
-          {!fxRates && " Rates unavailable — using native amounts."}
-        </p>
-      </Section>
+        {/* Left: Portfolio Snapshots */}
+        <div style={s.bottomColLeft}>
+          <Section title="Portfolio Snapshots" action={<button style={s.addBtn} onClick={openAddSnap}>+ Add Snapshot</button>}>
+            {snapshots.length === 0 ? (
+              <p style={s.muted}>No snapshots yet.</p>
+            ) : (() => {
+              // Group by date: { [date]: { [platform]: snapshot } }
+              const byDate = {};
+              snapshots.forEach(s => {
+                if (!byDate[s.date]) byDate[s.date] = {};
+                byDate[s.date][s.platform] = s;
+              });
+              const dates = Object.keys(byDate).sort().reverse();
 
-      {/* ── Portfolio Snapshots ──────────────────────────────────────────────── */}
-      <Section title="Portfolio Snapshots" action={<button style={s.addBtn} onClick={openAddSnap}>+ Add Snapshot</button>}>
-        {snapshots.length === 0 ? (
-          <p style={s.muted}>No snapshots yet.</p>
-        ) : (() => {
-          // Group by date: { [date]: { [platform]: snapshot } }
-          const byDate = {};
-          snapshots.forEach(s => {
-            if (!byDate[s.date]) byDate[s.date] = {};
-            byDate[s.date][s.platform] = s;
-          });
-          const dates = Object.keys(byDate).sort().reverse();
+              // Carry-forward total EUR per date (all platforms, not just recorded that day)
+              function totalEURAt(date) {
+                return PLATFORMS.reduce((sum, p) => {
+                  const latest = snapshotsInEUR
+                    .filter(s => s.platform === p && s.date <= date)
+                    .sort((a, b) => b.date.localeCompare(a.date))[0];
+                  return sum + (latest?.amount ?? 0);
+                }, 0);
+              }
 
-          // Carry-forward total EUR per date (all platforms, not just recorded that day)
-          function totalEURAt(date) {
-            return PLATFORMS.reduce((sum, p) => {
-              const latest = snapshotsInEUR
-                .filter(s => s.platform === p && s.date <= date)
-                .sort((a, b) => b.date.localeCompare(a.date))[0];
-              return sum + (latest?.amount ?? 0);
-            }, 0);
-          }
-
-          return (
-            <div style={s.tableWrap}>
-              <table style={{ ...s.table, minWidth: "800px" }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...s.th, textAlign: "left" }}>Date</th>
-                    {PLATFORMS.map(p => (
-                      <th key={p} style={{ ...s.th, textAlign: "right", color: PLATFORM_COLOR[p] }}>
-                        {p}<br />
-                        <span style={{ fontWeight: 400, opacity: 0.7 }}>({PLATFORM_CURRENCY[p]})</span>
-                      </th>
-                    ))}
-                    <th style={{ ...s.th, textAlign: "right" }}>Total (EUR)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dates.map(date => {
-                    const row = byDate[date];
-                    return (
-                      <tr key={date} style={s.tr}>
-                        <td style={s.td}>{date}</td>
-                        {PLATFORMS.map(p => {
-                          const snap = row[p];
-                          return (
-                            <td key={p} style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: snap ? "var(--text)" : "var(--text-muted)" }}>
-                              {snap ? (
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                                  {fmtNum(snap.amount)}
-                                  <button style={s.editBtn} title="Edit" onClick={() => openEditSnap(snap)}>✎</button>
-                                </span>
-                              ) : "—"}
+              return (
+                <div style={s.tableWrap}>
+                  <table style={{ ...s.table, minWidth: "600px" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...s.th, textAlign: "left" }}>Date</th>
+                        {PLATFORMS.map(p => (
+                          <th key={p} style={{ ...s.th, textAlign: "right", color: PLATFORM_COLOR[p] }}>
+                            {p}<br />
+                            <span style={{ fontWeight: 400, opacity: 0.7 }}>({PLATFORM_CURRENCY[p]})</span>
+                          </th>
+                        ))}
+                        <th style={{ ...s.th, textAlign: "right" }}>Total (EUR)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dates.map(date => {
+                        const row = byDate[date];
+                        return (
+                          <tr key={date} style={s.tr}>
+                            <td style={s.td}>{date}</td>
+                            {PLATFORMS.map(p => {
+                              const snap = row[p];
+                              return (
+                                <td key={p} style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: snap ? "var(--text)" : "var(--text-muted)" }}>
+                                  {snap ? (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                      {fmtNum(snap.amount)}
+                                      <button style={s.editBtn} title="Edit" onClick={() => openEditSnap(snap)}>✎</button>
+                                    </span>
+                                  ) : "—"}
+                                </td>
+                              );
+                            })}
+                            <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                              {fmtNum(totalEURAt(date))}
                             </td>
-                          );
-                        })}
-                        <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
-                          {fmtNum(totalEURAt(date))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </Section>
+        </div>
+
+        {/* Right: Operations Log */}
+        <div style={s.bottomColRight}>
+          <Section title="Operations Log" action={<button style={s.addBtn} onClick={openAddOp}>+ Add Operation</button>}>
+            {operations.length === 0 ? (
+              <p style={s.muted}>No operations yet.</p>
+            ) : (
+              <div style={s.tableWrap}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      {["Date","Platform","Type","Amount","Currency","Notes","",""].map((h, i) => (
+                        <th key={i} style={{ ...s.th, textAlign: i >= 6 ? "center" : "left" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {operations.map(op => (
+                      <tr key={op.operationId} style={s.tr}>
+                        <td style={s.td}>{op.date}</td>
+                        <td style={{ ...s.td }}>
+                          <span style={{ color: PLATFORM_COLOR[op.platform], fontWeight: 600 }}>{op.platform}</span>
+                        </td>
+                        <td style={s.td}>
+                          <span style={{ ...s.typeBadge, ...(op.type === "Deposit" ? s.typeDeposit : s.typeWithdraw) }}>
+                            {op.type}
+                          </span>
+                        </td>
+                        <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtNum(op.amount)}</td>
+                        <td style={s.td}>{op.currency}</td>
+                        <td style={{ ...s.td, color: "var(--text-muted)", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{op.notes || "—"}</td>
+                        <td style={{ ...s.td, textAlign: "center" }}>
+                          <button style={s.editBtn} title="Edit" onClick={() => openEditOp(op)}>✎</button>
+                        </td>
+                        <td style={{ ...s.td, textAlign: "center" }}>
+                          <button style={s.deleteBtn} title="Delete" onClick={() => handleOpDelete(op.operationId)}>✕</button>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          );
-        })()}
-      </Section>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+        </div>
 
-      {/* ── Operations Log ───────────────────────────────────────────────────── */}
-      <Section title="Operations Log" action={<button style={s.addBtn} onClick={openAddOp}>+ Add Operation</button>}>
-        {operations.length === 0 ? (
-          <p style={s.muted}>No operations yet.</p>
-        ) : (
-          <div style={s.tableWrap}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {["Date","Platform","Type","Amount","Currency","Notes","",""].map((h, i) => (
-                    <th key={i} style={{ ...s.th, textAlign: i >= 6 ? "center" : "left" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {operations.map(op => (
-                  <tr key={op.operationId} style={s.tr}>
-                    <td style={s.td}>{op.date}</td>
-                    <td style={{ ...s.td }}>
-                      <span style={{ color: PLATFORM_COLOR[op.platform], fontWeight: 600 }}>{op.platform}</span>
-                    </td>
-                    <td style={s.td}>
-                      <span style={{ ...s.typeBadge, ...(op.type === "Deposit" ? s.typeDeposit : s.typeWithdraw) }}>
-                        {op.type}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtNum(op.amount)}</td>
-                    <td style={s.td}>{op.currency}</td>
-                    <td style={{ ...s.td, color: "var(--text-muted)", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis" }}>{op.notes || "—"}</td>
-                    <td style={{ ...s.td, textAlign: "center" }}>
-                      <button style={s.editBtn} title="Edit" onClick={() => openEditOp(op)}>✎</button>
-                    </td>
-                    <td style={{ ...s.td, textAlign: "center" }}>
-                      <button style={s.deleteBtn} title="Delete" onClick={() => handleOpDelete(op.operationId)}>✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+      </div>
 
       {/* ── Operations Modal ─────────────────────────────────────────────────── */}
       {showOpModal && (
@@ -1392,6 +933,19 @@ const s = {
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
+  },
+  bottomRow: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "flex-start",
+  },
+  bottomColLeft: {
+    flex: "0 0 calc(60% - 10px)",
+    minWidth: 0,
+  },
+  bottomColRight: {
+    flex: "0 0 calc(40% - 10px)",
+    minWidth: 0,
   },
 
   // Holdings table
