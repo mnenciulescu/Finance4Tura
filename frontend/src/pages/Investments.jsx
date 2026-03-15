@@ -328,9 +328,10 @@ export default function Investments() {
         setSyncLog(["Checking S&P 500 database...", ...log]);
         syncDoneRef.current = true;
       })
-      .catch(e => {
-        setSyncLog(prev => [...(prev ?? []), `Error: ${e.message}`]);
-        syncDoneRef.current = true;
+      .catch(() => {
+        // Sync unavailable (e.g. local dev without endpoint) — silently show chart
+        setSyncLog(null);
+        setSyncVisible(0);
       });
   }, [sp500]); // eslint-disable-line react-hooks/exhaustive-deps
 
