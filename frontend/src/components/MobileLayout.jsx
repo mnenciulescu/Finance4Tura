@@ -12,8 +12,8 @@ function IconExpense() {
 function IconIncome() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,11 5,6.5 8.5,9.5 14,3.5"/><polyline points="10.5,3.5 14,3.5 14,7"/></svg>;
 }
-function IconStats() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="9" width="3" height="5" rx="1"/><rect x="6" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>;
+function IconAI() {
+  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7.5" r="6"/><path d="M5 10l1.5-4.5 2 3 1.5-2L11 10"/><circle cx="7.5" cy="4.5" r="0.6" fill="currentColor" stroke="none"/></svg>;
 }
 function IconSettings() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><line x1="1" y1="4.5" x2="14" y2="4.5"/><line x1="1" y1="10.5" x2="14" y2="10.5"/><circle cx="5" cy="4.5" r="1.8" fill="currentColor" stroke="none"/><circle cx="10" cy="10.5" r="1.8" fill="currentColor" stroke="none"/></svg>;
@@ -21,10 +21,10 @@ function IconSettings() {
 
 const tabs = [
   { to: "/",            label: "Home",    end: true, Icon: IconDashboard },
-  { to: "/add-expense", label: "Expense", Icon: IconExpense },
-  { to: "/add-income",  label: "Income",  Icon: IconIncome  },
-  { to: "/statistics",  label: "Stats",   Icon: IconStats   },
-  { to: "/settings",    label: "Settings",Icon: IconSettings},
+  { to: "/add-expense", label: "Expense", Icon: IconExpense  },
+  { to: "/add-income",  label: "Income",  Icon: IconIncome   },
+  { to: "/ai-news",     label: "AI",      Icon: IconAI       },
+  { to: "/settings",    label: "Settings",Icon: IconSettings },
 ];
 
 export default function MobileLayout({ children }) {
