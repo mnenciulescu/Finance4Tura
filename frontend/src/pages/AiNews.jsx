@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import client from "../api/client";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 const SOURCE_COLORS = {
   "TechCrunch":   "#0aa84f",
@@ -17,6 +18,7 @@ const SOURCE_COLORS = {
 };
 
 export default function AiNews() {
+  const isMobile = useIsMobile();
   const [articles, setArticles] = useState([]);
   const [failed,   setFailed]   = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -82,11 +84,11 @@ export default function AiNews() {
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={{ ...s.th, width: "10%" }}>Date</th>
-                <th style={{ ...s.th, width: "14%" }}>Source</th>
-                <th style={{ ...s.th, width: "22%" }}>Title</th>
-                <th style={{ ...s.th, width: "46%" }}>Summary</th>
-                <th style={{ ...s.th, width: "8%", textAlign: "center" }}>Link</th>
+                <th style={{ ...s.th, width: isMobile ? "22%" : "10%" }}>Date</th>
+                <th style={{ ...s.th, width: isMobile ? "30%" : "14%" }}>Source</th>
+                <th style={{ ...s.th, width: isMobile ? "38%" : "22%" }}>Title</th>
+                {!isMobile && <th style={{ ...s.th, width: "46%" }}>Summary</th>}
+                <th style={{ ...s.th, width: isMobile ? "10%" : "8%", textAlign: "center" }}>Link</th>
               </tr>
             </thead>
             <tbody>
@@ -96,7 +98,7 @@ export default function AiNews() {
                       <td style={s.td}><div style={{ ...s.skel, width: "70%" }} /></td>
                       <td style={s.td}><div style={{ ...s.skel, width: "60%" }} /></td>
                       <td style={s.td}><div style={{ ...s.skel, width: "80%" }} /></td>
-                      <td style={s.td}><div style={{ ...s.skel, width: "95%" }} /></td>
+                      {!isMobile && <td style={s.td}><div style={{ ...s.skel, width: "95%" }} /></td>}
                       <td style={s.td}><div style={{ ...s.skel, width: "50%", margin: "0 auto" }} /></td>
                     </tr>
                   ))
@@ -116,7 +118,7 @@ export default function AiNews() {
                         </span>
                       </td>
                       <td style={{ ...s.td, ...s.titleCell }}>{a.title}</td>
-                      <td style={s.td}>{a.summary || "—"}</td>
+                      {!isMobile && <td style={s.td}>{a.summary || "—"}</td>}
                       <td style={{ ...s.td, textAlign: "center" }}>
                         <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.link}>
                           Read →

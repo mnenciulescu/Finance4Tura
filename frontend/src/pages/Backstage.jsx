@@ -75,6 +75,8 @@ function matches(value, filter) {
   return String(value ?? "").toLowerCase().includes(filter.toLowerCase());
 }
 
+const PAGE = 10;
+
 export default function Backstage() {
   const { loading: authLoading } = useAuth();
   const [log, setLog]           = useState([...opLog]);
@@ -86,6 +88,9 @@ export default function Backstage() {
   const [operations,    setOperations]    = useState([]);
   const [snapshots,     setSnapshots]     = useState([]);
   const [splitPayments, setSplitPayments] = useState([]);
+
+  const [expanded, setExpanded] = useState({});
+  const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
   const [incFilters,   setIncFilters]   = useState(emptyFilters(INC_COLS));
   const [expFilters,   setExpFilters]   = useState(emptyFilters(EXP_COLS));
@@ -240,7 +245,7 @@ export default function Backstage() {
                 {filteredIncomes.length === 0 && (
                   <tr><td colSpan={INC_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
                 )}
-                {filteredIncomes.map(r => (
+                {(expanded["incomes"] ? filteredIncomes : filteredIncomes.slice(0, PAGE)).map(r => (
                   <tr key={r.incomeId} style={s.tr}>
                     <td style={{ ...s.td, ...s.idCell }}>{r.incomeId.slice(0, 8)}…</td>
                     <td style={s.td}>{r.summary}</td>
@@ -256,6 +261,11 @@ export default function Backstage() {
                 ))}
               </tbody>
             </table>
+            {filteredIncomes.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("incomes")}>
+                {expanded["incomes"] ? "Show less" : `Show ${filteredIncomes.length - PAGE} more…`}
+              </button>
+            )}
           </div>
 
           {/* Expenses table */}
@@ -279,7 +289,7 @@ export default function Backstage() {
                 {filteredExpenses.length === 0 && (
                   <tr><td colSpan={EXP_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
                 )}
-                {filteredExpenses.map(r => (
+                {(expanded["expenses"] ? filteredExpenses : filteredExpenses.slice(0, PAGE)).map(r => (
                   <tr key={r.expenseId} style={s.tr}>
                     <td style={{ ...s.td, ...s.idCell }}>{r.expenseId.slice(0, 8)}…</td>
                     <td style={s.td}>{r.summary}</td>
@@ -303,6 +313,11 @@ export default function Backstage() {
                 ))}
               </tbody>
             </table>
+            {filteredExpenses.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("expenses")}>
+                {expanded["expenses"] ? "Show less" : `Show ${filteredExpenses.length - PAGE} more…`}
+              </button>
+            )}
           </div>
 
           {/* Investment Operations table */}
@@ -326,7 +341,7 @@ export default function Backstage() {
                 {filteredOps.length === 0 && (
                   <tr><td colSpan={OPS_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
                 )}
-                {filteredOps.map(r => (
+                {(expanded["ops"] ? filteredOps : filteredOps.slice(0, PAGE)).map(r => (
                   <tr key={r.operationId} style={s.tr}>
                     <td style={{ ...s.td, ...s.idCell }}>{r.operationId.slice(0, 8)}…</td>
                     <td style={s.td}>{r.date}</td>
@@ -344,6 +359,11 @@ export default function Backstage() {
                 ))}
               </tbody>
             </table>
+            {filteredOps.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("ops")}>
+                {expanded["ops"] ? "Show less" : `Show ${filteredOps.length - PAGE} more…`}
+              </button>
+            )}
           </div>
 
           {/* Portfolio Snapshots table */}
@@ -367,7 +387,7 @@ export default function Backstage() {
                 {filteredSnaps.length === 0 && (
                   <tr><td colSpan={SNAP_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
                 )}
-                {filteredSnaps.map(r => (
+                {(expanded["snaps"] ? filteredSnaps : filteredSnaps.slice(0, PAGE)).map(r => (
                   <tr key={r.snapshotId} style={s.tr}>
                     <td style={{ ...s.td, ...s.idCell }}>{r.snapshotId.slice(0, 8)}…</td>
                     <td style={s.td}>{r.date}</td>
@@ -379,6 +399,11 @@ export default function Backstage() {
                 ))}
               </tbody>
             </table>
+            {filteredSnaps.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("snaps")}>
+                {expanded["snaps"] ? "Show less" : `Show ${filteredSnaps.length - PAGE} more…`}
+              </button>
+            )}
           </div>
 
           {/* Split Payments table */}
@@ -402,7 +427,7 @@ export default function Backstage() {
                 {filteredSplits.length === 0 && (
                   <tr><td colSpan={SPLIT_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
                 )}
-                {filteredSplits.map(r => (
+                {(expanded["splits"] ? filteredSplits : filteredSplits.slice(0, PAGE)).map(r => (
                   <tr key={r.splitPaymentId} style={s.tr}>
                     <td style={{ ...s.td, ...s.idCell }}>{r.splitPaymentId.slice(0, 8)}…</td>
                     <td style={s.td}>{r.date}</td>
@@ -417,6 +442,11 @@ export default function Backstage() {
                 ))}
               </tbody>
             </table>
+            {filteredSplits.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("splits")}>
+                {expanded["splits"] ? "Show less" : `Show ${filteredSplits.length - PAGE} more…`}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -546,5 +576,10 @@ const s = {
   errorBox: {
     background: "var(--error-bg)", border: "1px solid var(--danger)",
     borderRadius: "8px", color: "var(--error-text)", padding: "10px 14px", fontSize: "12px",
+  },
+  expandBtn: {
+    background: "transparent", border: "1px solid var(--border)",
+    borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px",
+    padding: "4px 12px", cursor: "pointer", marginTop: "4px", width: "100%",
   },
 };
