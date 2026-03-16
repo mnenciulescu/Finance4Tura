@@ -1,16 +1,25 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
+import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
+
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
-const BAR_COLOR = { total: "#7c75e0", done: "#bbf7d0", pending: "#f59e0b", free: "#22c55e", over: "#ef4444" };
 const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
+
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
 const monthParts = (dateStr) => {
   const [y, m, d] = dateStr.split("-");
   const month = new Date(+y, +m - 1, 1).toLocaleString("en-US", { month: "short" }).toUpperCase();
   return { month, day: String(+d), year: y };
 };
+
+/** Derives abbreviated day-of-week from YYYY-MM-DD using UTC to match the date string. */
+const getDow = (income) =>
+  income.dayOfWeek
+    ? income.dayOfWeek.slice(0, 3)
+    : DOW[new Date(Date.UTC(...income.date.split("-").map((v, i) => i === 1 ? +v - 1 : +v))).getUTCDay()];
 
 export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false  }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -42,6 +51,8 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 <span style={{ ...s.badgeMonth, fontSize: isMobile ? "17px" : "13px" }}>{month}</span>
                 <span style={{ ...s.badgeDay,   fontSize: isMobile ? "17px" : "13px" }}>{day}</span>
                 <span style={{ ...s.badgeYear,  fontSize: isMobile ? "15px" : "12px" }}>{year}</span>
+                <span style={s.badgeSep}>·</span>
+                <span style={{ ...s.badgeDow, fontSize: isMobile ? "14px" : "11px" }}>{getDow(income)}</span>
               </div>
             ); })()}
             <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={{ ...s.addBtn, fontSize: isMobile ? "13px" : "11px", padding: isMobile ? "5px 12px" : "3px 8px" }} title="Add expense">
@@ -292,6 +303,19 @@ const s = {
     fontWeight:    500,
     color:         "var(--badge-text-muted)",
     letterSpacing: "0.04em",
+  },
+  badgeSep: {
+    fontSize:  "11px",
+    color:     "var(--badge-text-muted)",
+    opacity:   0.5,
+    lineHeight: 1,
+  },
+  badgeDow: {
+    fontSize:      "11px",
+    fontWeight:    600,
+    color:         "var(--accent)",
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
   },
   summary: {
     fontWeight:   600,

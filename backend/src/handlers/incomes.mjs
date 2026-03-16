@@ -12,6 +12,15 @@ import { expandDates } from "../lib/expandDates.mjs";
 const TABLE      = "Incomes";
 const BATCH_SIZE = 25; // DynamoDB BatchWrite limit
 
+const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+/** Returns the full day-of-week name for a YYYY-MM-DD string, using UTC so the
+ *  result always matches the date string regardless of server timezone. */
+function dayOfWeek(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return DOW[new Date(Date.UTC(+y, +m - 1, +d)).getUTCDay()];
+}
+
 const CORS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" };
 
 const ok = (body, statusCode = 200) => ({
@@ -49,7 +58,7 @@ async function createIncome(body, userId) {
 
   if (!isRepeatable) {
     const incomeId = randomUUID();
-    const item = { incomeId, seriesId: incomeId, summary, date, amount, currency, isRepeatable: false, userId };
+    const item = { incomeId, seriesId: incomeId, summary, date, amount, currency, isRepeatable: false, userId, dayOfWeek: dayOfWeek(date) };
     await docClient.send(new PutCommand({ TableName: TABLE, Item: item }));
     return ok({ incomeId, seriesId: incomeId, count: 1 }, 201);
   }
@@ -73,6 +82,7 @@ async function createIncome(body, userId) {
     repeatFrequency,
     seriesEndDate,
     userId,
+    dayOfWeek: dayOfWeek(d),
   }));
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
@@ -121,11 +131,13 @@ async function updateIncome(incomeId, body, userId) {
   if (!existing || existing.userId !== userId) return err(404, "Income not found");
 
   const isPartOfSeries = existing.seriesId !== existing.incomeId;
+  const mergedDate = body.date ?? existing.date;
   const updated = {
     ...existing,
     ...body,
     incomeId,
     userId,
+    dayOfWeek: dayOfWeek(mergedDate),
     ...(isPartOfSeries ? { isException: true } : {}),
   };
 
@@ -150,9 +162,10 @@ async function updateIncomeSeries(incomeId, body, userId) {
 
   const updates = Items.map((item) => ({
     ...item,
-    ...(summary !== undefined ? { summary } : {}),
-    ...(amount  !== undefined ? { amount  } : {}),
+    ...(summary  !== undefined ? { summary  } : {}),
+    ...(amount   !== undefined ? { amount   } : {}),
     ...(currency !== undefined ? { currency } : {}),
+    dayOfWeek: dayOfWeek(item.date),
   }));
 
   for (let i = 0; i < updates.length; i += BATCH_SIZE) {
