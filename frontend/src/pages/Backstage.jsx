@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { opLog, getLogSeq } from "../api/client";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, deleteExpense } from "../api/expenses";
+import { listOperations, deleteOperation, listSnapshots, deleteSnapshot } from "../api/investments";
+import { listSplitPayments, deleteSplitPayment } from "../api/splitPayments";
 import { useAuth } from "../context/AuthContext";
 
 const METHOD_COLOR = {
@@ -61,8 +63,11 @@ function DeleteCell({ onDelete }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const INC_COLS = ["ID", "Summary", "Date", "Amount", "Currency", "Repeatable", "Frequency", "Series End", "Series ID"];
-const EXP_COLS = ["ID", "Summary", "Date", "Amount", "Currency", "Priority", "Status", "Mapped Income", "Repeatable"];
+const INC_COLS  = ["ID", "Summary", "Date", "Amount", "Currency", "Repeatable", "Frequency", "Series End", "Series ID"];
+const EXP_COLS  = ["ID", "Summary", "Date", "Amount", "Currency", "Priority", "Status", "Mapped Income", "Repeatable"];
+const OPS_COLS  = ["ID", "Date", "Type", "Platform", "Amount", "Currency", "Notes"];
+const SNAP_COLS = ["ID", "Date", "Platform", "Amount", "Currency"];
+const SPLIT_COLS = ["ID", "Date", "Description", "Total", "Currency", "Participants"];
 
 const emptyFilters = (cols) => Object.fromEntries(cols.map(c => [c, ""]));
 
@@ -78,8 +83,15 @@ export default function Backstage() {
   const [dbError, setDbError]   = useState(null);
   const knownSeqRef             = useRef(getLogSeq());
 
-  const [incFilters, setIncFilters] = useState(emptyFilters(INC_COLS));
-  const [expFilters, setExpFilters] = useState(emptyFilters(EXP_COLS));
+  const [operations,    setOperations]    = useState([]);
+  const [snapshots,     setSnapshots]     = useState([]);
+  const [splitPayments, setSplitPayments] = useState([]);
+
+  const [incFilters,   setIncFilters]   = useState(emptyFilters(INC_COLS));
+  const [expFilters,   setExpFilters]   = useState(emptyFilters(EXP_COLS));
+  const [opsFilters,   setOpsFilters]   = useState(emptyFilters(OPS_COLS));
+  const [snapFilters,  setSnapFilters]  = useState(emptyFilters(SNAP_COLS));
+  const [splitFilters, setSplitFilters] = useState(emptyFilters(SPLIT_COLS));
 
   // Poll log
   useEffect(() => {
@@ -95,8 +107,14 @@ export default function Backstage() {
 
   const loadData = () => {
     setDbError(null);
-    Promise.all([listIncomes(), listExpenses()])
-      .then(([inc, exp]) => { setIncomes(inc); setExpenses(exp); })
+    Promise.all([listIncomes(), listExpenses(), listOperations(), listSnapshots(), listSplitPayments()])
+      .then(([inc, exp, ops, snaps, splits]) => {
+        setIncomes(inc);
+        setExpenses(exp);
+        setOperations(ops);
+        setSnapshots(snaps);
+        setSplitPayments(splits);
+      })
       .catch(() => setDbError("Failed to load database."));
   };
   useEffect(() => { if (!authLoading) loadData(); }, [authLoading]);
@@ -127,6 +145,33 @@ export default function Backstage() {
     matches(r.isRepeatable ? "Yes" : "No", expFilters["Repeatable"])
   )), [expenses, expFilters]);
 
+  const filteredOps = useMemo(() => operations.filter(r => (
+    matches(r.operationId, opsFilters["ID"])       &&
+    matches(r.date,        opsFilters["Date"])      &&
+    matches(r.type,        opsFilters["Type"])      &&
+    matches(r.platform,    opsFilters["Platform"])  &&
+    matches(r.amount,      opsFilters["Amount"])    &&
+    matches(r.currency,    opsFilters["Currency"])  &&
+    matches(r.notes,       opsFilters["Notes"])
+  )), [operations, opsFilters]);
+
+  const filteredSnaps = useMemo(() => snapshots.filter(r => (
+    matches(r.snapshotId, snapFilters["ID"])       &&
+    matches(r.date,       snapFilters["Date"])      &&
+    matches(r.platform,   snapFilters["Platform"])  &&
+    matches(r.amount,     snapFilters["Amount"])    &&
+    matches(r.currency,   snapFilters["Currency"])
+  )), [snapshots, snapFilters]);
+
+  const filteredSplits = useMemo(() => splitPayments.filter(r => (
+    matches(r.splitPaymentId, splitFilters["ID"])          &&
+    matches(r.date,           splitFilters["Date"])         &&
+    matches(r.description,    splitFilters["Description"])  &&
+    matches(r.totalAmount,    splitFilters["Total"])        &&
+    matches(r.currency,       splitFilters["Currency"])     &&
+    matches((r.participants ?? []).map(p => p.name).join(" "), splitFilters["Participants"])
+  )), [splitPayments, splitFilters]);
+
   // ── Delete handlers ────────────────────────────────────────────────────────
 
   const handleDeleteIncome = (id) => {
@@ -139,10 +184,28 @@ export default function Backstage() {
     deleteExpense(id).catch(() => loadData());
   };
 
+  const handleDeleteOperation = (id) => {
+    setOperations(prev => prev.filter(r => r.operationId !== id));
+    deleteOperation(id).catch(() => loadData());
+  };
+
+  const handleDeleteSnapshot = (id) => {
+    setSnapshots(prev => prev.filter(r => r.snapshotId !== id));
+    deleteSnapshot(id).catch(() => loadData());
+  };
+
+  const handleDeleteSplit = (id) => {
+    setSplitPayments(prev => prev.filter(r => r.splitPaymentId !== id));
+    deleteSplitPayment(id).catch(() => loadData());
+  };
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const setIncFilter = (col, val) => setIncFilters(prev => ({ ...prev, [col]: val }));
-  const setExpFilter = (col, val) => setExpFilters(prev => ({ ...prev, [col]: val }));
+  const setIncFilter   = (col, val) => setIncFilters(prev => ({ ...prev, [col]: val }));
+  const setExpFilter   = (col, val) => setExpFilters(prev => ({ ...prev, [col]: val }));
+  const setOpsFilter   = (col, val) => setOpsFilters(prev => ({ ...prev, [col]: val }));
+  const setSnapFilter  = (col, val) => setSnapFilters(prev => ({ ...prev, [col]: val }));
+  const setSplitFilter = (col, val) => setSplitFilters(prev => ({ ...prev, [col]: val }));
 
   return (
     <div style={s.root}>
@@ -236,6 +299,120 @@ export default function Backstage() {
                     <td style={{ ...s.td, ...s.idCell }}>{r.mappedIncomeSummary ?? "—"}</td>
                     <td style={s.td}>{r.isRepeatable ? "Yes" : "No"}</td>
                     <DeleteCell onDelete={() => handleDeleteExpense(r.expenseId)} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Investment Operations table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Investment Operations <span style={s.count}>{filteredOps.length} / {operations.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {OPS_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={opsFilters[h]} onChange={v => setOpsFilter(h, v)} />
+                    </th>
+                  ))}
+                  <th style={s.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOps.length === 0 && (
+                  <tr><td colSpan={OPS_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
+                )}
+                {filteredOps.map(r => (
+                  <tr key={r.operationId} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.operationId.slice(0, 8)}…</td>
+                    <td style={s.td}>{r.date}</td>
+                    <td style={s.td}>
+                      <span style={{ ...s.pill, color: r.type === "Deposit" ? "#22c55e" : "#ef4444", borderColor: (r.type === "Deposit" ? "#22c55e" : "#ef4444") + "44" }}>
+                        {r.type}
+                      </span>
+                    </td>
+                    <td style={s.td}>{r.platform}</td>
+                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
+                    <td style={s.td}>{r.currency}</td>
+                    <td style={{ ...s.td, color: "var(--text-muted)" }}>{r.notes || "—"}</td>
+                    <DeleteCell onDelete={() => handleDeleteOperation(r.operationId)} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Portfolio Snapshots table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Portfolio Snapshots <span style={s.count}>{filteredSnaps.length} / {snapshots.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {SNAP_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={snapFilters[h]} onChange={v => setSnapFilter(h, v)} />
+                    </th>
+                  ))}
+                  <th style={s.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSnaps.length === 0 && (
+                  <tr><td colSpan={SNAP_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
+                )}
+                {filteredSnaps.map(r => (
+                  <tr key={r.snapshotId} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.snapshotId.slice(0, 8)}…</td>
+                    <td style={s.td}>{r.date}</td>
+                    <td style={s.td}>{r.platform}</td>
+                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
+                    <td style={s.td}>{r.currency}</td>
+                    <DeleteCell onDelete={() => handleDeleteSnapshot(r.snapshotId)} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Split Payments table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Split Payments <span style={s.count}>{filteredSplits.length} / {splitPayments.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {SPLIT_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={splitFilters[h]} onChange={v => setSplitFilter(h, v)} />
+                    </th>
+                  ))}
+                  <th style={s.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSplits.length === 0 && (
+                  <tr><td colSpan={SPLIT_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
+                )}
+                {filteredSplits.map(r => (
+                  <tr key={r.splitPaymentId} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.splitPaymentId.slice(0, 8)}…</td>
+                    <td style={s.td}>{r.date}</td>
+                    <td style={s.td}>{r.description}</td>
+                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.totalAmount}</td>
+                    <td style={s.td}>{r.currency}</td>
+                    <td style={{ ...s.td, color: "var(--text-muted)" }}>
+                      {(r.participants ?? []).map(p => p.name).join(", ") || "—"}
+                    </td>
+                    <DeleteCell onDelete={() => handleDeleteSplit(r.splitPaymentId)} />
                   </tr>
                 ))}
               </tbody>
