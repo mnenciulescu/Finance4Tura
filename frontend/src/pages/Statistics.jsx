@@ -8,15 +8,9 @@ import {
 import { listIncomes } from "../api/incomes";
 import { listExpenses } from "../api/expenses";
 import { useYear } from "../context/YearContext";
+import { CHART_COLORS as C } from "../utils/colors";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-const C = {
-  High:   "#ef4444",
-  Medium: "#f59e0b",
-  Low:    "#22c55e",
-  Free:   "#6c63ff",
-};
 
 const fmt  = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmt1 = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { YearProvider } from "./context/YearContext";
 import Layout from "./components/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddIncome from "./pages/AddIncome";
@@ -21,6 +22,7 @@ function AppRoutes() {
   return (
     <BrowserRouter>
       <Layout>
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/add-income" element={<AddIncome />} />
@@ -34,6 +36,7 @@ function AppRoutes() {
           <Route path="/ai-news" element={<AiNews />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ErrorBoundary>
       </Layout>
     </BrowserRouter>
   );

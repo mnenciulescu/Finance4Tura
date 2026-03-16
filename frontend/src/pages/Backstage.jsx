@@ -5,19 +5,13 @@ import { listExpenses, deleteExpense } from "../api/expenses";
 import { listOperations, deleteOperation, listSnapshots, deleteSnapshot } from "../api/investments";
 import { listSplitPayments, deleteSplitPayment } from "../api/splitPayments";
 import { useAuth } from "../context/AuthContext";
+import { PRIORITY_COLORS as PRIORITY_COLOR, HTTP_METHOD_COLORS as METHOD_COLOR } from "../utils/colors";
 
-const METHOD_COLOR = {
-  GET:    "#6c63ff",
-  POST:   "#22c55e",
-  PUT:    "#f59e0b",
-  DELETE: "#ef4444",
-};
 const STATUS_COLOR = (s) => {
   if (s >= 200 && s < 300) return "#22c55e";
   if (s >= 400)            return "#ef4444";
   return "#f59e0b";
 };
-const PRIORITY_COLOR = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
 
 // ── Generic filter-input component ───────────────────────────────────────────
 

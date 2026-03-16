@@ -64,11 +64,16 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 ### Frontend
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
-- Responsive: `useIsMobile` hook switches between desktop (Sidebar) and mobile (MobileLayout)
+- Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
+- Mobile tab bar: Home · Expense · Income · AI · Settings (no Stats tab on mobile)
 - Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
 - Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
+- AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
+- Backstage (`/backstage`) — raw data view for all 5 tables, 10 rows per table by default with expand/collapse
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
+- `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
+- Shared color constants in `frontend/src/utils/colors.js` (PRIORITY_COLORS, HTTP_METHOD_COLORS, CHART_COLORS, BAR_COLORS)
 
 ### Authentication
 - **Username/password**: `amazon-cognito-identity-js` → Cognito User Pool
@@ -162,6 +167,26 @@ PUT    /split-payments/{splitPaymentId}
 DELETE /split-payments/{splitPaymentId}
 ```
 
+## Testing
+
+### Run tests
+```bash
+# Frontend (Vitest)
+cd frontend && npm test -- --run
+
+# Backend (Node.js built-in test runner)
+cd backend && node --test src/**/*.test.mjs
+```
+
+### Test coverage
+| Scope | Files | Tests |
+|---|---|---|
+| Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
+| Backend handlers | `validation` (year range), `amountValidation` | 27 |
+| Backend lib | `expandDates`, `resolveIncome` | 21 |
+
+All tests are pure-function or context tests — no DynamoDB or network calls needed.
+
 ## Local Dev Seed Scripts
 
 ```bash
@@ -174,6 +199,9 @@ node src/seed-investments-local.mjs
 
 # General local seed (incomes/expenses)
 node src/seed-local.mjs
+
+# Mirror nenciulescu's AWS data to the demo user (production only)
+node src/seed-demo-from-nenciulescu.mjs
 ```
 
 ## AWS Infrastructure
@@ -201,3 +229,14 @@ node src/seed-local.mjs
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
+| Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
+| Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
+| Error boundary | `ErrorBoundary` class component wraps all routes; catches render errors, logs to console, shows retry UI |
+| Amount validation | Backend rejects `amount <= 0` with HTTP 400; frontend validates before submit |
+
+## Known Limitations
+
+- `resolveIncome()` in `expenses.mjs` uses `ScanCommand` (full table scan). For small user datasets this is acceptable; a userId GSI would improve it at scale.
+- No JWT refresh mechanism — token expiry requires re-login.
+- No server-side pagination — all records returned per request.
+- Statistics "Survival / Month" hardcodes RON 7,000 as a fixed living cost baseline.

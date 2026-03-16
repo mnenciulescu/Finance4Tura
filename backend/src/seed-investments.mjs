@@ -1,20 +1,24 @@
 /**
- * Seed production AWS DynamoDB with investment history for user nenciulescu.
+ * Seed DynamoDB with investment history for user nenciulescu.
  * Data sourced from Documentation/Portfolio.xlsx.
  *
- * Usage: node scripts/seed-investments.mjs
- * Requires: AWS credentials configured (aws configure) with access to eu-central-1 DynamoDB.
+ * Usage (production):  node src/seed-investments.mjs
+ * Usage (local):       DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
 
+const endpoint = process.env.DYNAMODB_ENDPOINT || undefined;
 const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: "eu-central-1" })
+  new DynamoDBClient({
+    region: "eu-central-1",
+    ...(endpoint ? { endpoint } : {}),
+  })
 );
 
-const USER_ID    = "e3c47852-9051-7092-9877-6b4e5186bc40"; // nenciulescu
+const USER_ID    = process.env.DYNAMODB_ENDPOINT ? "local-dev" : "e3c47852-9051-7092-9877-6b4e5186bc40"; // local-dev or nenciulescu
 const OPS_TABLE  = "InvestmentOperations";
 const SNAP_TABLE = "PortfolioSnapshots";
 
@@ -40,17 +44,17 @@ const OPERATIONS = [
   { date: "2023-04-10", type: "Deposit", platform: "ING Funds RON", amount: 530,     currency: "RON" },
   { date: "2023-05-10", type: "Deposit", platform: "ING Funds RON", amount: 530,     currency: "RON" },
   { date: "2023-06-10", type: "Deposit", platform: "eToro",         amount: 636.65,  currency: "USD" },
-  { date: "2023-06-27", type: "Deposit", platform: "Tradeville",    amount: 1176,    currency: "RON" },
-  { date: "2023-09-11", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "RON" },
+  { date: "2023-06-27", type: "Deposit", platform: "Tradeville",    amount: 1176,    currency: "USD" },
+  { date: "2023-09-11", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "USD" },
   { date: "2023-10-10", type: "Deposit", platform: "eToro",         amount: 517.25,  currency: "USD" },
   { date: "2023-11-11", type: "Deposit", platform: "eToro",         amount: 522.70,  currency: "USD" },
   { date: "2023-12-08", type: "Deposit", platform: "eToro",         amount: 526.55,  currency: "USD" },
-  { date: "2024-01-10", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "RON" },
-  { date: "2024-03-13", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "RON" },
-  { date: "2024-04-13", type: "Deposit", platform: "Tradeville",    amount: 539,     currency: "RON" },
+  { date: "2024-01-10", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "USD" },
+  { date: "2024-03-13", type: "Deposit", platform: "Tradeville",    amount: 525,     currency: "USD" },
+  { date: "2024-04-13", type: "Deposit", platform: "Tradeville",    amount: 539,     currency: "USD" },
   { date: "2024-05-10", type: "Deposit", platform: "ING Funds RON", amount: 1083,    currency: "RON" },
   { date: "2024-11-11", type: "Deposit", platform: "ING Funds RON", amount: 533,     currency: "RON" },
-  { date: "2024-12-10", type: "Deposit", platform: "Tradeville",    amount: 1050,    currency: "RON" },
+  { date: "2024-12-10", type: "Deposit", platform: "Tradeville",    amount: 1050,    currency: "USD" },
   { date: "2025-05-27", type: "Deposit", platform: "Fidelity",      amount: 10032,   currency: "USD" },
   { date: "2025-05-25", type: "Deposit", platform: "eToro",         amount: 5676,    currency: "USD" },
 ];
@@ -88,63 +92,63 @@ const SNAPSHOTS = [
   { date: "2023-06-10", platform: "Binance",        amount: 156,   currency: "USD" },
   { date: "2023-06-10", platform: "ING Funds RON",  amount: 14491, currency: "RON" },
   // 2023-06-27
-  { date: "2023-06-27", platform: "Tradeville",     amount: 1176,  currency: "RON" },
+  { date: "2023-06-27", platform: "Tradeville",     amount: 1176,  currency: "USD" },
   // 2023-10-10
   { date: "2023-10-10", platform: "eToro",         amount: 3941,  currency: "USD" },
   { date: "2023-10-10", platform: "Binance",        amount: 154,   currency: "USD" },
-  { date: "2023-10-10", platform: "Tradeville",     amount: 1823,  currency: "RON" },
+  { date: "2023-10-10", platform: "Tradeville",     amount: 1823,  currency: "USD" },
   { date: "2023-10-10", platform: "ING Funds RON",  amount: 13872, currency: "RON" },
   // 2023-11-11
   { date: "2023-11-11", platform: "eToro",         amount: 5307,  currency: "USD" },
   { date: "2023-11-11", platform: "Binance",        amount: 216,   currency: "USD" },
-  { date: "2023-11-11", platform: "Tradeville",     amount: 1858,  currency: "RON" },
+  { date: "2023-11-11", platform: "Tradeville",     amount: 1858,  currency: "USD" },
   { date: "2023-11-11", platform: "ING Funds RON",  amount: 14045, currency: "RON" },
   // 2024-01-10
   { date: "2024-01-10", platform: "eToro",         amount: 6506,  currency: "USD" },
   { date: "2024-01-10", platform: "Binance",        amount: 0,     currency: "USD" },
-  { date: "2024-01-10", platform: "Tradeville",     amount: 2729,  currency: "RON" },
+  { date: "2024-01-10", platform: "Tradeville",     amount: 2729,  currency: "USD" },
   { date: "2024-01-10", platform: "ING Funds RON",  amount: 15093, currency: "RON" },
   // 2024-03-13
   { date: "2024-03-13", platform: "eToro",         amount: 7584,  currency: "USD" },
-  { date: "2024-03-13", platform: "Tradeville",     amount: 3181,  currency: "RON" },
+  { date: "2024-03-13", platform: "Tradeville",     amount: 3181,  currency: "USD" },
   { date: "2024-03-13", platform: "ING Funds RON",  amount: 16918, currency: "RON" },
   // 2024-04-11
   { date: "2024-04-11", platform: "eToro",         amount: 6100,  currency: "USD" },
-  { date: "2024-04-11", platform: "Tradeville",     amount: 5225,  currency: "RON" },
+  { date: "2024-04-11", platform: "Tradeville",     amount: 5225,  currency: "USD" },
   { date: "2024-04-11", platform: "ING Funds RON",  amount: 14761, currency: "RON" },
   { date: "2024-04-11", platform: "ING Funds EUR",  amount: 1981,  currency: "EUR" },
   // 2024-04-13
-  { date: "2024-04-13", platform: "Tradeville",     amount: 3717,  currency: "RON" },
+  { date: "2024-04-13", platform: "Tradeville",     amount: 3717,  currency: "USD" },
   // 2024-05-10
   { date: "2024-05-10", platform: "eToro",         amount: 6839,  currency: "USD" },
-  { date: "2024-05-10", platform: "Tradeville",     amount: 3839,  currency: "RON" },
+  { date: "2024-05-10", platform: "Tradeville",     amount: 3839,  currency: "USD" },
   { date: "2024-05-10", platform: "ING Funds RON",  amount: 22398, currency: "RON" },
   // 2024-11-11
   { date: "2024-11-11", platform: "eToro",         amount: 7428,  currency: "USD" },
-  { date: "2024-11-11", platform: "Tradeville",     amount: 3926,  currency: "RON" },
+  { date: "2024-11-11", platform: "Tradeville",     amount: 3926,  currency: "USD" },
   { date: "2024-11-11", platform: "ING Funds RON",  amount: 26490, currency: "RON" },
   // 2025-05-25
   { date: "2025-05-25", platform: "eToro",         amount: 13600, currency: "USD" },
   { date: "2025-05-25", platform: "Fidelity",       amount: 10222, currency: "USD" },
-  { date: "2025-05-25", platform: "Tradeville",     amount: 5824,  currency: "RON" },
+  { date: "2025-05-25", platform: "Tradeville",     amount: 5824,  currency: "USD" },
   { date: "2025-05-25", platform: "ING Funds RON",  amount: 16295, currency: "RON" },
   { date: "2025-05-25", platform: "ING Funds EUR",  amount: 2164,  currency: "EUR" },
   // 2025-05-27
   { date: "2025-05-27", platform: "eToro",         amount: 7582,  currency: "USD" },
   { date: "2025-05-27", platform: "Fidelity",       amount: 10032, currency: "USD" },
-  { date: "2025-05-27", platform: "Tradeville",     amount: 5316,  currency: "RON" },
+  { date: "2025-05-27", platform: "Tradeville",     amount: 5316,  currency: "USD" },
   { date: "2025-05-27", platform: "ING Funds RON",  amount: 15648, currency: "RON" },
   { date: "2025-05-27", platform: "ING Funds EUR",  amount: 2173,  currency: "EUR" },
   // 2025-09-15
   { date: "2025-09-15", platform: "eToro",         amount: 14547, currency: "USD" },
   { date: "2025-09-15", platform: "Fidelity",       amount: 9535,  currency: "USD" },
-  { date: "2025-09-15", platform: "Tradeville",     amount: 6332,  currency: "RON" },
+  { date: "2025-09-15", platform: "Tradeville",     amount: 6332,  currency: "USD" },
   { date: "2025-09-15", platform: "ING Funds RON",  amount: 17281, currency: "RON" },
   { date: "2025-09-15", platform: "ING Funds EUR",  amount: 2121,  currency: "EUR" },
   // 2025-12-25
   { date: "2025-12-25", platform: "eToro",         amount: 14516, currency: "USD" },
   { date: "2025-12-25", platform: "Fidelity",       amount: 10222, currency: "USD" },
-  { date: "2025-12-25", platform: "Tradeville",     amount: 7047,  currency: "RON" },
+  { date: "2025-12-25", platform: "Tradeville",     amount: 7047,  currency: "USD" },
   { date: "2025-12-25", platform: "ING Funds RON",  amount: 18997, currency: "RON" },
   { date: "2025-12-25", platform: "ING Funds EUR",  amount: 2103,  currency: "EUR" },
 ];

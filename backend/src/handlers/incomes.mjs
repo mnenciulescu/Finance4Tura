@@ -33,6 +33,9 @@ async function createIncome(body, userId) {
   if (!summary || !date || amount == null) {
     return err(400, "summary, date, and amount are required");
   }
+  if (Number(amount) <= 0) {
+    return err(400, "amount must be greater than 0");
+  }
 
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01`;
