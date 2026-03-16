@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import client from "../api/client";
-import { useIsMobile } from "../hooks/useIsMobile";
+import useIsMobile from "../hooks/useIsMobile";
 
 const SOURCE_COLORS = {
   "TechCrunch":   "#0aa84f",
