@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import client from "../api/client";
 import useIsMobile from "../hooks/useIsMobile";
 
+function decodeHtml(str) {
+  if (!str) return str;
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
+}
+
 const SOURCE_COLORS = {
   "TechCrunch":   "#0aa84f",
   "VentureBeat":  "#2563eb",
@@ -85,10 +92,15 @@ export default function AiNews() {
             <thead>
               <tr>
                 <th style={{ ...s.th, width: isMobile ? "22%" : "10%" }}>Date</th>
-                <th style={{ ...s.th, width: isMobile ? "30%" : "14%" }}>Source</th>
-                <th style={{ ...s.th, width: isMobile ? "38%" : "22%" }}>Title</th>
-                {!isMobile && <th style={{ ...s.th, width: "46%" }}>Summary</th>}
-                <th style={{ ...s.th, width: isMobile ? "10%" : "8%", textAlign: "center" }}>Link</th>
+                {isMobile
+                  ? <th style={{ ...s.th, width: "78%" }}>Title</th>
+                  : <>
+                      <th style={{ ...s.th, width: "14%" }}>Source</th>
+                      <th style={{ ...s.th, width: "22%" }}>Title</th>
+                      <th style={{ ...s.th, width: "46%" }}>Summary</th>
+                      <th style={{ ...s.th, width: "8%", textAlign: "center" }}>Link</th>
+                    </>
+                }
               </tr>
             </thead>
             <tbody>
@@ -96,36 +108,57 @@ export default function AiNews() {
                 ? Array.from({ length: 12 }).map((_, i) => (
                     <tr key={i}>
                       <td style={s.td}><div style={{ ...s.skel, width: "70%" }} /></td>
-                      <td style={s.td}><div style={{ ...s.skel, width: "60%" }} /></td>
-                      <td style={s.td}><div style={{ ...s.skel, width: "80%" }} /></td>
-                      {!isMobile && <td style={s.td}><div style={{ ...s.skel, width: "95%" }} /></td>}
-                      <td style={s.td}><div style={{ ...s.skel, width: "50%", margin: "0 auto" }} /></td>
+                      {isMobile
+                        ? <td style={s.td}>
+                            <div style={{ ...s.skel, width: "45%", marginBottom: "6px" }} />
+                            <div style={{ ...s.skel, width: "90%" }} />
+                          </td>
+                        : <>
+                            <td style={s.td}><div style={{ ...s.skel, width: "60%" }} /></td>
+                            <td style={s.td}><div style={{ ...s.skel, width: "80%" }} /></td>
+                            <td style={s.td}><div style={{ ...s.skel, width: "95%" }} /></td>
+                            <td style={s.td}><div style={{ ...s.skel, width: "50%", margin: "0 auto" }} /></td>
+                          </>
+                      }
                     </tr>
                   ))
-                : articles.map((a, i) => (
-                    <tr key={i} style={s.row}>
-                      <td style={{ ...s.td, ...s.dateCell }}>
-                        {a.pubDate ? new Date(a.pubDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                      </td>
-                      <td style={s.td}>
-                        <span style={{
-                          ...s.sourceBadge,
-                          background: (SOURCE_COLORS[a.source] ?? "#666") + "22",
-                          color: SOURCE_COLORS[a.source] ?? "var(--text-muted)",
-                          borderColor: (SOURCE_COLORS[a.source] ?? "#666") + "55",
-                        }}>
-                          {a.source}
-                        </span>
-                      </td>
-                      <td style={{ ...s.td, ...s.titleCell }}>{a.title}</td>
-                      {!isMobile && <td style={s.td}>{a.summary || "—"}</td>}
-                      <td style={{ ...s.td, textAlign: "center" }}>
-                        <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.link}>
-                          Read →
-                        </a>
-                      </td>
-                    </tr>
-                  ))
+                : articles.map((a, i) => {
+                    const sourceBadge = (
+                      <span style={{
+                        ...s.sourceBadge,
+                        background: (SOURCE_COLORS[a.source] ?? "#666") + "22",
+                        color: SOURCE_COLORS[a.source] ?? "var(--text-muted)",
+                        borderColor: (SOURCE_COLORS[a.source] ?? "#666") + "55",
+                      }}>
+                        {a.source}
+                      </span>
+                    );
+                    return (
+                      <tr key={i} style={s.row}>
+                        <td style={{ ...s.td, ...s.dateCell }}>
+                          {a.pubDate ? new Date(a.pubDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </td>
+                        {isMobile
+                          ? <td style={{ ...s.td, ...s.titleCell }}>
+                              <div style={{ marginBottom: "4px" }}>{sourceBadge}</div>
+                              <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.titleLink}>
+                                {decodeHtml(a.title)}
+                              </a>
+                            </td>
+                          : <>
+                              <td style={s.td}>{sourceBadge}</td>
+                              <td style={{ ...s.td, ...s.titleCell }}>{decodeHtml(a.title)}</td>
+                              <td style={s.td}>{decodeHtml(a.summary) || "—"}</td>
+                              <td style={{ ...s.td, textAlign: "center" }}>
+                                <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.link}>
+                                  Read →
+                                </a>
+                              </td>
+                            </>
+                        }
+                      </tr>
+                    );
+                  })
               }
             </tbody>
           </table>
@@ -247,6 +280,12 @@ const s = {
     textDecoration: "none",
     fontWeight:     500,
     fontSize:       "12px",
+  },
+  titleLink: {
+    color:          "var(--text)",
+    textDecoration: "none",
+    fontWeight:     500,
+    lineHeight:     1.4,
   },
   progressTrack: {
     height:       "3px",
