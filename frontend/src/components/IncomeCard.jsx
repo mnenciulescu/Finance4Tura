@@ -37,7 +37,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   const cur     = income.currency ?? "RON";
 
   return (
-    <div style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", opacity: isCenter ? 1 : 0.55, ...(!isCenter && { transform: "scale(0.95)", transformOrigin: "center center" }) }) }}>
+    <div style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", opacity: isCenter ? 1 : 0.55, ...(!isCenter && { transform: "scale(0.95)", transformOrigin: "center center" }), ...(isCenter && { transform: "translateY(-6px)", boxShadow: "0 16px 48px rgba(0,0,0,0.45), 0 4px 16px rgba(0,0,0,0.25)" }) }) }}>
       {/* Header */}
       <div style={{ ...s.header, ...(isCurrent ? s.headerCurrent : {}) }}>
         {/* Top accent strip */}
