@@ -113,3 +113,7 @@ button {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+[data-theme="light"] .side-card {
+  opacity: 0.68;
+}
