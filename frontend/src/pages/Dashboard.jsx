@@ -280,6 +280,7 @@ export default function Dashboard() {
                 onDeleteIncome={handleDeleteIncome}
                 showAmount={showAmounts}
                 isCurrent={safeStart + i === yearCurrentIdx}
+                isCenter={i === 1}
               />
             ))}
           </div>

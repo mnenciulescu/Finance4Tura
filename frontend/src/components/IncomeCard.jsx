@@ -21,7 +21,7 @@ const getDow = (income) =>
     ? income.dayOfWeek.slice(0, 3)
     : DOW[new Date(Date.UTC(...income.date.split("-").map((v, i) => i === 1 ? +v - 1 : +v))).getUTCDay()];
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false  }) {
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false, isCenter = false }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalCompleted, totalPending } = expenses.reduce(
@@ -37,7 +37,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   const cur     = income.currency ?? "RON";
 
   return (
-    <div style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCurrent ? "1.35" : "1", opacity: isCurrent ? 1 : 0.55 }) }}>
+    <div style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", opacity: isCenter ? 1 : 0.55 }) }}>
       {/* Header */}
       <div style={{ ...s.header, ...(isCurrent ? s.headerCurrent : {}) }}>
         {/* Top accent strip */}
