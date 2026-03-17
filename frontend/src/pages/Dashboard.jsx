@@ -338,7 +338,7 @@ const s = {
     color:        "var(--accent)",
     fontSize:     "28px",
     lineHeight:   1,
-    width:        "44px",
+    width:        "58px",
     flexShrink:   0,
     alignSelf:    "center",
     height:       "75vh",
