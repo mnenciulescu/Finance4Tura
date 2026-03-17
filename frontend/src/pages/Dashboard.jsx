@@ -39,12 +39,12 @@ export default function Dashboard() {
   // Reset to first relevant column when logo is clicked
   useEffect(() => {
     if (!location.state?.resetDashboard || yearIncomes.length === 0) return;
-    setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
+    setStartIdx(yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - 1));
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset startIdx whenever the selected year changes (always, regardless of yearCurrentIdx value)
   useEffect(() => {
-    setStartIdx(yearCurrentIdx === -1 ? 0 : yearCurrentIdx);
+    setStartIdx(yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - 1));
   }, [selectedYear, yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visibleCount = isMobile ? 1 : 4;
+  const visibleCount = isMobile ? 1 : 3;
   const safeStart  = Math.max(0, Math.min(startIdx, yearIncomes.length - 1));
   const incomes    = yearIncomes.slice(safeStart, safeStart + visibleCount);
   const canGoLeft  = safeStart > 0;
