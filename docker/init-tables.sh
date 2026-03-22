@@ -90,5 +90,49 @@ create_table_if_missing "SP500Monthly" \
    --key-schema AttributeName=monthId,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# TestTemplates table
+create_table_if_missing "TestTemplates" \
+  "--table-name TestTemplates \
+   --attribute-definitions AttributeName=templateId,AttributeType=S AttributeName=userId,AttributeType=S AttributeName=createdAt,AttributeType=S \
+   --key-schema AttributeName=templateId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"userId-createdAt-index\",
+       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"createdAt\", \"KeyType\": \"RANGE\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# TestResults table
+create_table_if_missing "TestResults" \
+  "--table-name TestResults \
+   --attribute-definitions AttributeName=resultId,AttributeType=S AttributeName=userId,AttributeType=S AttributeName=date,AttributeType=S \
+   --key-schema AttributeName=resultId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"userId-date-index\",
+       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"date\", \"KeyType\": \"RANGE\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# KidConfig table
+create_table_if_missing "KidConfig" \
+  "--table-name KidConfig \
+   --attribute-definitions AttributeName=userId,AttributeType=S \
+   --key-schema AttributeName=userId,KeyType=HASH \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# AppSettings table
+create_table_if_missing "AppSettings" \
+  "--table-name AppSettings \
+   --attribute-definitions AttributeName=settingKey,AttributeType=S \
+   --key-schema AttributeName=settingKey,KeyType=HASH \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 echo "Done. Tables:"
 aws dynamodb list-tables --endpoint-url "$ENDPOINT"

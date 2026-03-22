@@ -3,17 +3,14 @@
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.4"/>
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.35"/>
       <stop offset="100%" stop-color="#15803d" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <!-- Bar chart -->
-  <rect x="112" y="316" width="60" height="104" rx="16" fill="white" opacity="0.95"/>
-  <rect x="226" y="240" width="60" height="180" rx="16" fill="white" opacity="0.95"/>
-  <rect x="340" y="164" width="60" height="256" rx="16" fill="white" opacity="0.95"/>
-  <!-- Trend line -->
-  <polyline points="142,316 256,240 370,164" stroke="#86efac" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="142" cy="316" r="18" fill="#86efac"/>
-  <circle cx="256" cy="240" r="18" fill="#86efac"/>
-  <circle cx="370" cy="164" r="18" fill="#86efac"/>
+  <path
+    fill-rule="evenodd"
+    d="M256,43 L469,235 L405,235 L405,469 L107,469 L107,235 L43,235 Z M213,469 L213,341 A43,43 0 0,0 299,341 L299,469 Z"
+    fill="white"
+    opacity="0.95"
+  />
 </svg>

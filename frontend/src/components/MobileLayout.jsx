@@ -18,13 +18,17 @@ function IconAI() {
 function IconSettings() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><line x1="1" y1="4.5" x2="14" y2="4.5"/><line x1="1" y1="10.5" x2="14" y2="10.5"/><circle cx="5" cy="4.5" r="1.8" fill="currentColor" stroke="none"/><circle cx="10" cy="10.5" r="1.8" fill="currentColor" stroke="none"/></svg>;
 }
+function IconTests() {
+  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="11" height="13" rx="1.5"/><line x1="5" y1="5" x2="10" y2="5"/><line x1="5" y1="7.5" x2="10" y2="7.5"/><line x1="5" y1="10" x2="8" y2="10"/></svg>;
+}
 
 const tabs = [
   { to: "/",            label: "Home",    end: true, Icon: IconDashboard },
   { to: "/add-expense", label: "Expense", Icon: IconExpense  },
   { to: "/add-income",  label: "Income",  Icon: IconIncome   },
-  { to: "/ai-news",     label: "AI",      Icon: IconAI       },
-  { to: "/settings",    label: "Settings",Icon: IconSettings },
+  { to: "/ai-news",        label: "AI",      Icon: IconAI       },
+  { to: "/practice-tests", label: "Practice", Icon: IconTests    },
+  { to: "/settings",       label: "Settings",Icon: IconSettings },
 ];
 
 export default function MobileLayout({ children }) {
@@ -38,17 +42,8 @@ export default function MobileLayout({ children }) {
       {/* Top bar */}
       <header style={s.topBar}>
         <div style={s.brand}>
-          <svg width="26" height="26" viewBox="0 0 34 34" fill="none">
-            <circle cx="17" cy="17" r="16" fill="#16a34a"/>
-            <rect x="7.5"  y="21" width="4" height="7"  rx="1.5" fill="white" opacity="0.95"/>
-            <rect x="15"   y="16" width="4" height="12" rx="1.5" fill="white" opacity="0.95"/>
-            <rect x="22.5" y="11" width="4" height="17" rx="1.5" fill="white" opacity="0.95"/>
-            <polyline points="9.5,21 17,16 24.5,11" stroke="#86efac" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="9.5"  cy="21" r="2" fill="#86efac"/>
-            <circle cx="17"   cy="16" r="2" fill="#86efac"/>
-            <circle cx="24.5" cy="11" r="2" fill="#86efac"/>
-          </svg>
-          <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
+          <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 28, width: 'auto', display: 'block' }} />
+          <span style={s.brandText}>4Tura<span style={s.brandAccent}> Nest</span></span>
         </div>
         <select
           style={s.yearSelect}

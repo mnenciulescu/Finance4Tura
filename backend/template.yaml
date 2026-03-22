@@ -15,6 +15,10 @@ Globals:
         INV_OPERATIONS_TABLE: InvestmentOperations
         INV_SNAPSHOTS_TABLE: PortfolioSnapshots
         SP500_TABLE: SP500Monthly
+        TEST_TEMPLATES_TABLE: TestTemplates
+        TEST_RESULTS_TABLE: TestResults
+        KID_CONFIG_TABLE: KidConfig
+        APP_SETTINGS_TABLE: AppSettings
 
 Parameters:
   DynamoDbEndpoint:
@@ -147,6 +151,80 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: splitPaymentId
+          KeyType: HASH
+
+  TestTemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TestTemplates
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: templateId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: templateId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: userId-createdAt-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  TestResultsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TestResults
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: resultId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: resultId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: userId-date-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  KidConfigTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: KidConfig
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  AppSettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AppSettings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: settingKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: settingKey
           KeyType: HASH
 
   # ──────────────────────────────────────────
@@ -565,6 +643,122 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+
+  # ──────────────────────────────────────────
+  # Practice Tests
+  # ──────────────────────────────────────────
+  PracticeTestsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/practiceTests.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestTemplatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestResultsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KidConfigTable
+      Events:
+        PTTemplatesGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/templates
+            Method: GET
+        PTTemplatesPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/templates
+            Method: POST
+        PTTemplateGetById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/templates/{templateId}
+            Method: GET
+        PTTemplatePut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/templates/{templateId}
+            Method: PUT
+        PTTemplateDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/templates/{templateId}
+            Method: DELETE
+        PTResultsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/results
+            Method: GET
+        PTResultsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/results
+            Method: POST
+        PTResultGetById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/results/{resultId}
+            Method: GET
+        PTResultPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/results/{resultId}
+            Method: PUT
+        PTResultDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/results/{resultId}
+            Method: DELETE
+        PTKidsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/kids
+            Method: GET
+        PTKidsPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /practice-tests/kids
+            Method: PUT
+
+  # ──────────────────────────────────────────
+  # App Settings (global; GET is public)
+  # ──────────────────────────────────────────
+  AppSettingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/appSettings.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppSettingsTable
+      Events:
+        AppSettingsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /app-settings
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        AppSettingsPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /app-settings
+            Method: PUT
 
 Outputs:
   ApiUrl:

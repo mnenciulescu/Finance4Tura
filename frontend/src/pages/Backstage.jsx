@@ -4,6 +4,7 @@ import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, deleteExpense } from "../api/expenses";
 import { listOperations, deleteOperation, listSnapshots, deleteSnapshot } from "../api/investments";
 import { listSplitPayments, deleteSplitPayment } from "../api/splitPayments";
+import { listTemplates, deleteTemplate, listResults, deleteResult, getKids } from "../api/practiceTests";
 import { useAuth } from "../context/AuthContext";
 import { PRIORITY_COLORS as PRIORITY_COLOR, HTTP_METHOD_COLORS as METHOD_COLOR } from "../utils/colors";
 
@@ -62,6 +63,9 @@ const EXP_COLS  = ["ID", "Summary", "Date", "Amount", "Currency", "Priority", "S
 const OPS_COLS  = ["ID", "Date", "Type", "Platform", "Amount", "Currency", "Notes"];
 const SNAP_COLS = ["ID", "Date", "Platform", "Amount", "Currency"];
 const SPLIT_COLS = ["ID", "Date", "Description", "Total", "Currency", "Participants"];
+const TPL_COLS   = ["ID", "Name", "Subject", "Topics", "Free Pts", "Created"];
+const RES_COLS   = ["ID", "Kid", "Date", "Template", "Total", "Verified", "Source"];
+const KID_COLS   = ["User ID", "Kids"];
 
 const emptyFilters = (cols) => Object.fromEntries(cols.map(c => [c, ""]));
 
@@ -92,6 +96,13 @@ export default function Backstage() {
   const [snapFilters,  setSnapFilters]  = useState(emptyFilters(SNAP_COLS));
   const [splitFilters, setSplitFilters] = useState(emptyFilters(SPLIT_COLS));
 
+  const [testTemplates,    setTestTemplates]    = useState([]);
+  const [testResults,      setTestResults]      = useState([]);
+  const [kidConfig,        setKidConfig]        = useState([]);
+  const [tplFilters,       setTplFilters]       = useState(emptyFilters(TPL_COLS));
+  const [resFilters,       setResFilters]       = useState(emptyFilters(RES_COLS));
+  const [kidFilters,       setKidFilters]       = useState(emptyFilters(KID_COLS));
+
   // Poll log
   useEffect(() => {
     const id = setInterval(() => {
@@ -106,13 +117,19 @@ export default function Backstage() {
 
   const loadData = () => {
     setDbError(null);
-    Promise.all([listIncomes(), listExpenses(), listOperations(), listSnapshots(), listSplitPayments()])
-      .then(([inc, exp, ops, snaps, splits]) => {
+    Promise.all([
+      listIncomes(), listExpenses(), listOperations(), listSnapshots(),
+      listSplitPayments(), listTemplates(), listResults(), getKids(),
+    ])
+      .then(([inc, exp, ops, snaps, splits, tpls, res, kd]) => {
         setIncomes(inc);
         setExpenses(exp);
         setOperations(ops);
         setSnapshots(snaps);
         setSplitPayments(splits);
+        setTestTemplates(tpls);
+        setTestResults(res);
+        setKidConfig(kd.kids ? [{ userId: "current", kids: kd.kids }] : []);
       })
       .catch(() => setDbError("Failed to load database."));
   };
@@ -162,6 +179,30 @@ export default function Backstage() {
     matches(r.currency,   snapFilters["Currency"])
   )), [snapshots, snapFilters]);
 
+  const filteredTpls = useMemo(() => testTemplates.filter(r => (
+    matches(r.templateId,          tplFilters["ID"])       &&
+    matches(r.name,                tplFilters["Name"])     &&
+    matches(r.subject,             tplFilters["Subject"])  &&
+    matches((r.topics || []).length, tplFilters["Topics"]) &&
+    matches(r.freePoints,          tplFilters["Free Pts"]) &&
+    matches(r.createdAt,           tplFilters["Created"])
+  )), [testTemplates, tplFilters]);
+
+  const filteredRes = useMemo(() => testResults.filter(r => (
+    matches(r.resultId,    resFilters["ID"])       &&
+    matches(r.kidName,     resFilters["Kid"])      &&
+    matches(r.date,        resFilters["Date"])     &&
+    matches(r.templateName,resFilters["Template"]) &&
+    matches(r.totalScore,  resFilters["Total"])    &&
+    matches(r.verified ? "Yes" : "No", resFilters["Verified"]) &&
+    matches(r.sourceTitle, resFilters["Source"])
+  )), [testResults, resFilters]);
+
+  const filteredKids = useMemo(() => kidConfig.filter(r => (
+    matches(r.userId, kidFilters["User ID"]) &&
+    matches((r.kids || []).map(k => k.name).join(" "), kidFilters["Kids"])
+  )), [kidConfig, kidFilters]);
+
   const filteredSplits = useMemo(() => splitPayments.filter(r => (
     matches(r.splitPaymentId, splitFilters["ID"])          &&
     matches(r.date,           splitFilters["Date"])         &&
@@ -205,6 +246,19 @@ export default function Backstage() {
   const setOpsFilter   = (col, val) => setOpsFilters(prev => ({ ...prev, [col]: val }));
   const setSnapFilter  = (col, val) => setSnapFilters(prev => ({ ...prev, [col]: val }));
   const setSplitFilter = (col, val) => setSplitFilters(prev => ({ ...prev, [col]: val }));
+  const setTplFilter   = (col, val) => setTplFilters(prev => ({ ...prev, [col]: val }));
+  const setResFilter   = (col, val) => setResFilters(prev => ({ ...prev, [col]: val }));
+  const setKidFilter   = (col, val) => setKidFilters(prev => ({ ...prev, [col]: val }));
+
+  const handleDeleteTemplate = (id) => {
+    setTestTemplates(prev => prev.filter(r => r.templateId !== id));
+    deleteTemplate(id).catch(() => loadData());
+  };
+
+  const handleDeleteResult = (id) => {
+    setTestResults(prev => prev.filter(r => r.resultId !== id));
+    deleteResult(id).catch(() => loadData());
+  };
 
   return (
     <div style={s.root}>
@@ -442,6 +496,124 @@ export default function Backstage() {
               </button>
             )}
           </div>
+
+          {/* Test Templates table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Test Templates <span style={s.count}>{filteredTpls.length} / {testTemplates.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {TPL_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={tplFilters[h]} onChange={v => setTplFilter(h, v)} />
+                    </th>
+                  ))}
+                  <th style={s.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTpls.length === 0 && (
+                  <tr><td colSpan={TPL_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
+                )}
+                {(expanded["tpls"] ? filteredTpls : filteredTpls.slice(0, PAGE)).map(r => (
+                  <tr key={r.templateId} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.templateId.slice(0, 8)}…</td>
+                    <td style={s.td}>{r.name}</td>
+                    <td style={s.td}>{r.subject || "—"}</td>
+                    <td style={{ ...s.td, textAlign: "center" }}>{(r.topics || []).length}</td>
+                    <td style={{ ...s.td, textAlign: "center" }}>{r.freePoints || 0}</td>
+                    <td style={s.td}>{r.createdAt?.slice(0, 10) ?? "—"}</td>
+                    <DeleteCell onDelete={() => handleDeleteTemplate(r.templateId)} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredTpls.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("tpls")}>
+                {expanded["tpls"] ? "Show less" : `Show ${filteredTpls.length - PAGE} more…`}
+              </button>
+            )}
+          </div>
+
+          {/* Test Results table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Test Results <span style={s.count}>{filteredRes.length} / {testResults.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {RES_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={resFilters[h]} onChange={v => setResFilter(h, v)} />
+                    </th>
+                  ))}
+                  <th style={s.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRes.length === 0 && (
+                  <tr><td colSpan={RES_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
+                )}
+                {(expanded["res"] ? filteredRes : filteredRes.slice(0, PAGE)).map(r => (
+                  <tr key={r.resultId} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.resultId.slice(0, 8)}…</td>
+                    <td style={s.td}>{r.kidName}</td>
+                    <td style={s.td}>{r.date}</td>
+                    <td style={s.td}>{r.templateName || "—"}</td>
+                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.totalScore}</td>
+                    <td style={s.td}>
+                      <span style={{ ...s.pill, ...(r.verified ? s.pillDone : s.pillPending) }}>
+                        {r.verified ? "Yes" : "No"}
+                      </span>
+                    </td>
+                    <td style={{ ...s.td, color: "var(--text-muted)" }}>{r.sourceTitle || "—"}</td>
+                    <DeleteCell onDelete={() => handleDeleteResult(r.resultId)} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredRes.length > PAGE && (
+              <button style={s.expandBtn} onClick={() => toggle("res")}>
+                {expanded["res"] ? "Show less" : `Show ${filteredRes.length - PAGE} more…`}
+              </button>
+            )}
+          </div>
+
+          {/* Kid Config table */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>
+              Kid Config <span style={s.count}>{filteredKids.length} / {kidConfig.length}</span>
+            </div>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {KID_COLS.map(h => (
+                    <th key={h} style={s.th}>
+                      <div style={s.thLabel}>{h}</div>
+                      <FilterInput value={kidFilters[h]} onChange={v => setKidFilter(h, v)} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredKids.length === 0 && (
+                  <tr><td colSpan={KID_COLS.length} style={s.emptyCell}>No records</td></tr>
+                )}
+                {filteredKids.map((r, i) => (
+                  <tr key={i} style={s.tr}>
+                    <td style={{ ...s.td, ...s.idCell }}>{r.userId}</td>
+                    <td style={s.td}>{(r.kids || []).map(k => k.name).join(", ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
         </div>
       </div>
 

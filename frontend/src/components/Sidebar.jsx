@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
+import { useAppSettings } from "../context/AppSettingsContext";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -98,53 +100,206 @@ function IconAI() {
   );
 }
 
-// ── Logo ─────────────────────────────────────────────────────────────────────
-
-function Logo() {
+function IconTests() {
   return (
-    <svg width="24" height="24" viewBox="0 0 34 34" fill="none">
-      <defs>
-        <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#16a34a"/>
-          <stop offset="100%" stopColor="#0d7a35"/>
-        </linearGradient>
-        <linearGradient id="glowGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.35"/>
-          <stop offset="100%" stopColor="#22c55e" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      {/* Outer ring */}
-      <circle cx="17" cy="17" r="16" fill="url(#logoGrad)"/>
-      <circle cx="17" cy="17" r="16" fill="url(#glowGrad)"/>
-      {/* Bar chart */}
-      <rect x="7.5"  y="21" width="4" height="7"  rx="1.5" fill="white" opacity="0.95"/>
-      <rect x="15"   y="16" width="4" height="12" rx="1.5" fill="white" opacity="0.95"/>
-      <rect x="22.5" y="11" width="4" height="17" rx="1.5" fill="white" opacity="0.95"/>
-      {/* Trend line + dots */}
-      <polyline
-        points="9.5,21 17,16 24.5,11"
-        stroke="#86efac" strokeWidth="1.8"
-        strokeLinecap="round" strokeLinejoin="round"
-      />
-      <circle cx="9.5"  cy="21" r="2" fill="#86efac"/>
-      <circle cx="17"   cy="16" r="2" fill="#86efac"/>
-      <circle cx="24.5" cy="11" r="2" fill="#86efac"/>
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="1" width="11" height="13" rx="1.5"/>
+      <line x1="5" y1="5" x2="10" y2="5"/>
+      <line x1="5" y1="7.5" x2="10" y2="7.5"/>
+      <line x1="5" y1="10" x2="8" y2="10"/>
     </svg>
   );
 }
 
+function IconEvolve() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.5 13 C7.5 13 7.5 8 12 4 C10 4 8 5 7.5 7 C7 5 5 4 3 4 C7.5 8 7.5 13 7.5 13Z" fill="currentColor" strokeWidth="1"/>
+      <line x1="7.5" y1="13" x2="7.5" y2="10"/>
+    </svg>
+  );
+}
+
+function IconFinance() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="5" width="13" height="8" rx="1.5"/>
+      <path d="M5,5 V3.5 Q5,2 7.5,2 Q10,2 10,3.5 V5"/>
+      <line x1="1" y1="9" x2="14" y2="9"/>
+    </svg>
+  );
+}
+
+function IconChevron({ open }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+         stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+         style={{ transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }}>
+      <polyline points="2,3.5 5,6.5 8,3.5"/>
+    </svg>
+  );
+}
+
+// ── Logo ─────────────────────────────────────────────────────────────────────
+
+function Logo() {
+  return <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 28, width: 'auto', display: 'block' }} />;
+}
+
 // ── Nav config ────────────────────────────────────────────────────────────────
 
-const links = [
-  { to: "/add-income",      label: "Add Income",      Icon: IconIncome    },
-  { to: "/add-expense",     label: "Add Expense",     Icon: IconExpense   },
-  { to: "/split-payments",  label: "Split Pay",       Icon: IconSplit        },
-  { to: "/investments",     label: "Investments",     Icon: IconInvestments  },
-  { to: "/statistics",      label: "Statistics",      Icon: IconStats        },
-  { to: "/ai-news",         label: "AI",              Icon: IconAI        },
-  { to: "/settings",        label: "Settings",        Icon: IconSettings  },
-  { to: "/backstage",       label: "Backstage",       Icon: IconBackstage },
+const financeLinks = [
+  { to: "/",               label: "Dashboard",  Icon: IconDashboard },
+  { to: "/add-income",     label: "Add Income", Icon: IconIncome    },
+  { to: "/add-expense",    label: "Add Expense",Icon: IconExpense   },
+  { to: "/split-payments", label: "Split Pay",  Icon: IconSplit     },
+  { to: "/statistics",     label: "Statistics", Icon: IconStats     },
+  { to: "/investments",    label: "Investments",Icon: IconInvestments },
 ];
+
+const evolveLinks = [
+  { to: "/practice-tests", label: "Practice Tests", Icon: IconTests },
+];
+
+const links = [
+  { to: "/ai-news",     label: "AI",          Icon: IconAI          },
+  { to: "/settings",    label: "Settings",    Icon: IconSettings    },
+  { to: "/backstage",   label: "Backstage",   Icon: IconBackstage   },
+];
+
+// ── Finance dropdown ──────────────────────────────────────────────────────────
+
+function FinanceDropdown() {
+  const [open, setOpen]       = useState(false);
+  const [hoverIdx, setHover]  = useState(null);
+  const ref                   = useRef(null);
+  const navigate              = useNavigate();
+  const location              = useLocation();
+
+  const financeRoutes = ["/", "/add-income", "/add-expense", "/split-payments", "/statistics", "/investments"];
+  const isActive = financeRoutes.some(r =>
+    r === "/" ? location.pathname === "/" : location.pathname.startsWith(r)
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ ...s.link, ...(isActive ? s.linkActive : {}), background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
+          <IconFinance />
+        </span>
+        <span>Finance</span>
+        <span style={{ ...s.iconWrap, color: "var(--text-muted)", marginLeft: 2 }}>
+          <IconChevron open={open} />
+        </span>
+        {isActive && <span style={s.activeDot} />}
+      </button>
+
+      {open && (
+        <div style={s.dropdown}>
+          {financeLinks.map(({ to, label, Icon }, i) => {
+            const active = to === "/" ? location.pathname === "/" : location.pathname === to;
+            return (
+              <button
+                key={to}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                onClick={() => {
+                  navigate(to, to === "/" ? { state: { resetDashboard: Date.now() } } : undefined);
+                  setOpen(false);
+                }}
+                style={{
+                  ...s.dropdownItem,
+                  ...(active ? s.dropdownItemActive : hoverIdx === i ? s.dropdownItemHover : {}),
+                }}
+              >
+                <span style={{ ...s.iconWrap, color: active ? "var(--badge-text)" : "var(--text-muted)" }}>
+                  <Icon />
+                </span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Evolve dropdown ───────────────────────────────────────────────────────────
+
+function EvolveDropdown() {
+  const [open, setOpen]      = useState(false);
+  const [hoverIdx, setHover] = useState(null);
+  const ref                  = useRef(null);
+  const navigate             = useNavigate();
+  const location             = useLocation();
+
+  const evolveRoutes = evolveLinks.map(l => l.to);
+  const isActive = evolveRoutes.some(r => location.pathname.startsWith(r));
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ ...s.link, ...(isActive ? s.linkActive : {}), background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
+          <IconEvolve />
+        </span>
+        <span>Evolve</span>
+        <span style={{ ...s.iconWrap, color: "var(--text-muted)", marginLeft: 2 }}>
+          <IconChevron open={open} />
+        </span>
+        {isActive && <span style={s.activeDot} />}
+      </button>
+
+      {open && (
+        <div style={s.dropdown}>
+          {evolveLinks.map(({ to, label, Icon }, i) => {
+            const active = location.pathname === to;
+            return (
+              <button
+                key={to}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                onClick={() => { navigate(to); setOpen(false); }}
+                style={{
+                  ...s.dropdownItem,
+                  ...(active ? s.dropdownItemActive : hoverIdx === i ? s.dropdownItemHover : {}),
+                }}
+              >
+                <span style={{ ...s.iconWrap, color: active ? "var(--badge-text)" : "var(--text-muted)" }}>
+                  <Icon />
+                </span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +317,7 @@ function IconAdmin() {
 export default function Topbar() {
   const { user, signOut } = useAuth();
   const { selectedYear, setSelectedYear, availableYears } = useYear();
+  const { settings } = useAppSettings();
   const navigate  = useNavigate();
   const location  = useLocation();
   const isDashboard = location.pathname === "/";
@@ -175,7 +331,7 @@ export default function Topbar() {
         onClick={() => navigate("/", { state: { resetDashboard: Date.now() } })}
       >
         <Logo />
-        <span style={s.brandName}>Finance<span style={s.brandAccent}>4TURA</span></span>
+        <span style={s.brandName}>4Tura<span style={s.brandAccent}> Nest</span></span>
         {isDashboard && <span style={s.activeDot}/>}
       </div>
 
@@ -184,7 +340,9 @@ export default function Topbar() {
 
       {/* Navigation */}
       <nav style={s.nav}>
-        {links.map(({ to, label, end, Icon }) => (
+        <FinanceDropdown />
+        <EvolveDropdown />
+        {links.filter(({ to }) => to !== "/backstage" || settings.backstageEnabled).map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -205,7 +363,7 @@ export default function Topbar() {
             )}
           </NavLink>
         ))}
-        {user?.isAdmin && (
+        {user?.username === "nenciulescu" && (
           <NavLink
             to="/admin"
             style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
@@ -376,6 +534,48 @@ const s = {
     overflow:  "hidden",
     textOverflow: "ellipsis",
     whiteSpace:"nowrap",
+  },
+  dropdown: {
+    position:       "absolute",
+    top:            "calc(100% + 6px)",
+    left:           0,
+    zIndex:         200,
+    minWidth:       "160px",
+    background:     "var(--topbar-bg)",
+    border:         "1px solid var(--topbar-border)",
+    borderRadius:   "10px",
+    boxShadow:      "0 8px 24px rgba(0,0,0,0.22)",
+    backdropFilter: "blur(12px)",
+    padding:        "4px",
+    display:        "flex",
+    flexDirection:  "column",
+    gap:            "1px",
+  },
+  dropdownItem: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "8px",
+    padding:      "7px 12px",
+    borderRadius: "7px",
+    fontSize:     "13px",
+    fontWeight:   500,
+    color:        "var(--text-muted)",
+    background:   "transparent",
+    border:       "none",
+    cursor:       "pointer",
+    fontFamily:   "inherit",
+    width:        "100%",
+    textAlign:    "left",
+    transition:   "background 0.12s, color 0.12s",
+  },
+  dropdownItemActive: {
+    background: "var(--topbar-link-active)",
+    color:      "var(--text)",
+  },
+  dropdownItemHover: {
+    background: "var(--topbar-link-active)",
+    color:      "var(--text)",
+    opacity:    0.7,
   },
   signOutBtn: {
     background:   "transparent",

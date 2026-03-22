@@ -65,15 +65,49 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Home · Expense · Income · AI · Settings (no Stats tab on mobile)
+- Mobile tab bar: Home · Expense · Income · AI · Practice · Settings
 - Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
 - Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
-- Backstage (`/backstage`) — raw data view for all 5 tables, 10 rows per table by default with expand/collapse
+- Backstage (`/backstage`) — raw data view for all 8 tables, 10 rows per table by default with expand/collapse
+- Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 - `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
 - Shared color constants in `frontend/src/utils/colors.js` (PRIORITY_COLORS, HTTP_METHOD_COLORS, CHART_COLORS, BAR_COLORS)
+
+### Practice Tests Module
+
+Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practice Tests) and mobile bottom tab bar (Practice).
+
+**Tabs** (in order): Results · Statistics · Templates · Kids
+
+**Results tab**:
+- Auto-selects first template and first kid on load, showing the inline table immediately
+- "New Test" button adds an editable row at the top of the table (requires template + kid selected)
+- Clicking ✎ on any past result row converts it to inline-editable inputs in place (no modal)
+- Topic score cells are color-coded: red = 0, yellow = partial, no highlight = full marks
+- Total updates live as scores are entered; inputs clamp to topic `defaultPoints`
+- Generic table (no template+kid filter): shows Kid, Date, Source, Template, Total, ✓, Actions
+
+**Templates tab**:
+- Card grid; Add/Edit modal with up to 30 topics and optional free-points field
+- Each topic has a title and `defaultPoints`; topics can be reordered/removed
+
+**Statistics tab**:
+- Per-kid summary table (count, avg, max, min)
+- Score distribution BarChart; progress-over-time LineChart (last 30 data points per kid)
+- Topic weakness bars (avg points per topic across all filtered results)
+
+**Kids tab**:
+- Inline list management (add/remove/rename); Save button with "Saved ✓" feedback
+
+**API** (`frontend/src/api/practiceTests.js`):
+- All calls go to `/practice-tests/templates`, `/practice-tests/results`, `/practice-tests/kids`
+
+**Backend handler**: `backend/src/handlers/practiceTests.mjs`
+- Max 30 topics per template (validated on create and update)
+- `calcTotalScore(freePoints, topicScores)` rounds to 1 decimal
 
 ### Authentication
 - **Username/password**: `amazon-cognito-identity-js` → Cognito User Pool
@@ -110,6 +144,17 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 **SplitPayments** table (PK: `splitPaymentId`):
 - `userId`, `date`, `description`, `totalAmount`, `currency`, `participants` (array with name + share)
+
+**TestTemplates** table (PK: `templateId`):
+- `userId`, `name`, `subject`, `freePoints`, `topics` (array: `topicId`, `title`, `defaultPoints`), `createdAt`, `updatedAt`
+- Max 30 topics per template
+
+**TestResults** table (PK: `resultId`):
+- `userId`, `templateId`, `templateName`, `kidName`, `date` (YYYY-MM-DD), `sourceTitle`
+- `freePoints`, `topicScores` (array: `topicId`, `title`, `points`), `totalScore`, `verified`, `createdAt`, `updatedAt`
+
+**KidConfig** table (PK: `userId`):
+- `kids` (array: `kidId`, `name`, `order`); max 20 kids per user
 
 ### Key Business Logic
 
@@ -165,6 +210,21 @@ GET    /split-payments
 POST   /split-payments
 PUT    /split-payments/{splitPaymentId}
 DELETE /split-payments/{splitPaymentId}
+
+GET    /practice-tests/templates
+POST   /practice-tests/templates
+GET    /practice-tests/templates/{templateId}
+PUT    /practice-tests/templates/{templateId}
+DELETE /practice-tests/templates/{templateId}
+
+GET    /practice-tests/results              # supports ?templateId=&kidName=&from=&to=
+POST   /practice-tests/results
+GET    /practice-tests/results/{resultId}
+PUT    /practice-tests/results/{resultId}
+DELETE /practice-tests/results/{resultId}
+
+GET    /practice-tests/kids
+PUT    /practice-tests/kids
 ```
 
 ## Testing
@@ -228,6 +288,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
+| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; inline row editing, color-coded topic cells |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
 | Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |

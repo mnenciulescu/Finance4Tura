@@ -24,6 +24,10 @@ const TABLES = {
   PortfolioSnapshots:    "snapshotId",
   SP500Monthly:          "monthId",
   SplitPayments:         "splitPaymentId",
+  TestTemplates:         "templateId",
+  TestResults:           "resultId",
+  KidConfig:             "userId",
+  AppSettings:           "settingKey",
 };
 
 // ── Scan all items from a table (handles pagination) ──────────────────────────

@@ -13,10 +13,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['house_logo.png'],
       manifest: {
-        name: 'Finance4TURA',
-        short_name: 'Finance4TURA',
+        name: '4Tura Nest',
+        short_name: '4Tura Nest',
         description: 'Personal budgeting app',
         theme_color: '#16a34a',
         background_color: '#eef2ee',
@@ -25,7 +25,7 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
-          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: 'house_logo.png', sizes: 'any', type: 'image/png', purpose: 'any maskable' },
         ],
       },
       workbox: {

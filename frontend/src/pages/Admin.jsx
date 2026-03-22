@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useAppSettings } from "../context/AppSettingsContext";
 import { listUsers, updateUserRole, deleteUser } from "../api/admin";
 
 export default function Admin() {
@@ -17,6 +18,21 @@ export default function Admin() {
 
   // Role update busy state
   const [roleLoading, setRoleLoading] = useState(null); // username
+
+  // App settings
+  const { settings, saveSettings } = useAppSettings();
+  const [savingKey, setSavingKey] = useState(null);
+
+  const handleToggle = async (key) => {
+    setSavingKey(key);
+    try {
+      await saveSettings({ [key]: !settings[key] });
+    } catch {
+      setError("Failed to save setting.");
+    } finally {
+      setSavingKey(null);
+    }
+  };
 
   useEffect(() => {
     listUsers()
@@ -89,6 +105,40 @@ export default function Admin() {
 
       {error && <div style={s.errorBox}>{error}</div>}
 
+      <div style={s.columns}>
+        {/* Left: Settings */}
+        <div style={s.leftCol}>
+          <div style={s.settingsCard}>
+            <div style={s.settingsTitle}>App Settings</div>
+            {[
+              { key: "backstageEnabled",     label: "Backstage menu",   desc: "Show or hide the Backstage link in the sidebar for all users" },
+              { key: "googleLoginEnabled",   label: "Google Sign-In",   desc: "Allow users to log in with their Google account" },
+              { key: "createAccountEnabled", label: "Create account",   desc: "Allow new users to register from the login page" },
+            ].map(({ key, label, desc }, i) => {
+              const on = settings[key];
+              return (
+                <div key={key} style={{ ...s.settingRow, ...(i > 0 ? { marginTop: "14px" } : {}) }}>
+                  <div>
+                    <div style={s.settingLabel}>{label}</div>
+                    <div style={s.settingDesc}>{desc}</div>
+                  </div>
+                  <button
+                    style={{ ...s.toggle, ...(on ? s.toggleOn : s.toggleOff), opacity: savingKey === key ? 0.6 : 1 }}
+                    onClick={() => handleToggle(key)}
+                    disabled={savingKey === key}
+                  >
+                    <span style={{ ...s.toggleThumb, transform: on ? "translateX(18px)" : "translateX(2px)" }} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Users */}
+        <div style={s.rightCol}>
+          <div style={s.usersCard}>
+            <div style={s.settingsTitle}>Users</div>
       <div style={s.tableWrap}>
         <table style={s.table}>
           <thead>
@@ -156,6 +206,9 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
+          </div>{/* end usersCard */}
+        </div>{/* end rightCol */}
+      </div>{/* end columns */}
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
@@ -209,6 +262,22 @@ const s = {
     overflowY:     "auto",
   },
   header: { flexShrink: 0 },
+  columns: {
+    display:    "flex",
+    gap:        "20px",
+    alignItems: "flex-start",
+    flex:       1,
+    minHeight:  0,
+  },
+  leftCol: {
+    width:     "280px",
+    flexShrink: 0,
+  },
+  rightCol: {
+    flex:      1,
+    minWidth:  0,
+    overflowX: "auto",
+  },
   title:  { fontSize: "18px", fontWeight: 700, color: "var(--text)", margin: 0 },
   subtitle: { fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" },
   muted:  { color: "var(--text-muted)", fontSize: "13px" },
@@ -216,7 +285,23 @@ const s = {
     background:   "var(--error-bg)", border: "1px solid var(--danger)",
     borderRadius: "8px", color: "var(--error-text)", padding: "10px 14px", fontSize: "12px",
   },
-  tableWrap: { overflowX: "auto", flexShrink: 0 },
+  settingsCard: {
+    background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px",
+    padding: "16px 20px", flexShrink: 0,
+  },
+  usersCard: {
+    background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px",
+    padding: "16px 20px", overflow: "hidden",
+  },
+  settingsTitle: { fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" },
+  settingRow:  { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" },
+  settingLabel:{ fontSize: "13px", fontWeight: 600, color: "var(--text)" },
+  settingDesc: { fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" },
+  toggle: { width: "40px", height: "22px", borderRadius: "11px", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" },
+  toggleOn:  { background: "var(--accent)" },
+  toggleOff: { background: "var(--border)" },
+  toggleThumb: { position: "absolute", top: "3px", width: "16px", height: "16px", borderRadius: "50%", background: "#fff", transition: "transform 0.2s", display: "block" },
+  tableWrap: { flexShrink: 0 },
   table:    { width: "100%", borderCollapse: "collapse", minWidth: "700px" },
   th:       { textAlign: "center", fontSize: "11px", color: "var(--text-muted)", padding: "8px 12px", borderBottom: "2px solid var(--border)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" },
   tr:       { borderBottom: "1px solid var(--border)", transition: "background 0.1s" },

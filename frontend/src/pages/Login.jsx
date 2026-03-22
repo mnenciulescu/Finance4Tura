@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useAppSettings } from "../context/AppSettingsContext";
 
 export default function Login() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
@@ -13,6 +14,16 @@ export default function Login() {
   const [transitioning, setTransitioning] = useState(false);
   const googleBtnRef                = useRef(null);
 
+  const { settings } = useAppSettings();
+  const googleLoginEnabled   = settings.googleLoginEnabled;
+  const createAccountEnabled = settings.createAccountEnabled;
+  const showExtras           = googleLoginEnabled || createAccountEnabled;
+
+  // If create account is disabled but mode is signup, fall back to signin
+  useEffect(() => {
+    if (!createAccountEnabled && mode === "signup") switchMode("signin");
+  }, [createAccountEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const switchMode = (next) => {
     setMode(next);
     setError(null);
@@ -25,7 +36,7 @@ export default function Login() {
   // Load Google Identity Services and render the button
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) return;
+    if (!clientId || !googleLoginEnabled) return;
 
     const initGoogle = () => {
       window.google.accounts.id.initialize({
@@ -53,7 +64,7 @@ export default function Login() {
       script.onload = initGoogle;
       document.head.appendChild(script);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [googleLoginEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGoogleCredential = async (response) => {
     setError(null);
@@ -108,17 +119,8 @@ export default function Login() {
     <div style={s.root}>
       <form style={s.card} onSubmit={handleSubmit}>
         <div style={s.brand}>
-          <svg width="44" height="44" viewBox="0 0 34 34" fill="none">
-            <circle cx="17" cy="17" r="16" fill="#16a34a"/>
-            <rect x="7.5"  y="21" width="4" height="7"  rx="1.5" fill="white" opacity="0.95"/>
-            <rect x="15"   y="16" width="4" height="12" rx="1.5" fill="white" opacity="0.95"/>
-            <rect x="22.5" y="11" width="4" height="17" rx="1.5" fill="white" opacity="0.95"/>
-            <polyline points="9.5,21 17,16 24.5,11" stroke="#86efac" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="9.5"  cy="21" r="2" fill="#86efac"/>
-            <circle cx="17"   cy="16" r="2" fill="#86efac"/>
-            <circle cx="24.5" cy="11" r="2" fill="#86efac"/>
-          </svg>
-          <span style={s.brandText}>Finance<span style={s.brandAccent}>4TURA</span></span>
+          <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 90, width: 'auto', display: 'block' }} />
+          <span style={s.brandText}>4Tura<span style={s.brandAccent}> Nest</span></span>
         </div>
 
         {error && <div style={s.error}>{error}</div>}
@@ -167,28 +169,32 @@ export default function Login() {
           {loading ? (mode === "signin" ? "Signing in…" : "Creating account…") : (mode === "signin" ? "Sign in" : "Create account")}
         </button>
 
-        <div style={s.divider}>
-          <span style={s.dividerLine} />
-          <span style={s.dividerText}>or</span>
-          <span style={s.dividerLine} />
-        </div>
+        {showExtras && (
+          <div style={s.divider}>
+            <span style={s.dividerLine} />
+            <span style={s.dividerText}>or</span>
+            <span style={s.dividerLine} />
+          </div>
+        )}
 
         {/* Google Identity Services renders its own button here */}
-        <div ref={googleBtnRef} style={s.googleBtnWrap} />
+        {googleLoginEnabled && <div ref={googleBtnRef} style={s.googleBtnWrap} />}
 
-        <div style={s.switchRow}>
-          {mode === "signin" ? (
-            <>
-              <span style={s.switchText}>Don't have an account?</span>
-              <button type="button" style={s.switchBtn} onClick={() => switchMode("signup")}>Create one</button>
-            </>
-          ) : (
-            <>
-              <span style={s.switchText}>Already have an account?</span>
-              <button type="button" style={s.switchBtn} onClick={() => switchMode("signin")}>Sign in</button>
-            </>
-          )}
-        </div>
+        {createAccountEnabled && (
+          <div style={s.switchRow}>
+            {mode === "signin" ? (
+              <>
+                <span style={s.switchText}>Don't have an account?</span>
+                <button type="button" style={s.switchBtn} onClick={() => switchMode("signup")}>Create one</button>
+              </>
+            ) : (
+              <>
+                <span style={s.switchText}>Already have an account?</span>
+                <button type="button" style={s.switchBtn} onClick={() => switchMode("signin")}>Sign in</button>
+              </>
+            )}
+          </div>
+        )}
       </form>
     </div>
   );
@@ -214,13 +220,14 @@ const s = {
   },
   brand: {
     display:        "flex",
+    flexDirection:  "column",
     alignItems:     "center",
     justifyContent: "center",
-    gap:            "10px",
+    gap:            "2px",
     marginBottom:   "10px",
   },
   brandText: {
-    fontSize:   "20px",
+    fontSize:   "22px",
     fontWeight: 400,
     color:      "var(--text-muted)",
   },

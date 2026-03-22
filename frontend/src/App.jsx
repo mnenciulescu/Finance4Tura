@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { YearProvider } from "./context/YearContext";
+import { AppSettingsProvider } from "./context/AppSettingsContext";
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
@@ -14,6 +15,7 @@ import SplitPayment from "./pages/SplitPayment";
 import Investments from "./pages/Investments";
 import Admin from "./pages/Admin";
 import AiNews from "./pages/AiNews";
+import PracticeTests from "./pages/PracticeTests";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -32,8 +34,9 @@ function AppRoutes() {
           <Route path="/backstage" element={<Backstage />} />
           <Route path="/split-payments" element={<SplitPayment />} />
           <Route path="/investments" element={<Investments />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={user?.username === "nenciulescu" ? <Admin /> : <Navigate to="/" replace />} />
           <Route path="/ai-news" element={<AiNews />} />
+          <Route path="/practice-tests" element={<PracticeTests />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </ErrorBoundary>
@@ -44,10 +47,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <YearProvider>
-        <AppRoutes />
-      </YearProvider>
-    </AuthProvider>
+    <AppSettingsProvider>
+      <AuthProvider>
+        <YearProvider>
+          <AppRoutes />
+        </YearProvider>
+      </AuthProvider>
+    </AppSettingsProvider>
   );
 }
