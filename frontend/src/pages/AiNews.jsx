@@ -30,7 +30,7 @@ export default function AiNews() {
           {loading ? "Loading…" : "↻ Refresh"}
         </button>
         {!loading && !error && (
-          <span style={s.count}>{googleNews.length + techReview.length} articles</span>
+          <span style={s.count}>{googleNews.length} + {techReview.length} articles</span>
         )}
       </div>
 
@@ -185,16 +185,17 @@ const s = {
     padding:   "20px 0",
   },
   blocks: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "24px",
-    flex:          1,
-    minHeight:     0,
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "24px",
+    flex:                1,
+    minHeight:           0,
   },
   block: {
     display:       "flex",
     flexDirection: "column",
     minHeight:     0,
+    overflow:      "hidden",
   },
   blockHeader: {
     fontSize:      "11px",

@@ -49,8 +49,8 @@ async function fetchFeed(url, defaultSource) {
 export async function handler() {
   try {
     const [googleNews, techReview] = await Promise.all([
-      fetchFeed(FEEDS.googleNews, null),
-      fetchFeed(FEEDS.techReview, "MIT Technology Review"),
+      fetchFeed(FEEDS.googleNews, null).then(items => items.slice(0, 10)),
+      fetchFeed(FEEDS.techReview, "MIT Technology Review").then(items => items.slice(0, 10)),
     ]);
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ googleNews, techReview }) };
   } catch (e) {
