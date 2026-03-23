@@ -2,54 +2,18 @@ import { useState, useEffect } from "react";
 import client from "../api/client";
 import useIsMobile from "../hooks/useIsMobile";
 
-function decodeHtml(str) {
-  if (!str) return str;
-  const txt = document.createElement("textarea");
-  txt.innerHTML = str;
-  return txt.value;
-}
-
-const SOURCE_COLORS = {
-  "TechCrunch":   "#0aa84f",
-  "VentureBeat":  "#2563eb",
-  "Google AI":    "#4285f4",
-  "Ars Technica": "#f60",
-  "MIT News":     "#8b0000",
-  "AI News":      "#7c3aed",
-  "KDnuggets":    "#e11d48",
-  "InfoQ AI":     "#0891b2",
-  "CNET AI":      "#cc0000",
-  "The Next Web": "#ff6600",
-  "Science Daily":"#059669",
-  "ZDNet AI":     "#1d4ed8",
-};
-
 export default function AiNews() {
   const isMobile = useIsMobile();
   const [articles, setArticles] = useState([]);
-  const [failed,   setFailed]   = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    if (!loading) { setProgress(100); return; }
-    setProgress(0);
-    const iv = setInterval(() => {
-      setProgress(p => {
-        const step = p < 30 ? 7 : p < 55 ? 4 : p < 75 ? 2 : p < 88 ? 0.8 : 0;
-        return Math.min(p + step, 88);
-      });
-    }, 250);
-    return () => clearInterval(iv);
-  }, [loading]);
 
   const load = () => {
     setLoading(true);
     setError(null);
     client.get("/ai-news")
-      .then(r => { setArticles(r.data.articles); setFailed(r.data.failed ?? []); })
-      .catch(err => setError(`Could not load AI news: ${err.response?.status ?? err.message}`))
+      .then(res => setArticles(res.data))
+      .catch(() => setError("Failed to load feed."))
       .finally(() => setLoading(false));
   };
 
@@ -57,112 +21,67 @@ export default function AiNews() {
 
   return (
     <div style={s.page}>
-      <div style={s.header}>
-        <div>
-          <h1 style={s.title}>AI News</h1>
-          <p style={s.subtitle}>
-            TechCrunch · VentureBeat · Google AI · Ars Technica · MIT News · AI News · KDnuggets · InfoQ · CNET · The Next Web · Science Daily · ZDNet
-          </p>
-        </div>
-        <button style={{ ...s.refreshBtn, opacity: loading ? 0.6 : 1 }} onClick={load} disabled={loading}>
+      <div style={s.toolbar}>
+        <button style={s.refreshBtn} onClick={load} disabled={loading}>
           {loading ? "Loading…" : "↻ Refresh"}
         </button>
+        {!loading && !error && (
+          <span style={s.count}>{articles.length} articles</span>
+        )}
       </div>
 
-      <div style={s.progressTrack}>
-        <div style={{
-          ...s.progressFill,
-          width:      `${progress}%`,
-          opacity:    loading ? 1 : 0,
-          transition: progress === 0 ? "none" : "width 0.25s ease, opacity 0.4s ease 0.1s",
-        }} />
-      </div>
-
-      {error && <div style={s.error}>{error}</div>}
-
-      {failed.length > 0 && !error && (
-        <div style={s.warn}>
-          Some sources could not be reached: {failed.join(" · ")}
+      {error && (
+        <div style={s.errorBox}>
+          {error}{" "}
+          <button style={s.retryBtn} onClick={load}>Retry</button>
         </div>
       )}
 
-      {!error && (
-        <div style={s.tableWrap}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={{ ...s.th, width: isMobile ? "22%" : "10%" }}>Date</th>
-                {isMobile
-                  ? <th style={{ ...s.th, width: "78%" }}>Title</th>
-                  : <>
-                      <th style={{ ...s.th, width: "14%" }}>Source</th>
-                      <th style={{ ...s.th, width: "22%" }}>Title</th>
-                      <th style={{ ...s.th, width: "46%" }}>Summary</th>
-                      <th style={{ ...s.th, width: "8%", textAlign: "center" }}>Link</th>
-                    </>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              {loading
-                ? Array.from({ length: 12 }).map((_, i) => (
-                    <tr key={i}>
-                      <td style={s.td}><div style={{ ...s.skel, width: "70%" }} /></td>
-                      {isMobile
-                        ? <td style={s.td}>
-                            <div style={{ ...s.skel, width: "45%", marginBottom: "6px" }} />
-                            <div style={{ ...s.skel, width: "90%" }} />
-                          </td>
-                        : <>
-                            <td style={s.td}><div style={{ ...s.skel, width: "60%" }} /></td>
-                            <td style={s.td}><div style={{ ...s.skel, width: "80%" }} /></td>
-                            <td style={s.td}><div style={{ ...s.skel, width: "95%" }} /></td>
-                            <td style={s.td}><div style={{ ...s.skel, width: "50%", margin: "0 auto" }} /></td>
-                          </>
-                      }
-                    </tr>
-                  ))
-                : articles.map((a, i) => {
-                    const sourceBadge = (
-                      <span style={{
-                        ...s.sourceBadge,
-                        background: (SOURCE_COLORS[a.source] ?? "#666") + "22",
-                        color: SOURCE_COLORS[a.source] ?? "var(--text-muted)",
-                        borderColor: (SOURCE_COLORS[a.source] ?? "#666") + "55",
-                      }}>
-                        {a.source}
-                      </span>
-                    );
-                    return (
-                      <tr key={i} style={s.row}>
-                        <td style={{ ...s.td, ...s.dateCell }}>
-                          {a.pubDate ? new Date(a.pubDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                        </td>
-                        {isMobile
-                          ? <td style={{ ...s.td, ...s.titleCell }}>
-                              <div style={{ marginBottom: "4px" }}>{sourceBadge}</div>
-                              <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.titleLink}>
-                                {decodeHtml(a.title)}
-                              </a>
-                            </td>
-                          : <>
-                              <td style={s.td}>{sourceBadge}</td>
-                              <td style={{ ...s.td, ...s.titleCell }}>{decodeHtml(a.title)}</td>
-                              <td style={s.td}>{decodeHtml(a.summary) || "—"}</td>
-                              <td style={{ ...s.td, textAlign: "center" }}>
-                                <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.link}>
-                                  Read →
-                                </a>
-                              </td>
-                            </>
-                        }
-                      </tr>
-                    );
-                  })
-              }
-            </tbody>
-          </table>
-        </div>
+      {loading && (
+        <div style={s.spinWrap}><div style={s.spinner} /></div>
+      )}
+
+      {!loading && !error && articles.length === 0 && (
+        <div style={s.empty}>No articles found.</div>
+      )}
+
+      {!loading && !error && articles.length > 0 && (
+        isMobile ? (
+          <div style={s.cardList}>
+            {articles.map((a, i) => (
+              <a key={i} href={a.link} target="_blank" rel="noopener noreferrer" style={s.card}>
+                <div style={s.cardDate}>{a.date}</div>
+                <div style={s.cardTitle}>{a.title}</div>
+                {a.source && <div style={s.cardSource}>{a.source}</div>}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={s.tableWrap}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {["Date", "Title", "Source"].map(h => (
+                    <th key={h} style={{ ...s.th, ...(h === "Title" ? { width: "60%" } : {}) }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {articles.map((a, i) => (
+                  <tr key={i} style={s.tr}>
+                    <td style={{ ...s.td, ...s.dateCell }}>{a.date}</td>
+                    <td style={s.td}>
+                      <a href={a.link} target="_blank" rel="noopener noreferrer" style={s.link}>
+                        {a.title}
+                      </a>
+                    </td>
+                    <td style={{ ...s.td, ...s.sourceCell }}>{a.source}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   );
@@ -172,26 +91,16 @@ const s = {
   page: {
     display:       "flex",
     flexDirection: "column",
-    height:        "100%",
-    gap:           "16px",
+    flex:          1,
     minHeight:     0,
+    gap:           "12px",
+    overflowY:     "auto",
   },
-  header: {
-    display:        "flex",
-    alignItems:     "flex-start",
-    justifyContent: "space-between",
-    flexShrink:     0,
-  },
-  title: {
-    margin:     0,
-    fontSize:   "20px",
-    fontWeight: 600,
-    color:      "var(--text)",
-  },
-  subtitle: {
-    margin:    "3px 0 0",
-    fontSize:  "11px",
-    color:     "var(--text-muted)",
+  toolbar: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "12px",
+    flexShrink: 0,
   },
   refreshBtn: {
     background:   "var(--surface-2)",
@@ -199,113 +108,134 @@ const s = {
     borderRadius: "8px",
     color:        "var(--text-muted)",
     fontSize:     "12px",
-    fontWeight:   500,
+    fontWeight:   600,
     padding:      "6px 14px",
     cursor:       "pointer",
-    transition:   "border-color 0.15s, color 0.15s",
-    flexShrink:   0,
   },
-  error: {
+  count: {
+    fontSize: "12px",
+    color:    "var(--text-muted)",
+  },
+  errorBox: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
     borderRadius: "8px",
     color:        "var(--error-text)",
     fontSize:     "13px",
     padding:      "10px 14px",
-    flexShrink:   0,
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "10px",
   },
-  warn: {
-    background:   "var(--surface-2)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
-    color:        "var(--text-muted)",
-    fontSize:     "11px",
-    padding:      "8px 12px",
-    flexShrink:   0,
+  retryBtn: {
+    background: "transparent",
+    border:     "1px solid var(--danger)",
+    borderRadius: "6px",
+    color:      "var(--danger)",
+    fontSize:   "12px",
+    padding:    "3px 10px",
+    cursor:     "pointer",
   },
+  spinWrap: {
+    display:        "flex",
+    justifyContent: "center",
+    padding:        "60px 0",
+  },
+  spinner: {
+    width:        "36px",
+    height:       "36px",
+    border:       "3px solid var(--border)",
+    borderTop:    "3px solid var(--accent)",
+    borderRadius: "50%",
+    animation:    "spin 0.8s linear infinite",
+  },
+  empty: {
+    textAlign: "center",
+    color:     "var(--text-muted)",
+    fontSize:  "13px",
+    padding:   "60px 0",
+  },
+  // ── Desktop table ──
   tableWrap: {
-    flex:         1,
-    overflow:     "auto",
-    border:       "1px solid var(--border)",
-    borderRadius: "10px",
-    minHeight:    0,
+    overflowY: "auto",
+    flex:      1,
+    minHeight: 0,
   },
   table: {
-    width:          "100%",
-    borderCollapse: "collapse",
-    fontSize:       "13px",
-    tableLayout:    "fixed",
+    width:           "100%",
+    borderCollapse:  "collapse",
   },
   th: {
-    position:      "sticky",
-    top:           0,
-    background:    "var(--surface-2)",
-    borderBottom:  "1px solid var(--border)",
-    padding:       "10px 14px",
-    textAlign:     "left",
-    fontSize:      "11px",
-    fontWeight:    600,
-    color:         "var(--text-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    zIndex:        1,
+    textAlign:      "left",
+    fontSize:       "11px",
+    fontWeight:     600,
+    color:          "var(--text-muted)",
+    textTransform:  "uppercase",
+    letterSpacing:  "0.04em",
+    padding:        "8px 12px",
+    borderBottom:   "2px solid var(--border)",
+    whiteSpace:     "nowrap",
+    position:       "sticky",
+    top:            0,
+    background:     "var(--bg)",
+  },
+  tr: {
+    borderBottom: "1px solid var(--border)",
   },
   td: {
-    padding:       "10px 14px",
-    color:         "var(--text)",
+    padding:   "10px 12px",
+    fontSize:  "13px",
+    color:     "var(--text)",
     verticalAlign: "top",
-    lineHeight:    1.5,
-    borderBottom:  "1px solid var(--border)",
-    wordBreak:     "break-word",
-  },
-  titleCell: {
-    fontWeight: 500,
   },
   dateCell: {
-    fontSize:   "12px",
-    color:      "var(--text-muted)",
     whiteSpace: "nowrap",
+    color:      "var(--text-muted)",
+    fontSize:   "12px",
+    width:      "100px",
   },
-  sourceBadge: {
-    display:      "inline-block",
-    padding:      "2px 8px",
-    borderRadius: "5px",
-    border:       "1px solid",
-    fontSize:     "11px",
-    fontWeight:   600,
-    whiteSpace:   "nowrap",
+  sourceCell: {
+    color:     "var(--text-muted)",
+    fontSize:  "12px",
+    whiteSpace:"nowrap",
   },
   link: {
-    color:          "var(--accent)",
-    textDecoration: "none",
-    fontWeight:     500,
-    fontSize:       "12px",
-  },
-  titleLink: {
     color:          "var(--text)",
     textDecoration: "none",
-    fontWeight:     500,
     lineHeight:     1.4,
   },
-  progressTrack: {
-    height:       "3px",
-    background:   "var(--border)",
-    borderRadius: "2px",
-    overflow:     "hidden",
-    flexShrink:   0,
+  // ── Mobile cards ──
+  cardList: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "8px",
+    overflowY:     "auto",
+    flex:          1,
+    minHeight:     0,
   },
-  progressFill: {
-    height:           "100%",
-    background:       "var(--accent)",
-    borderRadius:     "2px",
-    boxShadow:        "0 0 8px var(--accent)",
+  card: {
+    display:        "block",
+    background:     "var(--surface)",
+    border:         "1px solid var(--border)",
+    borderRadius:   "10px",
+    padding:        "12px 14px",
+    textDecoration: "none",
   },
-  skel: {
-    height:       "14px",
-    borderRadius: "6px",
-    background:   "var(--surface-2)",
+  cardDate: {
+    fontSize: "11px",
+    color:    "var(--text-muted)",
+    marginBottom: "4px",
   },
-  row: {
-    transition: "background 0.1s",
+  cardTitle: {
+    fontSize:   "14px",
+    fontWeight: 500,
+    color:      "var(--text)",
+    lineHeight: 1.4,
+  },
+  cardSource: {
+    fontSize:   "11px",
+    color:      "var(--accent)",
+    marginTop:  "5px",
+    fontWeight: 500,
   },
 };
