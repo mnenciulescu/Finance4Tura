@@ -19,6 +19,7 @@ Globals:
         TEST_RESULTS_TABLE: TestResults
         KID_CONFIG_TABLE: KidConfig
         APP_SETTINGS_TABLE: AppSettings
+        BOOKS_TABLE: Books_and_Dev
 
 Parameters:
   DynamoDbEndpoint:
@@ -213,6 +214,18 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: userId
+          KeyType: HASH
+
+  BooksAndDevTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Books_and_Dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: bookId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: bookId
           KeyType: HASH
 
   AppSettingsTable:
@@ -732,6 +745,43 @@ Resources:
             RestApiId: !Ref Api
             Path: /practice-tests/kids
             Method: PUT
+
+  # ──────────────────────────────────────────
+  # Books & Development
+  # ──────────────────────────────────────────
+  BooksAndDevFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/booksAndDev.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BooksAndDevTable
+      Events:
+        BooksGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /books-and-dev
+            Method: GET
+        BooksPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /books-and-dev
+            Method: POST
+        BookPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /books-and-dev/{bookId}
+            Method: PUT
+        BookDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /books-and-dev/{bookId}
+            Method: DELETE
 
   # ──────────────────────────────────────────
   # App Settings (global; GET is public)

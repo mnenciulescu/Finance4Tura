@@ -127,6 +127,13 @@ create_table_if_missing "KidConfig" \
    --key-schema AttributeName=userId,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# Books_and_Dev table
+create_table_if_missing "Books_and_Dev" \
+  "--table-name Books_and_Dev \
+   --attribute-definitions AttributeName=bookId,AttributeType=S \
+   --key-schema AttributeName=bookId,KeyType=HASH \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 # AppSettings table
 create_table_if_missing "AppSettings" \
   "--table-name AppSettings \

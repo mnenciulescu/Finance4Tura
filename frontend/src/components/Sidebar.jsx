@@ -112,6 +112,18 @@ function IconTests() {
   );
 }
 
+function IconBooks() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="1" width="8" height="11" rx="1"/>
+      <line x1="5" y1="4" x2="7" y2="4"/>
+      <line x1="5" y1="6.5" x2="7" y2="6.5"/>
+      <path d="M10 3 L13 3.5 L11 13 L8 12.5"/>
+    </svg>
+  );
+}
+
 function IconEvolve() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
@@ -161,7 +173,8 @@ const financeLinks = [
 ];
 
 const evolveLinks = [
-  { to: "/practice-tests", label: "Practice Tests", Icon: IconTests },
+  { to: "/practice-tests",  label: "Practice Tests",      Icon: IconTests },
+  { to: "/books-and-dev",   label: "Books & Development", Icon: IconBooks },
 ];
 
 const links = [

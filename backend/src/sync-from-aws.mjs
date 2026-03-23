@@ -28,6 +28,7 @@ const TABLES = {
   TestResults:           "resultId",
   KidConfig:             "userId",
   AppSettings:           "settingKey",
+  Books_and_Dev:         "bookId",
 };
 
 // ── Scan all items from a table (handles pagination) ──────────────────────────
