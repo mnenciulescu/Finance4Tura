@@ -69,8 +69,9 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
 - Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
-- Backstage (`/backstage`) — raw data view for all 8 tables, 10 rows per table by default with expand/collapse
+- Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
 - Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
+- Books & Development module (`/books-and-dev`) — available on desktop (Evolve dropdown in Sidebar); see below
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 - `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
@@ -95,9 +96,11 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 - Each topic has a title and `defaultPoints`; topics can be reordered/removed
 
 **Statistics tab**:
-- Per-kid summary table (count, avg, max, min)
-- Score distribution BarChart; progress-over-time LineChart (last 30 data points per kid)
-- Topic weakness bars (avg points per topic across all filtered results)
+- Two filters: template + kid
+- Left (70%): Grade Evolution line chart — total score / 10 (1 decimal), straight lines, per-template colors, labels above each point
+- Right (30%): Monthly calendar with test-day color markers per template; nav arrows to change month
+- Custom tooltip on hover: Final grade, source title, verified status
+- Y-axis fixed to 8–10 range; chart and calendar cards stretch to equal height
 
 **Kids tab**:
 - Inline list management (add/remove/rename); Save button with "Saved ✓" feedback
@@ -108,6 +111,28 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 **Backend handler**: `backend/src/handlers/practiceTests.mjs`
 - Max 30 topics per template (validated on create and update)
 - `calcTotalScore(freePoints, topicScores)` rounds to 1 decimal
+
+### Books & Development Module
+
+Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & Development). Desktop-only.
+
+**Table columns**: Person · Type · Source · Author · Title · Completed · Rating · Comments · Actions
+
+**Filters**: person, type (Book/Audiobook/Training/Other), source (Book/Voxa/Udemy/Other), rating (1–5), free-text search on title/author
+
+**Features**:
+- Star rating component (1–5, clickable in modal, display-only in table)
+- Type badges color-coded: purple = Audiobook, teal = Training, grey = Book
+- Add/Edit modal; delete with confirmation
+- `dateCompleted` stored as `YYYY-MM` string
+
+**API** (`frontend/src/api/booksAndDev.js`):
+- All calls go to `/books-and-dev` and `/books-and-dev/{bookId}`
+
+**Backend handler**: `backend/src/handlers/booksAndDev.mjs`
+- Sorted by `dateCompleted` descending, then title ascending
+
+**Seed script**: `backend/src/seed-books-local.mjs` — seeds 89 entries from original Excel import (Mihai books/audiobooks/trainings + Radu books)
 
 ### Authentication
 - **Username/password**: `amazon-cognito-identity-js` → Cognito User Pool
@@ -155,6 +180,13 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 
 **KidConfig** table (PK: `userId`):
 - `kids` (array: `kidId`, `name`, `order`); max 20 kids per user
+
+**AppSettings** table (PK: `settingKey`):
+- Single global item `settingKey = "global"` with `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled`
+- No `userId` — applies to all users; GET is public (no auth), PUT requires admin
+
+**Books_and_Dev** table (PK: `bookId`):
+- `userId`, `name`, `source`, `type`, `author`, `title`, `dateCompleted` (YYYY-MM), `rating` (1–5 or null), `comments`, `createdAt`, `updatedAt`
 
 ### Key Business Logic
 
@@ -225,6 +257,14 @@ DELETE /practice-tests/results/{resultId}
 
 GET    /practice-tests/kids
 PUT    /practice-tests/kids
+
+GET    /books-and-dev
+POST   /books-and-dev
+PUT    /books-and-dev/{bookId}
+DELETE /books-and-dev/{bookId}
+
+GET    /app-settings                          # public (no auth required)
+PUT    /app-settings                          # admin only
 ```
 
 ## Testing
@@ -256,6 +296,9 @@ node src/sync-from-aws.mjs
 
 # Seed investment operations + snapshots for local-dev (historical data)
 node src/seed-investments-local.mjs
+
+# Seed Books & Development table from Excel import data (89 entries)
+node src/seed-books-local.mjs
 
 # General local seed (incomes/expenses)
 node src/seed-local.mjs
@@ -289,6 +332,9 @@ node src/seed-demo-from-nenciulescu.mjs
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; inline row editing, color-coded topic cells |
+| Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
+| App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
+| Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
 | Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
