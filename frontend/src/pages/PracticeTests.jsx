@@ -508,7 +508,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
       } else {
         const created = await createResult(payload);
         setResults(prev => [created, ...prev]);
-        setInlineRow(r => ({ ...r, resultId: created.resultId }));
+        setInlineRow(null);
       }
     } catch (e) {
       setInlineError(e?.response?.data?.message || e.message || "Error saving");
@@ -1054,195 +1054,226 @@ function KidsTab({ kids, setKids }) {
 
 // ── Statistics Tab ────────────────────────────────────────────────────────────
 
+const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
+
 function StatisticsTab({ templates, results, kids }) {
   const [filterTpl, setFilterTpl] = useState("");
+  const [filterKid, setFilterKid] = useState("");
 
-  const filtered = useMemo(() =>
-    filterTpl ? results.filter(r => r.templateId === filterTpl) : results,
-    [results, filterTpl]
-  );
+  // calendar state: current month view
+  const [calMonth, setCalMonth] = useState(() => dayjs().startOf("month"));
 
-  // Per-kid summary
-  const kidStats = useMemo(() => {
-    const map = {};
-    for (const r of filtered) {
-      if (!map[r.kidName]) map[r.kidName] = { kidName: r.kidName, scores: [], count: 0 };
-      map[r.kidName].scores.push(r.totalScore);
-      map[r.kidName].count++;
-    }
-    return Object.values(map).map(k => ({
-      kidName: k.kidName,
-      count:   k.count,
-      avg:     +(k.scores.reduce((a, b) => a + b, 0) / k.scores.length).toFixed(1),
-      max:     Math.max(...k.scores),
-      min:     Math.min(...k.scores),
-    })).sort((a, b) => b.avg - a.avg);
-  }, [filtered]);
+  const filtered = useMemo(() => {
+    let r = results;
+    if (filterTpl) r = r.filter(x => x.templateId === filterTpl);
+    if (filterKid) r = r.filter(x => x.kidName    === filterKid);
+    return r;
+  }, [results, filterTpl, filterKid]);
 
-  // Score distribution buckets (0–9, 10–19, … or adaptive)
-  const scoreDistribution = useMemo(() => {
-    if (filtered.length === 0) return [];
-    const scores = filtered.map(r => r.totalScore);
-    const maxScore = Math.max(...scores);
-    // Use 10 bins across the range
-    const binCount = 10;
-    const binSize  = Math.max(1, Math.ceil(maxScore / binCount));
-    const bins = {};
-    for (const s of scores) {
-      const label = `${Math.floor(s / binSize) * binSize}–${Math.floor(s / binSize) * binSize + binSize - 1}`;
-      bins[label] = (bins[label] || 0) + 1;
-    }
-    return Object.entries(bins).map(([range, count]) => ({ range, count }));
-  }, [filtered]);
+  const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
 
-  // Progress over time per kid (last 30 results per kid)
-  const progressData = useMemo(() => {
+  // Timeline: one point per date, one line per template, grade = totalScore/10 (1 decimal)
+  const timelineData = useMemo(() => {
     const byDate = {};
     for (const r of [...filtered].sort((a, b) => a.date.localeCompare(b.date))) {
       if (!byDate[r.date]) byDate[r.date] = { date: r.date };
-      // Average if multiple results same date+kid
-      if (byDate[r.date][r.kidName] === undefined) {
-        byDate[r.date][r.kidName] = r.totalScore;
+      const key   = r.templateId;
+      const grade = +(r.totalScore / 10).toFixed(1);
+      if (byDate[r.date][key] === undefined) {
+        byDate[r.date][key] = grade;
       } else {
-        byDate[r.date][r.kidName] = +((byDate[r.date][r.kidName] + r.totalScore) / 2).toFixed(1);
+        byDate[r.date][key] = +((byDate[r.date][key] + grade) / 2).toFixed(1);
       }
     }
-    return Object.values(byDate).slice(-30);
+    return Object.values(byDate).slice(-50);
   }, [filtered]);
 
-  const kidList = useMemo(() => [...new Set(filtered.map(r => r.kidName))].sort(), [filtered]);
-
-  // Topic weakness: avg points per topic per kid
-  const topicWeakness = useMemo(() => {
-    const topicTotals = {};
+  // Metadata for tooltip: date → templateId → { sourceTitle, verified }
+  const timelineMeta = useMemo(() => {
+    const meta = {};
     for (const r of filtered) {
-      for (const t of (r.topicScores || [])) {
-        if (!topicTotals[t.title]) topicTotals[t.title] = { title: t.title, sum: 0, count: 0 };
-        topicTotals[t.title].sum   += t.points;
-        topicTotals[t.title].count += 1;
+      if (!meta[r.date]) meta[r.date] = {};
+      meta[r.date][r.templateId] = { sourceTitle: r.sourceTitle || "", verified: r.verified };
+    }
+    return meta;
+  }, [filtered]);
+
+  // Templates that appear in filtered results, preserving stable order
+  const timelineTemplates = useMemo(() => {
+    const seen = new Set(filtered.map(r => r.templateId));
+    return templates.filter(t => seen.has(t.templateId));
+  }, [filtered, templates]);
+
+  // Calendar: map day → list of { templateId, templateName }
+  const calYear  = calMonth.year();
+  const calMon   = calMonth.month(); // 0-indexed
+  const daysInMonth = calMonth.daysInMonth();
+  const firstDow    = calMonth.day(); // 0=Sun
+
+  // template color map (stable index by templateId)
+  const tplColorMap = useMemo(() => {
+    const map = {};
+    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
+    return map;
+  }, [templates]);
+
+  const calDayMap = useMemo(() => {
+    const map = {};
+    for (const r of results) {
+      if (!r.date) continue;
+      const d = dayjs(r.date);
+      if (d.year() !== calYear || d.month() !== calMon) continue;
+      const day = d.date();
+      if (!map[day]) map[day] = [];
+      if (!map[day].find(x => x.templateId === r.templateId)) {
+        map[day].push({ templateId: r.templateId, templateName: r.templateName });
       }
     }
-    return Object.values(topicTotals)
-      .map(t => ({ title: t.title, avg: +(t.sum / t.count).toFixed(1) }))
-      .sort((a, b) => a.avg - b.avg);
-  }, [filtered]);
+    return map;
+  }, [results, calYear, calMon]);
 
   if (results.length === 0) {
     return <div style={{ ...s.tabContent, ...s.empty }}>No results yet. Add some results first.</div>;
   }
 
+  // Build calendar grid cells (nulls for padding + day numbers)
+  const calCells = [];
+  for (let i = 0; i < firstDow; i++) calCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+
   return (
     <div style={s.tabContent}>
-      <div style={s.toolbar}>
+      {/* Filters */}
+      <div style={s.filterBar}>
         <select style={s.filterSel} value={filterTpl} onChange={e => setFilterTpl(e.target.value)}>
           <option value="">All templates</option>
           {templates.map(t => <option key={t.templateId} value={t.templateId}>{t.name}</option>)}
         </select>
+        <select style={s.filterSel} value={filterKid} onChange={e => setFilterKid(e.target.value)}>
+          <option value="">All kids</option>
+          {kidNames.map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
       </div>
 
-      <div style={s.statsGrid}>
+      {/* Two-column layout */}
+      <div style={s.statsRow}>
 
-        {/* Per-kid summary table */}
+        {/* Left: grade timeline chart */}
         <div style={s.statsCard}>
-          <div style={s.statsCardTitle}>Per-Kid Summary</div>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Kid</th>
-                <th style={{ ...s.th, textAlign: "center" }}>Tests</th>
-                <th style={{ ...s.th, textAlign: "center" }}>Avg</th>
-                <th style={{ ...s.th, textAlign: "center" }}>Max</th>
-                <th style={{ ...s.th, textAlign: "center" }}>Min</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kidStats.map(k => (
-                <tr key={k.kidName} style={s.tr}>
-                  <td style={s.td}>{k.kidName}</td>
-                  <td style={{ ...s.td, textAlign: "center" }}>{k.count}</td>
-                  <td style={{ ...s.td, textAlign: "center", fontWeight: 700, color: "var(--badge-text)" }}>{k.avg}</td>
-                  <td style={{ ...s.td, textAlign: "center" }}>{k.max}</td>
-                  <td style={{ ...s.td, textAlign: "center", color: "var(--text-muted)" }}>{k.min}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Score distribution */}
-        {scoreDistribution.length > 0 && (
-          <div style={s.statsCard}>
-            <div style={s.statsCardTitle}>Score Distribution</div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={scoreDistribution} margin={{ top: 4, right: 8, left: -30, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="range" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
-                  labelStyle={{ color: "var(--text)" }}
-                />
-                <Bar dataKey="count" name="Results" fill="#86efac" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Progress over time */}
-        {progressData.length > 1 && kidList.length > 0 && (
-          <div style={{ ...s.statsCard, gridColumn: "1 / -1" }}>
-            <div style={s.statsCardTitle}>Progress Over Time</div>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={progressData} margin={{ top: 4, right: 8, left: -30, bottom: 0 }}>
+          <div style={s.statsCardTitle}>Grade Evolution</div>
+          {timelineData.length < 2 ? (
+            <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "20px 0" }}>
+              Not enough data points yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={timelineData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
                 <Tooltip
-                  contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px" }}
-                  labelStyle={{ color: "var(--text)" }}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "12px", padding: "8px 12px", maxWidth: "240px" }}>
+                        <div style={{ color: "var(--text-muted)", marginBottom: "6px", fontSize: "11px" }}>{label}</div>
+                        {payload.map(p => {
+                          const meta = timelineMeta[label]?.[p.dataKey];
+                          return (
+                            <div key={p.dataKey} style={{ marginBottom: "6px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+                                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: p.stroke, flexShrink: 0 }} />
+                                <span style={{ color: "var(--text)", fontWeight: 600 }}>{p.name}</span>
+                              </div>
+                              <div style={{ paddingLeft: "14px", color: "var(--text)" }}>Final grade: <strong>{p.value}</strong></div>
+                              {meta?.sourceTitle && (
+                                <div style={{ paddingLeft: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{meta.sourceTitle}</div>
+                              )}
+                              <div style={{ paddingLeft: "14px", marginTop: "2px" }}>
+                                {meta?.verified
+                                  ? <span style={{ color: "var(--accent)", fontSize: "11px" }}>✓ Verified</span>
+                                  : <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>Not verified</span>
+                                }
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }}
                 />
-                <Legend wrapperStyle={{ fontSize: "12px" }} />
-                {kidList.map((kid, i) => (
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                {timelineTemplates.map(t => (
                   <Line
-                    key={kid}
-                    type="monotone"
-                    dataKey={kid}
-                    stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                    key={t.templateId}
+                    type="linear"
+                    dataKey={t.templateId}
+                    name={t.name}
+                    stroke={tplColorMap[t.templateId]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
+                    label={{ position: "top", fontSize: 10, fill: tplColorMap[t.templateId], offset: 8 }}
                     connectNulls
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Topic weakness */}
-        {topicWeakness.length > 0 && (
-          <div style={s.statsCard}>
-            <div style={s.statsCardTitle}>Topic Averages (lowest first)</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {topicWeakness.map((t, i) => {
-                const maxAvg = topicWeakness[topicWeakness.length - 1]?.avg || 1;
-                const pct = maxAvg > 0 ? (t.avg / maxAvg) * 100 : 0;
-                return (
-                  <div key={t.title}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                      <span style={{ fontSize: "12px", color: "var(--text)" }}>{t.title}</span>
-                      <span style={{ fontSize: "12px", fontWeight: 600, color: i < 3 ? "#f87171" : "var(--badge-text)" }}>
-                        {t.avg}
-                      </span>
-                    </div>
-                    <div style={{ height: "4px", background: "var(--surface-2)", borderRadius: "2px" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, borderRadius: "2px", background: i < 3 ? "#f87171" : "#86efac", transition: "width 0.3s" }} />
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Right: monthly calendar */}
+        <div style={s.statsCard}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={s.statsCardTitle}>{calMonth.format("MMMM YYYY")}</div>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button style={s.calNavBtn} onClick={() => setCalMonth(m => m.subtract(1, "month"))}>‹</button>
+              <button style={s.calNavBtn} onClick={() => setCalMonth(m => m.add(1, "month"))}>›</button>
             </div>
           </div>
-        )}
+
+          {/* Day-of-week headers */}
+          <div style={s.calGrid}>
+            {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+              <div key={d} style={s.calDow}>{d}</div>
+            ))}
+            {calCells.map((day, i) => {
+              if (!day) return <div key={`e-${i}`} />;
+              const entries = calDayMap[day] || [];
+              const isToday = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
+              const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
+              return (
+                <div key={day} style={{
+                  ...s.calCell,
+                  ...(isToday ? s.calCellToday : {}),
+                  ...(entries.length > 0 ? { background: firstColor + "33", borderColor: firstColor + "99" } : {}),
+                }}>
+                  <span style={{ fontSize: "12px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : "var(--text-muted)" }}>
+                    {day}
+                  </span>
+                  {entries.length > 1 && (
+                    <div style={{ display: "flex", gap: "2px", flexWrap: "wrap", justifyContent: "center", marginTop: "2px" }}>
+                      {entries.map(e => (
+                        <span key={e.templateId} title={e.templateName} style={{ width: "5px", height: "5px", borderRadius: "50%", background: tplColorMap[e.templateId], display: "inline-block" }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Template legend */}
+          {!filterTpl && templates.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px" }}>
+              {templates.map((t, i) => (
+                <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length], display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{t.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
       </div>
     </div>
@@ -1514,6 +1545,12 @@ const s = {
     gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
     gap:                 "16px",
   },
+  statsRow: {
+    display:             "grid",
+    gridTemplateColumns: "70% 30%",
+    gap:                 "16px",
+    alignItems:          "stretch",
+  },
   statsCard: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
@@ -1521,14 +1558,54 @@ const s = {
     padding:      "14px 16px",
     display:      "flex",
     flexDirection:"column",
-    gap:          "12px",
   },
   statsCardTitle: {
-    fontSize:   "11px",
-    fontWeight: 700,
-    color:      "var(--text-muted)",
+    fontSize:      "11px",
+    fontWeight:    700,
+    color:         "var(--text-muted)",
     textTransform: "uppercase",
     letterSpacing: "0.06em",
+    marginBottom:  "12px",
+  },
+  calNavBtn: {
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "6px",
+    color:        "var(--text-muted)",
+    fontSize:     "14px",
+    width:        "26px",
+    height:       "26px",
+    cursor:       "pointer",
+    display:      "flex",
+    alignItems:   "center",
+    justifyContent:"center",
+    padding:      0,
+  },
+  calGrid: {
+    display:             "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    gap:                 "3px",
+  },
+  calDow: {
+    fontSize:   "10px",
+    fontWeight: 600,
+    color:      "var(--text-muted)",
+    textAlign:  "center",
+    padding:    "2px 0 4px",
+  },
+  calCell: {
+    borderRadius: "6px",
+    border:       "1px solid transparent",
+    padding:      "4px 2px",
+    minHeight:    "34px",
+    display:      "flex",
+    flexDirection:"column",
+    alignItems:   "center",
+    justifyContent:"center",
+  },
+  calCellToday: {
+    outline: "2px solid var(--accent)",
+    outlineOffset: "-2px",
   },
 
   // Modal
