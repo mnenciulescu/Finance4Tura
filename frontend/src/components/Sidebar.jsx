@@ -344,7 +344,7 @@ export default function Topbar() {
         onClick={() => navigate("/", { state: { resetDashboard: Date.now() } })}
       >
         <Logo />
-        <span style={s.brandName}>4Tura<span style={s.brandAccent}> Nest</span></span>
+        <span style={s.brandName}>4TURA<span style={s.brandAccent}> Home</span></span>
         {isDashboard && <span style={s.activeDot}/>}
       </div>
 
