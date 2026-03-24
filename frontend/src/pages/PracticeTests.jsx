@@ -423,11 +423,14 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
     setInlineError(null);
   }
 
-  const filtered = useMemo(() => results.filter(r => {
-    if (filterTpl && r.templateId !== filterTpl) return false;
-    if (filterKid && r.kidName    !== filterKid) return false;
-    return true;
-  }), [results, filterTpl, filterKid]);
+  const filtered = useMemo(() => results
+    .filter(r => {
+      if (filterTpl && r.templateId !== filterTpl) return false;
+      if (filterKid && r.kidName    !== filterKid) return false;
+      return true;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date)),
+  [results, filterTpl, filterKid]);
 
   const pastResults = useMemo(() => {
     if (!inlineRow?.resultId) return filtered;
