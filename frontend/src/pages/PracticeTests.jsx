@@ -1445,7 +1445,7 @@ function StatisticsTab({ templates, results, kids }) {
 
       {/* Topic pass-rate blocks — one per template */}
       {allTemplateStats.map(({ template, topicCols, groupInfo, groupSpans, kidRows }) => (
-        <div key={template.templateId} style={{ ...s.statsCard, marginTop: "8px" }}>
+        <div key={template.templateId} style={{ ...s.statsCard, marginTop: "4px" }}>
           <div style={{ ...s.statsCardTitle, display: "flex", alignItems: "center", gap: "8px" }}>
             Topic Pass Rate
             <span style={{ color: tplColorMap[template.templateId], fontWeight: 700 }}>
@@ -1556,7 +1556,7 @@ const s = {
   tabBar: {
     display:        "flex",
     gap:            "2px",
-    padding:        "10px 30px 0",
+    padding:        "4px 24px 0",
     background:     "var(--surface)",
     borderBottom:   "1px solid var(--border)",
     flexShrink:     0,
@@ -1587,10 +1587,10 @@ const s = {
     overflowY: "auto",
   },
   tabContent: {
-    padding: "30px 24px",
+    padding: "14px 24px",
     display: "flex",
     flexDirection: "column",
-    gap: "16px",
+    gap: "8px",
   },
   toolbar: {
     display:        "flex",
@@ -1805,7 +1805,7 @@ const s = {
   },
   statsRow: {
     display:             "grid",
-    gridTemplateColumns: "70% 30%",
+    gridTemplateColumns: "3fr 1fr",
     gap:                 "16px",
     alignItems:          "stretch",
   },
