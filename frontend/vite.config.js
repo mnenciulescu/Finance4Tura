@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['house_logo.png'],
       manifest: {
-        name: '4Tura Nest',
-        short_name: '4Tura Nest',
+        name: '4TURA Home',
+        short_name: '4TURA Home',
         description: 'Personal budgeting app',
         theme_color: '#16a34a',
         background_color: '#eef2ee',

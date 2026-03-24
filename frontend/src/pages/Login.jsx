@@ -119,8 +119,8 @@ export default function Login() {
     <div style={s.root}>
       <form style={s.card} onSubmit={handleSubmit}>
         <div style={s.brand}>
-          <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 90, width: 'auto', display: 'block' }} />
-          <span style={s.brandText}>4Tura<span style={s.brandAccent}> Nest</span></span>
+          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 68, width: 'auto', display: 'block' }} />
+          <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
 
         {error && <div style={s.error}>{error}</div>}

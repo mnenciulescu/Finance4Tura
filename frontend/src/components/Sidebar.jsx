@@ -158,7 +158,7 @@ function IconChevron({ open }) {
 // ── Logo ─────────────────────────────────────────────────────────────────────
 
 function Logo() {
-  return <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 28, width: 'auto', display: 'block' }} />;
+  return <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: 'auto', display: 'block' }} />;
 }
 
 // ── Nav config ────────────────────────────────────────────────────────────────

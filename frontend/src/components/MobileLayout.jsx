@@ -42,8 +42,8 @@ export default function MobileLayout({ children }) {
       {/* Top bar */}
       <header style={s.topBar}>
         <div style={s.brand}>
-          <img src="/house_logo.png" alt="4Tura Nest" style={{ height: 28, width: 'auto', display: 'block' }} />
-          <span style={s.brandText}>4Tura<span style={s.brandAccent}> Nest</span></span>
+          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: 'auto', display: 'block' }} />
+          <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
         <select
           style={s.yearSelect}
