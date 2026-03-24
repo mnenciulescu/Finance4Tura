@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
-  BarChart, Bar, LineChart, Line,
+  BarChart, Bar, LineChart, Line, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import {
@@ -740,7 +740,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                   </td>
                   <td style={s.td}>
                     <input
-                      style={{ ...s.inlineInput, width: "76px" }}
+                      style={{ ...s.inlineInput, width: "160px" }}
                       placeholder="source…"
                       value={inlineRow.sourceTitle}
                       onChange={e => { setInlineRow(r => ({ ...r, sourceTitle: e.target.value })); scheduleInlineAutoSave(); }}
@@ -836,7 +836,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                       </td>
                       <td style={s.td}>
                         <input
-                          style={{ ...s.inlineInput, width: "76px" }}
+                          style={{ ...s.inlineInput, width: "160px" }}
                           placeholder="source…"
                           value={editRowData.sourceTitle}
                           onChange={e => { setEditRowData(d => ({ ...d, sourceTitle: e.target.value })); scheduleEditRowAutoSave(); }}
@@ -965,7 +965,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                       </td>
                       <td style={s.td}>
                         <input
-                          style={{ ...s.inlineInput, width: "76px" }}
+                          style={{ ...s.inlineInput, width: "160px" }}
                           placeholder="source…"
                           value={editRowData.sourceTitle}
                           onChange={e => setEditRowData(d => ({ ...d, sourceTitle: e.target.value }))}
@@ -1110,6 +1110,54 @@ function KidsTab({ kids, setKids }) {
 
 const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
 
+function computeTopicPassRate(template, resultsForTemplate) {
+  const topics = template.topics || [];
+  const uniqueGroups = [];
+  topics.forEach(t => {
+    const g = t.group || "";
+    if (!uniqueGroups.includes(g)) uniqueGroups.push(g);
+  });
+  const groupInfo = topics.map((t, i) => {
+    const g = t.group || "";
+    const isStart = i === 0 || g !== (topics[i - 1].group || "");
+    const isEnd   = i === topics.length - 1 || g !== (topics[i + 1].group || "");
+    const palette = g ? GROUP_PALETTE[uniqueGroups.indexOf(g) % GROUP_PALETTE.length] : null;
+    return { isStart, isEnd, palette };
+  });
+  const groupSpans = [];
+  topics.forEach((t, i) => {
+    const g = t.group || "";
+    const { palette } = groupInfo[i] || {};
+    if (groupSpans.length === 0 || groupSpans[groupSpans.length - 1].group !== g) {
+      groupSpans.push({ group: g, count: 1, palette });
+    } else {
+      groupSpans[groupSpans.length - 1].count++;
+    }
+  });
+  const valid = resultsForTemplate.filter(r => {
+    if (!r.topicScores || r.topicScores.length === 0) return false;
+    const computed = calcTotal(r.freePoints || 0, r.topicScores);
+    return Math.abs(computed - (r.totalScore || 0)) < 0.1;
+  });
+  const byKid = {};
+  for (const r of valid) {
+    if (!byKid[r.kidName]) byKid[r.kidName] = [];
+    byKid[r.kidName].push(r);
+  }
+  const kidRows = Object.entries(byKid).sort(([a], [b]) => a.localeCompare(b)).map(([kidName, kidResults]) => {
+    const percs = topics.map(topic => {
+      const scores = kidResults.flatMap(r =>
+        (r.topicScores || []).filter(ts => ts.topicId === topic.topicId)
+      );
+      if (scores.length === 0 || topic.defaultPoints === 0) return null;
+      const avg = scores.reduce((s, ts) => s + (ts.points || 0), 0) / scores.length;
+      return Math.round((avg / topic.defaultPoints) * 100);
+    });
+    return { kidName, percs, count: kidResults.length };
+  });
+  return { topicCols: topics, groupInfo, groupSpans, kidRows };
+}
+
 function StatisticsTab({ templates, results, kids }) {
   const [filterTpl, setFilterTpl] = useState("");
   const [filterKid, setFilterKid] = useState("");
@@ -1126,68 +1174,24 @@ function StatisticsTab({ templates, results, kids }) {
 
   const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
 
-  const filterTemplate = useMemo(
-    () => templates.find(t => t.templateId === filterTpl) || null,
-    [templates, filterTpl]
-  );
+  // Results filtered only by kid (used for per-template pass-rate blocks)
+  const filteredByKid = useMemo(() => {
+    if (!filterKid) return results;
+    return results.filter(x => x.kidName === filterKid);
+  }, [results, filterKid]);
 
-  // Topic group info for the stats table (same logic as ResultsTab)
-  const statsTopicCols = filterTemplate?.topics || [];
-  const statsGroupInfo = useMemo(() => {
-    const uniqueGroups = [];
-    statsTopicCols.forEach(t => {
-      const g = t.group || "";
-      if (!uniqueGroups.includes(g)) uniqueGroups.push(g);
-    });
-    return statsTopicCols.map((t, i) => {
-      const g = t.group || "";
-      const isStart = i === 0 || g !== (statsTopicCols[i - 1].group || "");
-      const isEnd   = i === statsTopicCols.length - 1 || g !== (statsTopicCols[i + 1].group || "");
-      const palette = g ? GROUP_PALETTE[uniqueGroups.indexOf(g) % GROUP_PALETTE.length] : null;
-      return { isStart, isEnd, palette };
-    });
-  }, [statsTopicCols]);
-
-  const statsGroupSpans = useMemo(() => {
-    const spans = [];
-    statsTopicCols.forEach((t, i) => {
-      const g = t.group || "";
-      const { palette } = statsGroupInfo[i] || {};
-      if (spans.length === 0 || spans[spans.length - 1].group !== g) {
-        spans.push({ group: g, count: 1, palette });
-      } else {
-        spans[spans.length - 1].count++;
-      }
-    });
-    return spans;
-  }, [statsTopicCols, statsGroupInfo]);
-
-  // Per-kid per-topic pass rate (exclude results with manual total override)
-  const topicStats = useMemo(() => {
-    if (!filterTemplate) return [];
-    const topics = filterTemplate.topics;
-    const valid = filtered.filter(r => {
-      const computed = (r.freePoints || 0) + (r.topicScores || []).reduce((s, t) => s + (t.points || 0), 0);
-      return Math.abs(computed / 10 - (r.totalScore || 0)) < 0.05;
-    });
-    if (valid.length === 0) return [];
-    const byKid = {};
-    for (const r of valid) {
-      if (!byKid[r.kidName]) byKid[r.kidName] = [];
-      byKid[r.kidName].push(r);
-    }
-    return Object.entries(byKid).sort(([a],[b]) => a.localeCompare(b)).map(([kidName, kidResults]) => {
-      const percs = topics.map(topic => {
-        const scores = kidResults.flatMap(r =>
-          (r.topicScores || []).filter(ts => ts.topicId === topic.topicId)
-        );
-        if (scores.length === 0 || topic.defaultPoints === 0) return null;
-        const avg = scores.reduce((s, ts) => s + (ts.points || 0), 0) / scores.length;
-        return Math.round((avg / topic.defaultPoints) * 100);
-      });
-      return { kidName, percs, count: kidResults.length };
-    });
-  }, [filtered, filterTemplate]);
+  // One pass-rate block per visible template (respects both filters)
+  const allTemplateStats = useMemo(() => {
+    const tplsToShow = filterTpl
+      ? templates.filter(t => t.templateId === filterTpl)
+      : templates;
+    return tplsToShow
+      .filter(t => (t.topics || []).length > 0)
+      .map(tpl => ({
+        template: tpl,
+        ...computeTopicPassRate(tpl, filteredByKid.filter(r => r.templateId === tpl.templateId)),
+      }));
+  }, [templates, filteredByKid, filterTpl]);
 
   // Timeline: one point per date, one line per template, grade = totalScore/10 (1 decimal)
   const timelineData = useMemo(() => {
@@ -1233,6 +1237,22 @@ function StatisticsTab({ templates, results, kids }) {
     templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
     return map;
   }, [templates]);
+
+  // Average grade per template (over all filtered results)
+  const tplAverages = useMemo(() => {
+    const sums = {}, counts = {};
+    for (const r of filtered) {
+      if (r.totalScore == null) continue;
+      const grade = r.totalScore / 10;
+      sums[r.templateId]   = (sums[r.templateId]   || 0) + grade;
+      counts[r.templateId] = (counts[r.templateId] || 0) + 1;
+    }
+    const map = {};
+    for (const id of Object.keys(sums)) {
+      map[id] = +(sums[id] / counts[id]).toFixed(2);
+    }
+    return map;
+  }, [filtered]);
 
   const calDayMap = useMemo(() => {
     const map = {};
@@ -1347,6 +1367,21 @@ function StatisticsTab({ templates, results, kids }) {
                     connectNulls
                   />
                 ))}
+                {timelineTemplates.map(t => {
+                  const avg = tplAverages[t.templateId];
+                  if (avg == null) return null;
+                  const color = tplColorMap[t.templateId];
+                  return (
+                    <ReferenceLine
+                      key={`avg-${t.templateId}`}
+                      y={avg}
+                      stroke={color}
+                      strokeDasharray="5 3"
+                      strokeOpacity={0.6}
+                      label={{ value: `avg ${avg}`, position: "insideTopRight", fontSize: 9, fill: color, dy: -4 }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -1408,94 +1443,93 @@ function StatisticsTab({ templates, results, kids }) {
 
       </div>
 
-      {/* Topic pass-rate table */}
-      <div style={{ ...s.statsCard, marginTop: "8px" }}>
-        <div style={s.statsCardTitle}>Topic Pass Rate</div>
-        {!filterTpl && (
-          <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
-            Select a template above to see per-topic pass rates.
+      {/* Topic pass-rate blocks — one per template */}
+      {allTemplateStats.map(({ template, topicCols, groupInfo, groupSpans, kidRows }) => (
+        <div key={template.templateId} style={{ ...s.statsCard, marginTop: "8px" }}>
+          <div style={{ ...s.statsCardTitle, display: "flex", alignItems: "center", gap: "8px" }}>
+            Topic Pass Rate
+            <span style={{ color: tplColorMap[template.templateId], fontWeight: 700 }}>
+              — {template.name}
+            </span>
           </div>
-        )}
-        {filterTpl && topicStats.length === 0 && (
-          <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
-            No results with per-topic scores for this selection.
-          </div>
-        )}
-        {filterTpl && topicStats.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={s.table}>
-              <thead>
-                {/* Row 1: group spans */}
-                <tr>
-                  <th style={s.th} />
-                  <th style={{ ...s.th, textAlign: "center" }}>#</th>
-                  {statsGroupSpans.map((span, i) => (
-                    <th key={i} colSpan={span.count} style={{
-                      ...s.th,
-                      textAlign: "center",
-                      ...(span.palette ? {
-                        background:  span.palette.bg,
-                        borderLeft:  `2px solid ${span.palette.border}`,
-                        borderRight: `2px solid ${span.palette.border}`,
-                        color:       span.palette.solid,
-                      } : {}),
-                    }}>
-                      {span.group || ""}
-                    </th>
-                  ))}
-                </tr>
-                {/* Row 2: topic titles */}
-                <tr>
-                  <th style={{ ...s.th, whiteSpace: "nowrap" }}>Kid</th>
-                  <th style={{ ...s.th, textAlign: "center" }} />
-                  {statsTopicCols.map((topic, i) => {
-                    const { isStart, isEnd, palette } = statsGroupInfo[i] || {};
-                    return (
-                      <th key={topic.topicId || i} style={{
+          {kidRows.length === 0 ? (
+            <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
+              No results with per-topic scores for this template.
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th} />
+                    <th style={{ ...s.th, textAlign: "center" }}>#</th>
+                    {groupSpans.map((span, i) => (
+                      <th key={i} colSpan={span.count} style={{
                         ...s.th,
-                        textAlign:  "center",
-                        maxWidth:   "80px",
-                        whiteSpace: "normal",
-                        fontSize:   "10px",
-                        ...(palette ? { background: palette.bg } : {}),
-                        ...(isStart && palette ? { borderLeft:  `2px solid ${palette.border}` } : {}),
-                        ...(isEnd   && palette ? { borderRight: `2px solid ${palette.border}` } : {}),
+                        textAlign: "center",
+                        ...(span.palette ? {
+                          background:  span.palette.bg,
+                          borderLeft:  `2px solid ${span.palette.border}`,
+                          borderRight: `2px solid ${span.palette.border}`,
+                          color:       span.palette.solid,
+                        } : {}),
                       }}>
-                        {topic.title}
+                        {span.group || ""}
                       </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {topicStats.map(row => (
-                  <tr key={row.kidName} style={s.tr}>
-                    <td style={{ ...s.td, fontWeight: 600, whiteSpace: "nowrap" }}>{row.kidName}</td>
-                    <td style={{ ...s.td, textAlign: "center", color: "var(--text-muted)", fontSize: "11px" }}>{row.count}</td>
-                    {row.percs.map((pct, i) => {
-                      const { isStart, isEnd, palette } = statsGroupInfo[i] || {};
-                      const bg = pct === null ? undefined : topicBg(pct, 100);
+                    ))}
+                  </tr>
+                  <tr>
+                    <th style={{ ...s.th, whiteSpace: "nowrap" }}>Kid</th>
+                    <th style={{ ...s.th, textAlign: "center" }} />
+                    {topicCols.map((topic, i) => {
+                      const { isStart, isEnd, palette } = groupInfo[i] || {};
                       return (
-                        <td key={i} style={{
-                          ...s.td,
+                        <th key={topic.topicId || i} style={{
+                          ...s.th,
                           textAlign:  "center",
-                          fontWeight: 600,
-                          fontSize:   "12px",
-                          ...(bg ? { background: bg } : {}),
+                          maxWidth:   "80px",
+                          whiteSpace: "normal",
+                          fontSize:   "10px",
+                          ...(palette ? { background: palette.bg } : {}),
                           ...(isStart && palette ? { borderLeft:  `2px solid ${palette.border}` } : {}),
                           ...(isEnd   && palette ? { borderRight: `2px solid ${palette.border}` } : {}),
                         }}>
-                          {pct === null ? "—" : `${pct}%`}
-                        </td>
+                          {topic.title}
+                        </th>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {kidRows.map(row => (
+                    <tr key={row.kidName} style={s.tr}>
+                      <td style={{ ...s.td, fontWeight: 600, whiteSpace: "nowrap" }}>{row.kidName}</td>
+                      <td style={{ ...s.td, textAlign: "center", color: "var(--text-muted)", fontSize: "11px" }}>{row.count}</td>
+                      {row.percs.map((pct, i) => {
+                        const { isStart, isEnd, palette } = groupInfo[i] || {};
+                        const bg = pct === null ? undefined : topicBg(pct, 100);
+                        return (
+                          <td key={i} style={{
+                            ...s.td,
+                            textAlign:  "center",
+                            fontWeight: 600,
+                            fontSize:   "12px",
+                            ...(bg ? { background: bg } : {}),
+                            ...(isStart && palette ? { borderLeft:  `2px solid ${palette.border}` } : {}),
+                            ...(isEnd   && palette ? { borderRight: `2px solid ${palette.border}` } : {}),
+                          }}>
+                            {pct === null ? "—" : `${pct}%`}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
 
     </div>
   );
