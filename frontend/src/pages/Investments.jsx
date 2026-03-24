@@ -110,6 +110,15 @@ export default function Investments() {
     return result;
   }, [snapshotsInEUR]);
 
+  // Raw (unconverted) latest snapshot per platform — used to show original currency/amount
+  const rawLatestByPlatform = useMemo(() => {
+    const result = {};
+    for (const s of snapshots) {
+      if (!result[s.platform] || s.date > result[s.platform].date) result[s.platform] = s;
+    }
+    return result;
+  }, [snapshots]);
+
   // Testing chart: cumulative simulation — S&P 500 monthly growth + deposits/withdrawals.
   // First op-month point = startPortfolio. Each subsequent month: grow by S&P %, then
   // at operation months add/subtract cash flows (converted to EUR).
@@ -437,7 +446,9 @@ export default function Investments() {
               </thead>
               <tbody>
                 {activePlatforms.map(p => {
-                  const snap = latestByPlatform[p];
+                  const snap    = latestByPlatform[p];
+                  const rawSnap = rawLatestByPlatform[p];
+                  const showOrig = rawSnap && rawSnap.currency !== "EUR";
                   return (
                     <tr key={p} style={s.holdingTr}>
                       <td style={s.holdingTd}>
@@ -446,6 +457,11 @@ export default function Investments() {
                       </td>
                       <td style={{ ...s.holdingTd, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)" }}>
                         {snap ? fmtNum(snap.amount) : "—"}
+                        {showOrig && (
+                          <div style={{ fontSize: "10px", fontWeight: 400, color: "var(--text-muted)", marginTop: "1px" }}>
+                            {fmtNum(rawSnap.amount)} {rawSnap.currency}
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...s.holdingTd, textAlign: "right", color: "var(--text-muted)", fontSize: "11px" }}>
                         {snap ? snap.date : "—"}
@@ -693,8 +709,7 @@ export default function Investments() {
                         <th style={{ ...s.th, textAlign: "left" }}>Date</th>
                         {PLATFORMS.map(p => (
                           <th key={p} style={{ ...s.th, textAlign: "right", color: PLATFORM_COLOR[p] }}>
-                            {p}<br />
-                            <span style={{ fontWeight: 400, opacity: 0.7 }}>({PLATFORM_CURRENCY[p]})</span>
+                            {p}
                           </th>
                         ))}
                         <th style={{ ...s.th, textAlign: "right" }}>Total (EUR)</th>
@@ -712,7 +727,10 @@ export default function Investments() {
                                 <td key={p} style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: snap ? "var(--text)" : "var(--text-muted)" }}>
                                   {snap ? (
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                                      {fmtNum(snap.amount)}
+                                      <span>
+                                        {fmtNum(snap.amount)}
+                                        <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: "3px" }}>{snap.currency}</span>
+                                      </span>
                                       <button style={s.editBtn} title="Edit" onClick={() => openEditSnap(snap)}>✎</button>
                                     </span>
                                   ) : "—"}
