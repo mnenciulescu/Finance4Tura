@@ -83,6 +83,23 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 
 **Tabs** (in order): Results · Statistics · Templates · Kids
 
+**File structure** (modular folder, replaces the old single `PracticeTests.jsx`):
+```
+frontend/src/pages/PracticeTests/
+├── index.jsx          # Main entry: tab routing + shared state (templates/results/kids)
+├── constants.js       # CHART_COLORS, GROUP_PALETTE, topicBg(), calcTotal(), today()
+├── styles.js          # Entire `s` styles object (default export)
+├── ResultsTab.jsx     # Results tab — all inline-edit + auto-save logic
+├── StatisticsTab.jsx  # Statistics tab — chart, calendar, topic pass-rate blocks
+├── TemplatesTab.jsx   # Templates tab — card grid + delete
+├── KidsTab.jsx        # Kids tab — inline list management
+├── TemplateModal.jsx  # Add/Edit template modal (extracted from TemplatesTab)
+├── Modal.jsx          # Generic Modal wrapper component
+└── helpers.js         # computeTopicPassRate() pure function
+```
+
+`App.jsx` imports `PracticeTests` from `"./pages/PracticeTests"` — Vite resolves this to `index.jsx` automatically, no import change needed.
+
 **Results tab**:
 - Auto-selects first template and first kid on load, showing the inline table immediately
 - "New Test" button adds an editable row at the top of the table (requires template + kid selected)
@@ -93,15 +110,17 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 - Total updates live as scores are entered; inputs clamp to topic `defaultPoints`
 - Source input width: 160 px
 - Results sorted by date descending (most recent first)
+- Total column displays `(totalScore / 10).toFixed(2)` (two decimal places)
 - Generic table (no template+kid filter): shows Kid, Date, Source, Template, Total, ✓, Actions
 
 **Templates tab**:
-- Card grid; Add/Edit modal with up to 30 topics and optional free-points field
+- Card grid; Add/Edit modal (`TemplateModal.jsx`) with up to 30 topics and optional free-points field
 - Each topic has a title and `defaultPoints`; topics can be reordered/removed
 
 **Statistics tab**:
 - Two filters: template + kid
-- Left (70%): Grade Evolution line chart — `totalScore / 10` (1 decimal), straight lines, per-template colors, labels above each point
+- Left (70%): Grade Evolution line chart — `totalScore / 10` displayed with `.toFixed(2)` (two decimals), straight lines, per-template colors, labels above each point
+  - Chart labels rendered as SVG: `<rect>` pill background (`var(--surface)` fill, `var(--border)` stroke) behind `<text>` (fontSize 13, fontWeight 600, offset 14px above dot)
   - Verified test dots shown with a **red outer ring** around the filled dot
   - Dashed **average reference line** per template (same color, 60 % opacity), labelled `avg X.XX`
 - Right (30%): Monthly calendar with test-day color markers per template; nav arrows to change month
@@ -115,6 +134,7 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
   - Cells show pass-rate % (red = 0, yellow = partial, none = 100 %); `—` when no data
   - Excluded from calculation: results where `calcTotal(topicScores) ≠ totalScore` (i.e. manual total override differs from topic sum)
   - `calcTotal` on frontend: `Math.round(sum * 10) / 10` (raw sum rounded to 1 decimal); `totalScore` stored at this scale
+  - `computeTopicPassRate()` is a pure function in `helpers.js`
 
 **Kids tab**:
 - Inline list management (add/remove/rename); Save button with "Saved ✓" feedback
