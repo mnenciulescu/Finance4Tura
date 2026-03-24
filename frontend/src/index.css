@@ -108,6 +108,14 @@ button {
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+button:focus,
+button:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 @keyframes spin {
