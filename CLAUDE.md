@@ -86,9 +86,13 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 **Results tab**:
 - Auto-selects first template and first kid on load, showing the inline table immediately
 - "New Test" button adds an editable row at the top of the table (requires template + kid selected)
-- Clicking ✎ on any past result row converts it to inline-editable inputs in place (no modal)
+- **Auto-save**: any field change (topic scores, date, source, total, free points, verified) triggers a debounced save (600 ms); pressing "New Test" also schedules an immediate auto-save with default scores; Save button flushes any pending save and closes the row
+- For a new row the first auto-save creates the record (stores resultId); subsequent saves update it — implemented with `useRef` to avoid stale-closure issues across debounce timers
+- Clicking ✎ on any past result row converts it to inline-editable inputs in place (no modal); same auto-save pattern applies
 - Topic score cells are color-coded: red = 0, yellow = partial, no highlight = full marks
 - Total updates live as scores are entered; inputs clamp to topic `defaultPoints`
+- Source input width: 160 px
+- Results sorted by date descending (most recent first)
 - Generic table (no template+kid filter): shows Kid, Date, Source, Template, Total, ✓, Actions
 
 **Templates tab**:
@@ -97,10 +101,20 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 
 **Statistics tab**:
 - Two filters: template + kid
-- Left (70%): Grade Evolution line chart — total score / 10 (1 decimal), straight lines, per-template colors, labels above each point
+- Left (70%): Grade Evolution line chart — `totalScore / 10` (1 decimal), straight lines, per-template colors, labels above each point
+  - Verified test dots shown with a **red outer ring** around the filled dot
+  - Dashed **average reference line** per template (same color, 60 % opacity), labelled `avg X.XX`
 - Right (30%): Monthly calendar with test-day color markers per template; nav arrows to change month
 - Custom tooltip on hover: Final grade, source title, verified status
 - Y-axis fixed to 8–10 range; chart and calendar cards stretch to equal height
+- **Topic Pass Rate blocks** below chart/calendar — one block per template (stacked vertically):
+  - Shown for all templates when "All templates" is selected; filtered to one when a specific template is chosen
+  - Kid filter applies to all blocks
+  - Each block header shows template name in its chart color
+  - Columns match the template's topics with same group-border coloring as Results tab
+  - Cells show pass-rate % (red = 0, yellow = partial, none = 100 %); `—` when no data
+  - Excluded from calculation: results where `calcTotal(topicScores) ≠ totalScore` (i.e. manual total override differs from topic sum)
+  - `calcTotal` on frontend: `Math.round(sum * 10) / 10` (raw sum rounded to 1 decimal); `totalScore` stored at this scale
 
 **Kids tab**:
 - Inline list management (add/remove/rename); Save button with "Saved ✓" feedback
@@ -110,7 +124,7 @@ Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practic
 
 **Backend handler**: `backend/src/handlers/practiceTests.mjs`
 - Max 30 topics per template (validated on create and update)
-- `calcTotalScore(freePoints, topicScores)` rounds to 1 decimal
+- `calcTotalScore(freePoints, topicScores)` — `Math.round(sum / 10 * 10) / 10` (rounds to 1 decimal)
 
 ### Books & Development Module
 
@@ -331,7 +345,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
-| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; inline row editing, color-coded topic cells |
+| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics tab has average reference line and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
