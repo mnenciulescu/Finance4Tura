@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
   BarChart, Bar, LineChart, Line,
@@ -397,6 +397,19 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
   const [editRowSaving, setEditRowSaving] = useState(false);
   const [editRowError, setEditRowError]   = useState(null);
 
+  // Refs for auto-save (avoids stale closure issues with setTimeout)
+  const inlineRowRef          = useRef(null);
+  const inlineSaveTimerRef    = useRef(null);
+  const inlineSavingInFlight  = useRef(false);
+  const editRowDataRef        = useRef(null);
+  const editingRowIdRef       = useRef(null);
+  const editSaveTimerRef      = useRef(null);
+  const editSavingInFlight    = useRef(false);
+
+  useEffect(() => { inlineRowRef.current = inlineRow; },       [inlineRow]);
+  useEffect(() => { editRowDataRef.current = editRowData; },   [editRowData]);
+  useEffect(() => { editingRowIdRef.current = editingRowId; }, [editingRowId]);
+
   const filterTemplate = useMemo(
     () => templates.find(t => t.templateId === filterTpl) || null,
     [templates, filterTpl]
@@ -421,6 +434,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
       totalOverride: null,
     });
     setInlineError(null);
+    scheduleInlineAutoSave();
   }
 
   const filtered = useMemo(() => results
@@ -483,41 +497,58 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
       totalOverride: null,
       topicScores: r.topicScores.map((t, idx) => idx === i ? { ...t, points: val } : t),
     }));
+    scheduleInlineAutoSave();
   }
 
-  async function handleInlineSave() {
-    if (!inlineRow) return;
-    setInlineError(null);
-    if (!inlineRow.date) { setInlineError("Date is required"); return; }
+  function scheduleInlineAutoSave() {
+    clearTimeout(inlineSaveTimerRef.current);
+    inlineSaveTimerRef.current = setTimeout(() => executeInlineSave(false), 600);
+  }
+
+  async function executeInlineSave(closeAfter) {
+    if (inlineSavingInFlight.current) return;
+    const row = inlineRowRef.current;
+    if (!row) { if (closeAfter) setInlineRow(null); return; }
+    if (!row.date) { if (closeAfter) setInlineError("Date is required"); return; }
+    if (row.topicScores.some(t => t.points === "")) return;
+
+    inlineSavingInFlight.current = true;
     setInlineSaving(true);
+    setInlineError(null);
     try {
-      const effectiveTotal = inlineRow.totalOverride !== null
-        ? Number(inlineRow.totalOverride)
-        : inlineTotal;
+      const effectiveTotal = row.totalOverride !== null
+        ? Number(row.totalOverride)
+        : calcTotal(row.freePoints, row.topicScores);
       const payload = {
         templateId:  filterTpl,
         kidName:     filterKid,
-        date:        inlineRow.date,
-        sourceTitle: (inlineRow.sourceTitle || "").trim(),
-        freePoints:  Number(inlineRow.freePoints) || 0,
-        topicScores: inlineRow.topicScores.map(t => ({ ...t, points: Number(t.points) || 0 })),
-        verified:    inlineRow.verified,
+        date:        row.date,
+        sourceTitle: (row.sourceTitle || "").trim(),
+        freePoints:  Number(row.freePoints) || 0,
+        topicScores: row.topicScores.map(t => ({ ...t, points: Number(t.points) || 0 })),
+        verified:    row.verified,
         totalScore:  effectiveTotal,
       };
-      if (inlineRow.resultId) {
-        const updated = await updateResult(inlineRow.resultId, payload);
-        setResults(prev => prev.map(r => r.resultId === inlineRow.resultId ? updated : r));
-        setInlineRow(r => ({ ...r })); // keep row open
+      if (row.resultId) {
+        const updated = await updateResult(row.resultId, payload);
+        setResults(prev => prev.map(r => r.resultId === row.resultId ? updated : r));
       } else {
         const created = await createResult(payload);
         setResults(prev => [created, ...prev]);
-        setInlineRow(null);
+        setInlineRow(r => r ? { ...r, resultId: created.resultId } : r);
       }
+      if (closeAfter) setInlineRow(null);
     } catch (e) {
       setInlineError(e?.response?.data?.message || e.message || "Error saving");
     } finally {
       setInlineSaving(false);
+      inlineSavingInFlight.current = false;
     }
+  }
+
+  async function handleInlineSave() {
+    clearTimeout(inlineSaveTimerRef.current);
+    await executeInlineSave(true);
   }
 
   // ── Inline edit handlers (past results) ─────────────────────────────────────
@@ -542,35 +573,55 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
       totalOverride: null,
       topicScores: d.topicScores.map((t, idx) => idx === i ? { ...t, points: val } : t),
     }));
+    scheduleEditRowAutoSave();
   }
 
   const editRowTotal = editRowData ? calcTotal(editRowData.freePoints, editRowData.topicScores) : 0;
 
-  async function handleEditRowSave() {
-    if (!editingRowId || !editRowData) return;
-    setEditRowError(null);
+  function scheduleEditRowAutoSave() {
+    clearTimeout(editSaveTimerRef.current);
+    editSaveTimerRef.current = setTimeout(() => executeEditRowSave(false), 600);
+  }
+
+  async function executeEditRowSave(closeAfter) {
+    if (editSavingInFlight.current) return;
+    const id   = editingRowIdRef.current;
+    const data = editRowDataRef.current;
+    if (!id || !data) return;
+    if (data.topicScores.some(t => t.points === "")) return;
+
+    editSavingInFlight.current = true;
     setEditRowSaving(true);
+    setEditRowError(null);
     try {
-      const editEffectiveTotal = editRowData.totalOverride !== null
-        ? Number(editRowData.totalOverride)
-        : editRowTotal;
+      const effectiveTotal = data.totalOverride !== null
+        ? Number(data.totalOverride)
+        : calcTotal(data.freePoints, data.topicScores);
       const payload = {
-        date:        editRowData.date,
-        sourceTitle: (editRowData.sourceTitle || "").trim(),
-        freePoints:  Number(editRowData.freePoints) || 0,
-        topicScores: editRowData.topicScores.map(t => ({ ...t, points: Number(t.points) || 0 })),
-        verified:    editRowData.verified,
-        totalScore:  editEffectiveTotal,
+        date:        data.date,
+        sourceTitle: (data.sourceTitle || "").trim(),
+        freePoints:  Number(data.freePoints) || 0,
+        topicScores: data.topicScores.map(t => ({ ...t, points: Number(t.points) || 0 })),
+        verified:    data.verified,
+        totalScore:  effectiveTotal,
       };
-      const updated = await updateResult(editingRowId, payload);
-      setResults(prev => prev.map(r => r.resultId === editingRowId ? updated : r));
-      setEditingRowId(null);
-      setEditRowData(null);
+      const updated = await updateResult(id, payload);
+      setResults(prev => prev.map(r => r.resultId === id ? updated : r));
+      if (closeAfter) {
+        setEditingRowId(null);
+        setEditRowData(null);
+      }
     } catch (e) {
       setEditRowError(e?.response?.data?.message || e.message || "Error saving");
     } finally {
       setEditRowSaving(false);
+      editSavingInFlight.current = false;
     }
+  }
+
+  async function handleEditRowSave() {
+    clearTimeout(editSaveTimerRef.current);
+    await executeEditRowSave(true);
   }
 
   function cancelEditRow() {
@@ -676,7 +727,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                       style={{ ...s.inlineInput, width: "50px", textAlign: "center", fontWeight: 700, color: "var(--badge-text)" }}
                       type="number" min="0"
                       value={inlineRow.totalOverride !== null ? inlineRow.totalOverride : inlineTotal}
-                      onChange={e => setInlineRow(r => ({ ...r, totalOverride: e.target.value === "" ? null : e.target.value }))}
+                      onChange={e => { setInlineRow(r => ({ ...r, totalOverride: e.target.value === "" ? null : e.target.value })); scheduleInlineAutoSave(); }}
                     />
                   </td>
                   <td style={s.td}>
@@ -684,7 +735,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                       style={{ ...s.inlineInput, width: "108px" }}
                       type="date"
                       value={inlineRow.date}
-                      onChange={e => setInlineRow(r => ({ ...r, date: e.target.value }))}
+                      onChange={e => { setInlineRow(r => ({ ...r, date: e.target.value })); scheduleInlineAutoSave(); }}
                     />
                   </td>
                   <td style={s.td}>
@@ -692,7 +743,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                       style={{ ...s.inlineInput, width: "76px" }}
                       placeholder="source…"
                       value={inlineRow.sourceTitle}
-                      onChange={e => setInlineRow(r => ({ ...r, sourceTitle: e.target.value }))}
+                      onChange={e => { setInlineRow(r => ({ ...r, sourceTitle: e.target.value })); scheduleInlineAutoSave(); }}
                     />
                   </td>
                   {inlineRow.topicScores.map((t, i) => {
@@ -720,7 +771,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                         style={{ ...s.inlineInput, width: "42px", textAlign: "center" }}
                         type="number" min="0"
                         value={inlineRow.freePoints}
-                        onChange={e => setInlineRow(r => ({ ...r, freePoints: e.target.value, totalOverride: null }))}
+                        onChange={e => { setInlineRow(r => ({ ...r, freePoints: e.target.value, totalOverride: null })); scheduleInlineAutoSave(); }}
                       />
                     </td>
                   )}
@@ -728,7 +779,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                     <input
                       type="checkbox"
                       checked={inlineRow.verified}
-                      onChange={e => setInlineRow(r => ({ ...r, verified: e.target.checked }))}
+                      onChange={e => { setInlineRow(r => ({ ...r, verified: e.target.checked })); scheduleInlineAutoSave(); }}
                       style={{ cursor: "pointer" }}
                     />
                   </td>
@@ -772,7 +823,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                           style={{ ...s.inlineInput, width: "50px", textAlign: "center", fontWeight: 700, color: "var(--badge-text)" }}
                           type="number" min="0"
                           value={editRowData.totalOverride !== null ? editRowData.totalOverride : editRowTotal}
-                          onChange={e => setEditRowData(d => ({ ...d, totalOverride: e.target.value === "" ? null : e.target.value }))}
+                          onChange={e => { setEditRowData(d => ({ ...d, totalOverride: e.target.value === "" ? null : e.target.value })); scheduleEditRowAutoSave(); }}
                         />
                       </td>
                       <td style={s.td}>
@@ -780,7 +831,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                           style={{ ...s.inlineInput, width: "108px" }}
                           type="date"
                           value={editRowData.date}
-                          onChange={e => setEditRowData(d => ({ ...d, date: e.target.value }))}
+                          onChange={e => { setEditRowData(d => ({ ...d, date: e.target.value })); scheduleEditRowAutoSave(); }}
                         />
                       </td>
                       <td style={s.td}>
@@ -788,7 +839,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                           style={{ ...s.inlineInput, width: "76px" }}
                           placeholder="source…"
                           value={editRowData.sourceTitle}
-                          onChange={e => setEditRowData(d => ({ ...d, sourceTitle: e.target.value }))}
+                          onChange={e => { setEditRowData(d => ({ ...d, sourceTitle: e.target.value })); scheduleEditRowAutoSave(); }}
                         />
                       </td>
                       {editRowData.topicScores.map((t, i) => {
@@ -816,7 +867,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                             style={{ ...s.inlineInput, width: "42px", textAlign: "center" }}
                             type="number" min="0"
                             value={editRowData.freePoints}
-                            onChange={e => setEditRowData(d => ({ ...d, freePoints: e.target.value, totalOverride: null }))}
+                            onChange={e => { setEditRowData(d => ({ ...d, freePoints: e.target.value, totalOverride: null })); scheduleEditRowAutoSave(); }}
                           />
                         </td>
                       )}
@@ -824,7 +875,7 @@ function ResultsTab({ templates, results, setResults, kids, setKids }) {
                         <input
                           type="checkbox"
                           checked={editRowData.verified}
-                          onChange={e => setEditRowData(d => ({ ...d, verified: e.target.checked }))}
+                          onChange={e => { setEditRowData(d => ({ ...d, verified: e.target.checked })); scheduleEditRowAutoSave(); }}
                           style={{ cursor: "pointer" }}
                         />
                       </td>
@@ -1075,6 +1126,69 @@ function StatisticsTab({ templates, results, kids }) {
 
   const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
 
+  const filterTemplate = useMemo(
+    () => templates.find(t => t.templateId === filterTpl) || null,
+    [templates, filterTpl]
+  );
+
+  // Topic group info for the stats table (same logic as ResultsTab)
+  const statsTopicCols = filterTemplate?.topics || [];
+  const statsGroupInfo = useMemo(() => {
+    const uniqueGroups = [];
+    statsTopicCols.forEach(t => {
+      const g = t.group || "";
+      if (!uniqueGroups.includes(g)) uniqueGroups.push(g);
+    });
+    return statsTopicCols.map((t, i) => {
+      const g = t.group || "";
+      const isStart = i === 0 || g !== (statsTopicCols[i - 1].group || "");
+      const isEnd   = i === statsTopicCols.length - 1 || g !== (statsTopicCols[i + 1].group || "");
+      const palette = g ? GROUP_PALETTE[uniqueGroups.indexOf(g) % GROUP_PALETTE.length] : null;
+      return { isStart, isEnd, palette };
+    });
+  }, [statsTopicCols]);
+
+  const statsGroupSpans = useMemo(() => {
+    const spans = [];
+    statsTopicCols.forEach((t, i) => {
+      const g = t.group || "";
+      const { palette } = statsGroupInfo[i] || {};
+      if (spans.length === 0 || spans[spans.length - 1].group !== g) {
+        spans.push({ group: g, count: 1, palette });
+      } else {
+        spans[spans.length - 1].count++;
+      }
+    });
+    return spans;
+  }, [statsTopicCols, statsGroupInfo]);
+
+  // Per-kid per-topic pass rate (exclude results with manual total override)
+  const topicStats = useMemo(() => {
+    if (!filterTemplate) return [];
+    const topics = filterTemplate.topics;
+    const valid = filtered.filter(r => {
+      const computed = (r.freePoints || 0) + (r.topicScores || []).reduce((s, t) => s + (t.points || 0), 0);
+      return Math.abs(computed / 10 - (r.totalScore || 0)) < 0.05;
+    });
+    if (valid.length === 0) return [];
+    const byKid = {};
+    for (const r of valid) {
+      if (!byKid[r.kidName]) byKid[r.kidName] = [];
+      byKid[r.kidName].push(r);
+    }
+    return Object.entries(byKid).sort(([a],[b]) => a.localeCompare(b)).map(([kidName, kidResults]) => {
+      const percs = topics.map(topic => {
+        const scores = kidResults.flatMap(r =>
+          (r.topicScores || []).filter(ts => ts.topicId === topic.topicId)
+        );
+        if (scores.length === 0 || topic.defaultPoints === 0) return null;
+        const avg = scores.reduce((s, ts) => s + (ts.points || 0), 0) / scores.length;
+        return Math.round((avg / topic.defaultPoints) * 100);
+      });
+      return { kidName, percs, count: kidResults.length };
+    });
+  }, [filtered, filterTemplate]);
+
   // Timeline: one point per date, one line per template, grade = totalScore/10 (1 decimal)
   const timelineData = useMemo(() => {
     const byDate = {};
@@ -1222,7 +1336,7 @@ function StatisticsTab({ templates, results, kids }) {
                       if (verified) {
                         return (
                           <g key={`dot-${t.templateId}-${payload.date}`}>
-                            <circle cx={cx} cy={cy} r={7} fill="none" stroke={color} strokeWidth={2} />
+                            <circle cx={cx} cy={cy} r={7} fill="none" stroke="#ef4444" strokeWidth={2} />
                             <circle cx={cx} cy={cy} r={4} fill={color} />
                           </g>
                         );
@@ -1293,6 +1407,96 @@ function StatisticsTab({ templates, results, kids }) {
         </div>
 
       </div>
+
+      {/* Topic pass-rate table */}
+      <div style={{ ...s.statsCard, marginTop: "8px" }}>
+        <div style={s.statsCardTitle}>Topic Pass Rate</div>
+        {!filterTpl && (
+          <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
+            Select a template above to see per-topic pass rates.
+          </div>
+        )}
+        {filterTpl && topicStats.length === 0 && (
+          <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
+            No results with per-topic scores for this selection.
+          </div>
+        )}
+        {filterTpl && topicStats.length > 0 && (
+          <div style={{ overflowX: "auto" }}>
+            <table style={s.table}>
+              <thead>
+                {/* Row 1: group spans */}
+                <tr>
+                  <th style={s.th} />
+                  <th style={{ ...s.th, textAlign: "center" }}>#</th>
+                  {statsGroupSpans.map((span, i) => (
+                    <th key={i} colSpan={span.count} style={{
+                      ...s.th,
+                      textAlign: "center",
+                      ...(span.palette ? {
+                        background:  span.palette.bg,
+                        borderLeft:  `2px solid ${span.palette.border}`,
+                        borderRight: `2px solid ${span.palette.border}`,
+                        color:       span.palette.solid,
+                      } : {}),
+                    }}>
+                      {span.group || ""}
+                    </th>
+                  ))}
+                </tr>
+                {/* Row 2: topic titles */}
+                <tr>
+                  <th style={{ ...s.th, whiteSpace: "nowrap" }}>Kid</th>
+                  <th style={{ ...s.th, textAlign: "center" }} />
+                  {statsTopicCols.map((topic, i) => {
+                    const { isStart, isEnd, palette } = statsGroupInfo[i] || {};
+                    return (
+                      <th key={topic.topicId || i} style={{
+                        ...s.th,
+                        textAlign:  "center",
+                        maxWidth:   "80px",
+                        whiteSpace: "normal",
+                        fontSize:   "10px",
+                        ...(palette ? { background: palette.bg } : {}),
+                        ...(isStart && palette ? { borderLeft:  `2px solid ${palette.border}` } : {}),
+                        ...(isEnd   && palette ? { borderRight: `2px solid ${palette.border}` } : {}),
+                      }}>
+                        {topic.title}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {topicStats.map(row => (
+                  <tr key={row.kidName} style={s.tr}>
+                    <td style={{ ...s.td, fontWeight: 600, whiteSpace: "nowrap" }}>{row.kidName}</td>
+                    <td style={{ ...s.td, textAlign: "center", color: "var(--text-muted)", fontSize: "11px" }}>{row.count}</td>
+                    {row.percs.map((pct, i) => {
+                      const { isStart, isEnd, palette } = statsGroupInfo[i] || {};
+                      const bg = pct === null ? undefined : topicBg(pct, 100);
+                      return (
+                        <td key={i} style={{
+                          ...s.td,
+                          textAlign:  "center",
+                          fontWeight: 600,
+                          fontSize:   "12px",
+                          ...(bg ? { background: bg } : {}),
+                          ...(isStart && palette ? { borderLeft:  `2px solid ${palette.border}` } : {}),
+                          ...(isEnd   && palette ? { borderRight: `2px solid ${palette.border}` } : {}),
+                        }}>
+                          {pct === null ? "—" : `${pct}%`}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
