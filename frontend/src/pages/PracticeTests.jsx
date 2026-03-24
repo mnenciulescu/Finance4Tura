@@ -1214,7 +1214,21 @@ function StatisticsTab({ templates, results, kids }) {
                     name={t.name}
                     stroke={tplColorMap[t.templateId]}
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={(props) => {
+                      const { cx, cy, payload } = props;
+                      const meta = timelineMeta[payload.date]?.[t.templateId];
+                      const verified = meta?.verified;
+                      const color = tplColorMap[t.templateId];
+                      if (verified) {
+                        return (
+                          <g key={`dot-${t.templateId}-${payload.date}`}>
+                            <circle cx={cx} cy={cy} r={7} fill="none" stroke={color} strokeWidth={2} />
+                            <circle cx={cx} cy={cy} r={4} fill={color} />
+                          </g>
+                        );
+                      }
+                      return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
+                    }}
                     label={{ position: "top", fontSize: 10, fill: tplColorMap[t.templateId], offset: 8 }}
                     connectNulls
                   />
