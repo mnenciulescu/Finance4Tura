@@ -88,9 +88,26 @@ export default function Investments() {
       .then(setSP500)
       .catch(() => {}); // non-critical — chart stays empty if unavailable
 
+    // Apply cached rates immediately so the page renders without waiting for the network
+    const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
+    const FX_TTL_MS    = 6 * 60 * 60 * 1000; // 6 hours
+    try {
+      const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
+      if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
+        setFxRates(cached.rates);
+      }
+    } catch { /* ignore corrupt cache */ }
+
+    // Fetch fresh rates in the background; update state + cache if they changed
     fetch("https://api.frankfurter.app/latest?from=EUR&to=USD,RON")
       .then(r => r.json())
-      .then(d => { if (d?.rates) setFxRates(d.rates); })
+      .then(d => {
+        if (!d?.rates) return;
+        setFxRates(d.rates);
+        try {
+          localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates: d.rates, ts: Date.now() }));
+        } catch { /* storage full or unavailable */ }
+      })
       .catch(() => {});
   }, []);
 
