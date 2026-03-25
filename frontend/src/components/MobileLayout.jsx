@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useYear } from "../context/YearContext";
 import { useState } from "react";
 
 function IconDashboard() {
@@ -12,28 +11,15 @@ function IconExpense() {
 function IconIncome() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,11 5,6.5 8.5,9.5 14,3.5"/><polyline points="10.5,3.5 14,3.5 14,7"/></svg>;
 }
-function IconAI() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7.5" r="6"/><path d="M5 10l1.5-4.5 2 3 1.5-2L11 10"/><circle cx="7.5" cy="4.5" r="0.6" fill="currentColor" stroke="none"/></svg>;
-}
-function IconSettings() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><line x1="1" y1="4.5" x2="14" y2="4.5"/><line x1="1" y1="10.5" x2="14" y2="10.5"/><circle cx="5" cy="4.5" r="1.8" fill="currentColor" stroke="none"/><circle cx="10" cy="10.5" r="1.8" fill="currentColor" stroke="none"/></svg>;
-}
-function IconTests() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="11" height="13" rx="1.5"/><line x1="5" y1="5" x2="10" y2="5"/><line x1="5" y1="7.5" x2="10" y2="7.5"/><line x1="5" y1="10" x2="8" y2="10"/></svg>;
-}
 
 const tabs = [
-  { to: "/",            label: "Home",    end: true, Icon: IconDashboard },
-  { to: "/add-expense", label: "Expense", Icon: IconExpense  },
-  { to: "/add-income",  label: "Income",  Icon: IconIncome   },
-  { to: "/ai-news",        label: "AI",      Icon: IconAI       },
-  { to: "/practice-tests", label: "Practice", Icon: IconTests    },
-  { to: "/settings",       label: "Settings",Icon: IconSettings },
+  { to: "/",            label: "Home",        end: true, Icon: IconDashboard },
+  { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
+  { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
 ];
 
 export default function MobileLayout({ children }) {
   const { user, signOut } = useAuth();
-  const { selectedYear, setSelectedYear, availableYears } = useYear();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?";
 
@@ -45,15 +31,6 @@ export default function MobileLayout({ children }) {
           <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: 'auto', display: 'block' }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
-        <select
-          style={s.yearSelect}
-          value={selectedYear}
-          onChange={e => setSelectedYear(Number(e.target.value))}
-        >
-          {availableYears.map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
         <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)}>
           {initials}
         </button>
@@ -119,19 +96,6 @@ const s = {
     fontWeight: 700,
     color:      "var(--badge-text)",
     marginLeft: "2px",
-  },
-  yearSelect: {
-    appearance:   "none",
-    background:   "var(--surface-2)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
-    color:        "var(--text)",
-    fontSize:     "13px",
-    fontWeight:   600,
-    padding:      "5px 10px",
-    cursor:       "pointer",
-    letterSpacing:"0.03em",
-    outline:      "none",
   },
   avatar: {
     width:          "32px",
