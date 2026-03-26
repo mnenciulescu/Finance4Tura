@@ -730,7 +730,7 @@ export default function Investments() {
 
               return (
                 <div style={s.tableWrap}>
-                  <table style={{ ...s.table, minWidth: "600px" }}>
+                  <table style={s.table}>
                     <thead>
                       <tr>
                         <th style={{ ...s.th, textAlign: "left" }}>Date</th>
@@ -984,11 +984,11 @@ const s = {
     alignItems: "flex-start",
   },
   bottomColLeft: {
-    flex: "0 0 calc(65% - 10px)",
+    flex: "0 0 calc(70% - 10px)",
     minWidth: 0,
   },
   bottomColRight: {
-    flex: "0 0 calc(35% - 10px)",
+    flex: "0 0 calc(30% - 10px)",
     minWidth: 0,
   },
 
@@ -1081,11 +1081,12 @@ const s = {
 
   // Table
   tableWrap: {
-    overflowX: "auto", borderRadius: "8px",
+    borderRadius: "8px",
     border: "1px solid var(--border)",
+    overflowX: "hidden",
   },
   table: {
-    width: "100%", borderCollapse: "collapse", minWidth: "520px",
+    width: "100%", borderCollapse: "collapse",
   },
   th: {
     fontSize: "10px", fontWeight: 600, color: "var(--text-muted)",
