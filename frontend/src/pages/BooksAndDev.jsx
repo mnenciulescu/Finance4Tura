@@ -110,6 +110,16 @@ export default function BooksAndDev() {
     }
   }
 
+  async function handleRatingChange(book, newRating) {
+    setBooks(prev => prev.map(b => b.bookId === book.bookId ? { ...b, rating: newRating } : b));
+    try {
+      const updated = await updateBook(book.bookId, { ...book, rating: newRating });
+      setBooks(prev => prev.map(b => b.bookId === book.bookId ? updated : b));
+    } catch {
+      setBooks(prev => prev.map(b => b.bookId === book.bookId ? { ...b, rating: book.rating } : b));
+    }
+  }
+
   async function handleDelete(book) {
     if (!window.confirm(`Delete "${book.title}"?`)) return;
     try {
@@ -180,7 +190,7 @@ export default function BooksAndDev() {
                 <td style={s.td}>{b.author || "—"}</td>
                 <td style={{ ...s.td, fontWeight: 500 }}>{b.title}</td>
                 <td style={{ ...s.td, ...s.nowrap, color: "var(--text-muted)" }}>{b.dateCompleted || "—"}</td>
-                <td style={s.td}><Stars value={b.rating} readOnly /></td>
+                <td style={s.td}><Stars value={b.rating} onChange={v => handleRatingChange(b, v)} /></td>
                 <td style={{ ...s.td, color: "var(--text-muted)", fontSize: "12px", maxWidth: "200px" }}>{b.comments || ""}</td>
                 <td style={{ ...s.td, ...s.nowrap }}>
                   <button style={s.btnIcon} onClick={() => openEdit(b)} title="Edit">✎</button>
