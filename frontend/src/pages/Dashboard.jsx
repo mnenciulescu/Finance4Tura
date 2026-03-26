@@ -36,16 +36,20 @@ export default function Dashboard() {
       yearIncomes[idx].date <= today ? idx : found, -1);
   }, [yearIncomes]);
 
+  // On desktop (3 columns) offset by 1 so the active column is centred.
+  // On mobile (1 column) show the active column directly — no offset.
+  const activeStartIdx = yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - (isMobile ? 0 : 1));
+
   // Reset to first relevant column when logo is clicked
   useEffect(() => {
     if (!location.state?.resetDashboard || yearIncomes.length === 0) return;
-    setStartIdx(yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - 1));
+    setStartIdx(activeStartIdx);
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset startIdx whenever the selected year changes (always, regardless of yearCurrentIdx value)
+  // Reset startIdx whenever the selected year or mobile breakpoint changes
   useEffect(() => {
-    setStartIdx(yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - 1));
-  }, [selectedYear, yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+    setStartIdx(activeStartIdx);
+  }, [selectedYear, yearCurrentIdx, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
