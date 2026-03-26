@@ -66,6 +66,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
 - Mobile tab bar: Home · Expense · Income · AI · Practice · Settings
+- Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
 - Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
 - Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
@@ -167,6 +168,38 @@ Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & 
 - Sorted by `dateCompleted` descending, then title ascending
 
 **Seed script**: `backend/src/seed-books-local.mjs` — seeds 89 entries from original Excel import (Mihai books/audiobooks/trainings + Radu books)
+
+### Home Overview Module
+
+Route: `/` — the main landing page after login. Finance Dashboard moved to `/finance`.
+
+**Layout**: 2-column grid (`1fr 1fr`), 4 section cards.
+
+**Section 1 — Pending Expenses (top-left)**:
+- Calls `listIncomes()` and `listExpenses()`
+- Finds the current income: the income with the most recent `date ≤ today`
+- Shows all `Pending` expenses where `mappedIncomeId === currentIncome.incomeId`
+- Displays: name, amount+currency, priority badge (High/Medium/Low), special star marker
+- Shows sum of all pending amounts at the bottom
+
+**Section 2 — Split Payments Latest (top-right)**:
+- Calls `listSplitPayments()`
+- Sorts by `createdDate` descending, shows the most recent entry
+- Displays: title, date, total amount, coverage badge, occurrence status chips
+
+**Section 3 — Practice Tests (bottom-left)**:
+- Calls `listTemplates()`, `listResults()`, `getKids()`
+- Grade Evolution line chart (height 200px) — same logic as StatisticsTab, all templates + kids, no filters
+- Monthly calendar widget (same logic as StatisticsTab) — shows test-day color dots
+- Chart 70% / Calendar 30% side by side
+
+**Section 4 — Books & Development latest per person (bottom-right)**:
+- Calls `listBooks()`
+- Groups by `name` (person), shows most recent entry per person (by `dateCompleted`)
+- Displays: type badge, title, read-only star rating, dateCompleted
+- Persons listed in alphabetical order
+
+**File**: `frontend/src/pages/HomeOverview.jsx` (self-contained, no external CSS)
 
 ### Authentication
 - **Username/password**: `amazon-cognito-identity-js` → Cognito User Pool

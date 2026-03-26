@@ -134,6 +134,16 @@ function IconEvolve() {
   );
 }
 
+function IconHome() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1.5 7.5 L7.5 2 L13.5 7.5"/>
+      <polyline points="3,6.5 3,13 6.5,13 6.5,9.5 8.5,9.5 8.5,13 12,13 12,6.5"/>
+    </svg>
+  );
+}
+
 function IconFinance() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
@@ -164,7 +174,7 @@ function Logo() {
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const financeLinks = [
-  { to: "/",               label: "Dashboard",  Icon: IconDashboard },
+  { to: "/finance",        label: "Dashboard",  Icon: IconDashboard },
   { to: "/add-income",     label: "Add Income", Icon: IconIncome    },
   { to: "/add-expense",    label: "Add Expense",Icon: IconExpense   },
   { to: "/split-payments", label: "Split Pay",  Icon: IconSplit     },
@@ -192,9 +202,9 @@ function FinanceDropdown() {
   const navigate              = useNavigate();
   const location              = useLocation();
 
-  const financeRoutes = ["/", "/add-income", "/add-expense", "/split-payments", "/statistics", "/investments"];
+  const financeRoutes = ["/finance", "/add-income", "/add-expense", "/split-payments", "/statistics", "/investments"];
   const isActive = financeRoutes.some(r =>
-    r === "/" ? location.pathname === "/" : location.pathname.startsWith(r)
+    r === "/finance" ? location.pathname === "/finance" : location.pathname.startsWith(r)
   );
 
   useEffect(() => {
@@ -223,14 +233,14 @@ function FinanceDropdown() {
       {open && (
         <div style={s.dropdown}>
           {financeLinks.map(({ to, label, Icon }, i) => {
-            const active = to === "/" ? location.pathname === "/" : location.pathname === to;
+            const active = location.pathname === to;
             return (
               <button
                 key={to}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => {
-                  navigate(to, to === "/" ? { state: { resetDashboard: Date.now() } } : undefined);
+                  navigate(to, to === "/finance" ? { state: { resetDashboard: Date.now() } } : undefined);
                   setOpen(false);
                 }}
                 style={{
@@ -341,7 +351,7 @@ export default function Topbar() {
       {/* Brand + Dashboard combined */}
       <div
         style={{ ...s.brand, ...(isDashboard ? s.brandActive : {}) }}
-        onClick={() => navigate("/", { state: { resetDashboard: Date.now() } })}
+        onClick={() => navigate("/")}
       >
         <Logo />
         <span style={s.brandName}>4TURA<span style={s.brandAccent}> Home</span></span>
@@ -353,6 +363,21 @@ export default function Topbar() {
 
       {/* Navigation */}
       <nav style={s.nav}>
+        <NavLink
+          to="/"
+          end
+          style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
+        >
+          {({ isActive }) => (
+            <>
+              <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
+                <IconHome />
+              </span>
+              <span>Home</span>
+              {isActive && <span style={s.activeDot} />}
+            </>
+          )}
+        </NavLink>
         <FinanceDropdown />
         <EvolveDropdown />
         {links.filter(({ to }) => to !== "/backstage" || settings.backstageEnabled).map(({ to, label, end, Icon }) => (

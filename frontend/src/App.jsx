@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import HomeOverview from "./pages/HomeOverview";
 import AddIncome from "./pages/AddIncome";
 import AddExpense from "./pages/AddExpense";
 import Statistics from "./pages/Statistics";
@@ -27,7 +28,8 @@ function AppRoutes() {
       <Layout>
         <ErrorBoundary>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<HomeOverview />} />
+          <Route path="/finance" element={<Dashboard />} />
           <Route path="/add-income" element={<AddIncome />} />
           <Route path="/add-expense" element={<AddExpense />} />
           <Route path="/statistics" element={<Statistics />} />
