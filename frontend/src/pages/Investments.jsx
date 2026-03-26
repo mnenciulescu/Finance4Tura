@@ -61,6 +61,7 @@ export default function Investments() {
   const [snapshots,  setSnapshots]  = useState([]);
   const [sp500,      setSP500]      = useState([]);
   const [fxRates,    setFxRates]    = useState(null); // rates from EUR base, e.g. { USD: 1.08, RON: 4.97 }
+  const [fxStatus,   setFxStatus]   = useState("none"); // "none" | "buffered" | "updated"
   const [loading,    setLoading]    = useState(true);
   const [hidden,     setHidden]     = useState(new Set(PLATFORMS)); // start with platforms hidden; Total visible
   const [hiddenSim,  setHiddenSim]  = useState(new Set(PLATFORMS)); // sim chart: platforms hidden; Total+sim visible
@@ -95,6 +96,7 @@ export default function Investments() {
       const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
       if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
         setFxRates(cached.rates);
+        setFxStatus("buffered");
       }
     } catch { /* ignore corrupt cache */ }
 
@@ -104,6 +106,7 @@ export default function Investments() {
       .then(d => {
         if (!d?.rates) return;
         setFxRates(d.rates);
+        setFxStatus("updated");
         try {
           localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates: d.rates, ts: Date.now() }));
         } catch { /* storage full or unavailable */ }
@@ -450,7 +453,14 @@ export default function Investments() {
             <div style={s.totalCard}>
               <div style={s.totalLabel}>Total Portfolio</div>
               <div style={s.totalAmount}>{fmtNum(totalPortfolioEUR)}</div>
-              <div style={s.totalCurrency}>EUR{!fxRates && <span style={s.noRates}> · rates unavailable</span>}</div>
+              <div style={s.totalCurrency}>
+                EUR
+                <span style={s.fxStatus}>
+                  {fxStatus === "none"     && " · Getting rates…"}
+                  {fxStatus === "buffered" && " · Buffered"}
+                  {fxStatus === "updated"  && " · Updated FX rates."}
+                </span>
+              </div>
             </div>
             {/* Platform table */}
             <table style={s.holdingTable}>
@@ -778,8 +788,8 @@ export default function Investments() {
                 <table style={s.table}>
                   <thead>
                     <tr>
-                      {["Date","Platform","Type","Amount","Currency","Notes","",""].map((h, i) => (
-                        <th key={i} style={{ ...s.th, textAlign: i >= 6 ? "center" : "left" }}>{h}</th>
+                      {["Date","Platform","Type","Amount","Currency","",""].map((h, i) => (
+                        <th key={i} style={{ ...s.th, textAlign: i >= 5 ? "center" : "left" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -797,7 +807,6 @@ export default function Investments() {
                         </td>
                         <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtNum(op.amount)}</td>
                         <td style={s.td}>{op.currency}</td>
-                        <td style={{ ...s.td, color: "var(--text-muted)", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{op.notes || "—"}</td>
                         <td style={{ ...s.td, textAlign: "center" }}>
                           <button style={s.editBtn} title="Edit" onClick={() => openEditOp(op)}>✎</button>
                         </td>
@@ -975,11 +984,11 @@ const s = {
     alignItems: "flex-start",
   },
   bottomColLeft: {
-    flex: "0 0 calc(60% - 10px)",
+    flex: "0 0 calc(65% - 10px)",
     minWidth: 0,
   },
   bottomColRight: {
-    flex: "0 0 calc(40% - 10px)",
+    flex: "0 0 calc(35% - 10px)",
     minWidth: 0,
   },
 
@@ -1024,6 +1033,9 @@ const s = {
   },
   noRates: {
     fontSize: "10px", color: "var(--text-muted)", opacity: 0.6,
+  },
+  fxStatus: {
+    fontSize: "10px", color: "var(--text-muted)", opacity: 0.7, fontWeight: 400,
   },
 
   // Chart
