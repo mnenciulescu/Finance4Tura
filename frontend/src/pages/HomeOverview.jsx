@@ -1,22 +1,48 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
   LineChart, Line, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { listIncomes } from "../api/incomes";
-import { listExpenses } from "../api/expenses";
-import { listSplitPayments } from "../api/splitPayments";
+import { listExpenses, updateExpense } from "../api/expenses";
+import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
 import { listTemplates, listResults, getKids } from "../api/practiceTests";
+import { listSnapshots } from "../api/investments";
+import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
+
+// ── Investment constants (shared with Investments page) ────────────────────────
+const PLATFORMS = ["eToro", "Binance", "Fidelity", "Tradeville", "ING Funds RON", "ING Funds EUR"];
+const PLATFORM_COLOR = {
+  "eToro":         "#22c55e",
+  "Binance":       "#f59e0b",
+  "Fidelity":      "#3b82f6",
+  "Tradeville":    "#a855f7",
+  "ING Funds RON": "#ef4444",
+  "ING Funds EUR": "#f97316",
+};
+function toEUR(amount, currency, rates) {
+  if (!rates || currency === "EUR") return amount;
+  const rate = rates[currency];
+  return rate ? amount / rate : amount;
+}
+const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
+const FX_TTL_MS    = 6 * 60 * 60 * 1000;
 
 const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
 
-const PRIORITY_COLORS = {
-  High:   { bg: "#ef4444", text: "#fff" },
-  Medium: { bg: "#f59e0b", text: "#fff" },
-  Low:    { bg: "#6b7194", text: "#fff" },
+const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const monthParts = (dateStr) => {
+  const [y, m, d] = dateStr.split("-");
+  const month = new Date(+y, +m - 1, 1).toLocaleString("en-US", { month: "short" }).toUpperCase();
+  return { month, day: String(+d), year: y };
 };
+const getDow = (dateStr) =>
+  DOW[new Date(Date.UTC(...dateStr.split("-").map((v, i) => i === 1 ? +v - 1 : +v))).getUTCDay()];
+const fmtDec = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
 
 const TYPE_COLORS = {
   Audiobook: { bg: "rgba(168,85,247,0.18)", text: "#a855f7" },
@@ -71,7 +97,7 @@ function ReadOnlyStars({ value }) {
 
 // ── Section 1: Pending Expenses ────────────────────────────────────────────────
 
-function PendingExpenses({ incomes, expenses }) {
+function PendingExpenses({ incomes, expenses, onToggle }) {
   const today = dayjs().format("YYYY-MM-DD");
 
   const currentIncome = useMemo(() => {
@@ -82,9 +108,13 @@ function PendingExpenses({ incomes, expenses }) {
 
   const pending = useMemo(() => {
     if (!currentIncome) return [];
-    return expenses.filter(e =>
-      e.status === "Pending" && e.mappedIncomeId === currentIncome.incomeId
-    );
+    return expenses
+      .filter(e => e.status === "Pending" && e.mappedIncomeId === currentIncome.incomeId)
+      .slice()
+      .sort((a, b) =>
+        (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
+        || a.date.localeCompare(b.date)
+      );
   }, [expenses, currentIncome]);
 
   const total = useMemo(() =>
@@ -93,57 +123,109 @@ function PendingExpenses({ incomes, expenses }) {
   );
 
   if (!currentIncome) {
-    return <EmptyState>No current income period found.</EmptyState>;
+    return (
+      <div style={{ border: "1px solid var(--border)", borderRadius: "12px", padding: "16px", color: "var(--text-muted)", fontSize: "13px" }}>
+        No current income period found.
+      </div>
+    );
   }
 
-  return (
-    <div>
-      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "10px" }}>
-        Period: <strong style={{ color: "var(--text)" }}>{currentIncome.summary || currentIncome.date}</strong>
-        <span style={{ marginLeft: "6px", opacity: 0.7 }}>{currentIncome.date}</span>
-      </div>
+  const { month, day, year } = monthParts(currentIncome.date);
+  const dow = getDow(currentIncome.date);
+  const cur = pending[0]?.currency || "";
 
-      {pending.length === 0 ? (
-        <EmptyState>No pending expenses for this period.</EmptyState>
-      ) : (
-        <>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {pending.map(e => (
-              <div key={e.expenseId} style={{
-                display: "flex", alignItems: "center", gap: "8px",
-                padding: "7px 10px", borderRadius: "8px",
-                background: e.special ? "rgba(239,68,68,0.07)" : "var(--surface-2, rgba(0,0,0,0.04))",
-                border: "1px solid var(--border)",
-              }}>
-                {e.special && <span title="Special" style={{ fontSize: "12px", color: "#ef4444", flexShrink: 0 }}>★</span>}
-                <span style={{ flex: 1, fontSize: "13px", color: "var(--text)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {e.summary || e.description || "—"}
-                </span>
-                <span style={{
-                  fontSize: "11px", fontWeight: 600, padding: "2px 7px", borderRadius: "4px",
-                  background: PRIORITY_COLORS[e.priority]?.bg || "#6b7194",
-                  color: PRIORITY_COLORS[e.priority]?.text || "#fff",
-                  flexShrink: 0,
-                }}>
-                  {e.priority}
-                </span>
-                <span style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums", color: "var(--text)", fontWeight: 500, flexShrink: 0 }}>
-                  {Number(e.amount).toLocaleString("ro-RO")} {e.currency}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div style={{
-            display: "flex", justifyContent: "flex-end", alignItems: "center",
-            marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)",
-            gap: "8px",
-          }}>
-            <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total pending</span>
-            <span style={{ fontSize: "15px", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--text)" }}>
-              {total.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pending[0]?.currency || ""}
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", background: "var(--surface)", display: "flex", flexDirection: "column", flex: 1 }}>
+
+      {/* Header — matches IncomeCard headerCurrent */}
+      <div style={{ background: "var(--header-current-bg)", borderBottom: "1px solid var(--header-current-border)", overflow: "hidden" }}>
+        <div style={{ height: "3px", background: "linear-gradient(90deg, var(--accent), rgba(134,239,172,0.2))" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px 12px" }}>
+          {/* Date badge + title */}
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", lineHeight: 1 }}>
+            <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--badge-text)", letterSpacing: "0.08em" }}>{month}</span>
+            <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--badge-text)", letterSpacing: "0.04em" }}>{day}</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--badge-text)", opacity: 0.7 }}>{year}</span>
+            <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>·</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--badge-text)", opacity: 0.7 }}>{dow}</span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--badge-text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Pending Expenses
             </span>
           </div>
-        </>
+          {/* Income summary */}
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {currentIncome.summary}
+          </span>
+        </div>
+      </div>
+
+      {/* Expense list */}
+      <div style={{ flex: 1 }}>
+        {pending.length === 0 ? (
+          <div style={{ color: "var(--text-muted)", fontSize: "12px", padding: "12px 16px" }}>
+            No pending expenses for this period.
+          </div>
+        ) : (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {pending.map(exp => (
+              <li key={exp.expenseId} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "7px 16px", borderBottom: "1px solid var(--border)",
+                ...(exp.special ? { background: "rgba(239,68,68,0.07)" } : {}),
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
+                  {/* Pending status badge — click to complete */}
+                  <span
+                    title="Mark as Completed"
+                    onClick={() => onToggle?.(exp)}
+                    style={{
+                      width: "14px", height: "14px", flexShrink: 0,
+                      border: "1.5px dashed var(--text-muted)", borderRadius: "3px",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  />
+                  {/* Priority dot */}
+                  <span style={{
+                    width: "7px", height: "7px", flexShrink: 0, borderRadius: "50%",
+                    background: PRIORITY_COLOR[exp.priority] ?? "#6b7194",
+                  }} />
+                  {exp.special && <span style={{ fontSize: "10px", color: "#ef4444", flexShrink: 0 }}>★</span>}
+                  <span style={{ fontSize: "12px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={exp.summary}>
+                    {exp.summary}
+                  </span>
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", flexShrink: 0 }}>{exp.date.slice(5)}</span>
+                </div>
+                <span style={{ fontSize: "12px", fontVariantNumeric: "tabular-nums", color: "var(--text)", fontWeight: 500, flexShrink: 0, marginLeft: "8px" }}>
+                  {fmtDec(exp.amount ?? 0)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Footer — pending-only bar */}
+      {total > 0 && (
+        <div style={{ padding: "8px 12px 10px", borderTop: "1px solid var(--border)" }}>
+          <div style={{
+            height: "34px", borderRadius: "6px", overflow: "hidden",
+            background: BAR_COLOR.pending,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontVariantNumeric: "tabular-nums" }}>
+              {fmtInt(total)}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "5px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.pending, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Pending</span>
+            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+              — {fmtDec(total)} {cur}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -151,7 +233,11 @@ function PendingExpenses({ incomes, expenses }) {
 
 // ── Section 2: Split Payments ──────────────────────────────────────────────────
 
-function SplitPaymentsSnippet({ payments }) {
+function SplitPaymentsSnippet({ payments, onUpdate }) {
+  const [editing, setEditing]   = useState(false);
+  const [editData, setEditData] = useState(null);
+  const debounceTimers          = useRef({});
+
   const latest = useMemo(() => {
     if (payments.length === 0) return null;
     return [...payments].sort((a, b) => {
@@ -163,54 +249,169 @@ function SplitPaymentsSnippet({ payments }) {
 
   if (!latest) return <EmptyState>No split payments yet.</EmptyState>;
 
-  const paidCount = (latest.occurrences || []).filter(o => o.value !== "" && o.value != null).length;
-  const isFull    = paidCount === latest.occurrenceCount;
+  const display    = editData ?? latest;
+  const paidCount  = (display.occurrences || []).filter(o => o.value !== "" && o.value != null).length;
+  const isFull     = paidCount === display.occurrenceCount;
+  const isAmount   = display.occurrenceType === "amount";
+
+  function openEdit() {
+    setEditData(JSON.parse(JSON.stringify(latest)));
+    setEditing(true);
+  }
+
+  function closeEdit() {
+    setEditing(false);
+    setEditData(null);
+    Object.values(debounceTimers.current).forEach(clearTimeout);
+    debounceTimers.current = {};
+  }
+
+  function updateOcc(occIdx, value) {
+    setEditData(prev => {
+      const updated = {
+        ...prev,
+        occurrences: prev.occurrences.map((o, i) => i === occIdx ? { ...o, value } : o),
+      };
+      const key = `occ-${occIdx}`;
+      clearTimeout(debounceTimers.current[key]);
+      debounceTimers.current[key] = setTimeout(() => {
+        updateSplitPayment(updated.splitPaymentId, { occurrences: updated.occurrences })
+          .then(saved => onUpdate(saved))
+          .catch(console.error);
+      }, 600);
+      return updated;
+    });
+  }
+
+  const occInputStyle = {
+    background: "var(--surface-2, rgba(0,0,0,0.04))", border: "1px solid var(--border)",
+    borderRadius: "6px", color: "var(--text)", fontSize: "12px", padding: "4px 7px",
+    outline: "none", fontFamily: "inherit", width: isAmount ? "90px" : "120px",
+  };
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{latest.title}</span>
-        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{latest.createdDate}</span>
+    <>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{latest.title}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{latest.createdDate?.slice(5)}</span>
+            <button onClick={openEdit} title="Edit" style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--text-muted)", fontSize: "14px", padding: "2px 4px", lineHeight: 1,
+            }}>✎</button>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+          <span style={{ fontSize: "15px", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--text)" }}>
+            {Number(latest.totalAmount).toLocaleString("ro-RO")} {latest.currency}
+          </span>
+          <span style={{
+            fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "4px",
+            background: isFull ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
+            color: isFull ? "#16a34a" : "#d97706",
+          }}>
+            {paidCount}/{display.occurrenceCount}{isFull ? " ✓" : ""}
+          </span>
+        </div>
+        {latest.occurrences && latest.occurrences.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            {latest.occurrences.map((occ, i) => {
+              const hasPaid = occ.value !== "" && occ.value != null;
+              return (
+                <div key={i} style={{
+                  padding: "4px 10px", borderRadius: "6px", fontSize: "12px",
+                  background: hasPaid ? "rgba(34,197,94,0.13)" : "var(--surface-2, rgba(0,0,0,0.04))",
+                  border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
+                  color: hasPaid ? "#16a34a" : "var(--text-muted)",
+                  fontVariantNumeric: "tabular-nums",
+                }}>
+                  #{i + 1}{hasPaid ? `: ${/^\d{4}-\d{2}-\d{2}$/.test(occ.value) ? occ.value.slice(5) : occ.value}` : ""}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-        <span style={{ fontSize: "15px", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--text)" }}>
-          {Number(latest.totalAmount).toLocaleString("ro-RO")} {latest.currency}
-        </span>
-        <span style={{
-          fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "4px",
-          background: isFull ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
-          color: isFull ? "#16a34a" : "#d97706",
-        }}>
-          {paidCount}/{latest.occurrenceCount}{isFull ? " ✓" : ""}
-        </span>
-      </div>
-      {latest.occurrences && latest.occurrences.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-          {latest.occurrences.map((occ, i) => {
-            const hasPaid = occ.value !== "" && occ.value != null;
-            return (
-              <div key={i} style={{
-                padding: "4px 10px", borderRadius: "6px", fontSize: "12px",
-                background: hasPaid ? "rgba(34,197,94,0.13)" : "var(--surface-2, rgba(0,0,0,0.04))",
-                border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
-                color: hasPaid ? "#16a34a" : "var(--text-muted)",
-                fontVariantNumeric: "tabular-nums",
-              }}>
-                #{i + 1}{hasPaid ? `: ${occ.value}` : ""}
+
+      {/* ── Edit modal ── */}
+      {editing && editData && (
+        <div
+          onClick={closeEdit}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px",
+              width: "100%", maxWidth: "460px", maxHeight: "80vh",
+              display: "flex", flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{editData.title}</div>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  {Number(editData.totalAmount).toLocaleString("ro-RO")} {editData.currency} · {editData.createdDate}
+                </div>
               </div>
-            );
-          })}
+              <button onClick={closeEdit} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "18px", cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>✕</button>
+            </div>
+
+            {/* Occurrence inputs */}
+            <div style={{ padding: "16px 18px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>
+                Occurrences
+              </div>
+              {editData.occurrences.map((occ, i) => {
+                const hasPaid = occ.value !== "" && occ.value != null;
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)", width: "28px", flexShrink: 0 }}>#{i + 1}</span>
+                    <input
+                      type={isAmount ? "number" : "date"}
+                      value={occ.value ?? ""}
+                      min={isAmount ? "0" : undefined}
+                      step={isAmount ? "any" : undefined}
+                      placeholder={isAmount ? "0.00" : undefined}
+                      onChange={e => updateOcc(i, e.target.value)}
+                      style={{ ...occInputStyle, borderColor: hasPaid ? "rgba(34,197,94,0.5)" : "var(--border)", color: hasPaid ? "#16a34a" : "var(--text)" }}
+                    />
+                    {hasPaid && (
+                      <button
+                        onClick={() => updateOcc(i, "")}
+                        title="Clear"
+                        style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "12px", cursor: "pointer", padding: "2px 4px" }}
+                      >✕</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={closeEdit}
+                style={{ background: "var(--accent)", color: "#000", border: "none", borderRadius: "8px", padding: "7px 20px", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-// ── Section 3: Practice Tests Chart + Calendar ─────────────────────────────────
+// ── Section 3a: Practice Tests — Grade Evolution chart ────────────────────────
 
-function PracticeOverview({ templates, results }) {
-  const [calMonth, setCalMonth] = useState(() => dayjs().startOf("month"));
-
+function PracticeChart({ templates, results }) {
   const tplColorMap = useMemo(() => {
     const map = {};
     templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
@@ -223,11 +424,9 @@ function PracticeOverview({ templates, results }) {
       if (!byDate[r.date]) byDate[r.date] = { date: r.date };
       const key   = r.templateId;
       const grade = +(r.totalScore / 10).toFixed(2);
-      if (byDate[r.date][key] === undefined) {
-        byDate[r.date][key] = grade;
-      } else {
-        byDate[r.date][key] = +((byDate[r.date][key] + grade) / 2).toFixed(2);
-      }
+      byDate[r.date][key] = byDate[r.date][key] === undefined
+        ? grade
+        : +((byDate[r.date][key] + grade) / 2).toFixed(2);
     }
     return Object.values(byDate).slice(-50);
   }, [results]);
@@ -255,16 +454,106 @@ function PracticeOverview({ templates, results }) {
       counts[r.templateId] = (counts[r.templateId] || 0) + 1;
     }
     const map = {};
-    for (const id of Object.keys(sums)) {
-      map[id] = +(sums[id] / counts[id]).toFixed(2);
-    }
+    for (const id of Object.keys(sums)) map[id] = +(sums[id] / counts[id]).toFixed(2);
     return map;
   }, [results]);
 
-  const calYear  = calMonth.year();
-  const calMon   = calMonth.month();
+  if (results.length === 0) return <EmptyState>No test results yet.</EmptyState>;
+  if (timelineData.length < 2) return <EmptyState>Not enough data points for chart.</EmptyState>;
+
+  return (
+    <ResponsiveContainer width="100%" height={170}>
+      <LineChart data={timelineData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
+        <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px", padding: "6px 10px", maxWidth: "200px" }}>
+                <div style={{ color: "var(--text-muted)", marginBottom: "4px" }}>{label}</div>
+                {payload.map(p => {
+                  const meta = timelineMeta[label]?.[p.dataKey];
+                  return (
+                    <div key={p.dataKey} style={{ marginBottom: "4px" }}>
+                      <span style={{ color: p.stroke, fontWeight: 600 }}>{p.name}</span>
+                      {": "}<strong>{p.value}</strong>
+                      {meta?.verified && <span style={{ color: "var(--accent)", marginLeft: "4px" }}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }}
+        />
+        <Legend wrapperStyle={{ fontSize: "10px" }} />
+        {timelineTemplates.map(t => (
+          <Line
+            key={t.templateId}
+            type="linear"
+            dataKey={t.templateId}
+            name={t.name}
+            stroke={tplColorMap[t.templateId]}
+            strokeWidth={2}
+            dot={({ cx, cy, payload, value }) => {
+              if (value == null) return null;
+              const meta  = timelineMeta[payload.date]?.[t.templateId];
+              const color = tplColorMap[t.templateId];
+              if (meta?.verified) return (
+                <g key={`dot-${t.templateId}-${payload.date}`}>
+                  <circle cx={cx} cy={cy} r={6} fill="none" stroke="#ef4444" strokeWidth={2} />
+                  <circle cx={cx} cy={cy} r={3} fill={color} />
+                </g>
+              );
+              return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
+            }}
+            label={({ x, y, value }) => {
+              if (value == null) return null;
+              return (
+                <g>
+                  <rect x={x - 17} y={y - 24} width={34} height={15} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
+                  <text x={x} y={y - 13} textAnchor="middle" fill={tplColorMap[t.templateId]} fontSize={11} fontWeight={600}>
+                    {Number(value).toFixed(2)}
+                  </text>
+                </g>
+              );
+            }}
+            connectNulls
+          />
+        ))}
+        {timelineTemplates.map(t => {
+          const avg = tplAverages[t.templateId];
+          if (avg == null) return null;
+          const color = tplColorMap[t.templateId];
+          return (
+            <ReferenceLine
+              key={`avg-${t.templateId}`}
+              y={avg} stroke={color} strokeDasharray="5 3" strokeOpacity={0.6}
+              label={{ value: `avg ${avg}`, position: "insideTopRight", fontSize: 9, fill: color, dy: -4 }}
+            />
+          );
+        })}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── Section 3b: Practice Tests — Calendar ─────────────────────────────────────
+
+function PracticeCalendar({ templates, results }) {
+  const [calMonth, setCalMonth] = useState(() => dayjs().startOf("month"));
+
+  const tplColorMap = useMemo(() => {
+    const map = {};
+    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
+    return map;
+  }, [templates]);
+
+  const calYear     = calMonth.year();
+  const calMon      = calMonth.month();
   const daysInMonth = calMonth.daysInMonth();
-  const firstDow    = calMonth.day();
+  const firstDow    = (calMonth.day() + 6) % 7; // 0=Mon…6=Sun
 
   const calDayMap = useMemo(() => {
     const map = {};
@@ -274,9 +563,8 @@ function PracticeOverview({ templates, results }) {
       if (d.year() !== calYear || d.month() !== calMon) continue;
       const day = d.date();
       if (!map[day]) map[day] = [];
-      if (!map[day].find(x => x.templateId === r.templateId)) {
+      if (!map[day].find(x => x.templateId === r.templateId))
         map[day].push({ templateId: r.templateId, templateName: r.templateName });
-      }
     }
     return map;
   }, [results, calYear, calMon]);
@@ -285,221 +573,327 @@ function PracticeOverview({ templates, results }) {
   for (let i = 0; i < firstDow; i++) calCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
 
-  if (results.length === 0) {
-    return <EmptyState>No test results yet.</EmptyState>;
+  if (results.length === 0) return <EmptyState>No test results yet.</EmptyState>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+        <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)" }}>{calMonth.format("MMM YYYY")}</span>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <button onClick={() => setCalMonth(m => m.subtract(1, "month"))}
+            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}>‹</button>
+          <button onClick={() => setCalMonth(m => m.add(1, "month"))}
+            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}>›</button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+        {["M","T","W","T","F","S","S"].map((d, i) => (
+          <div key={i} style={{ fontSize: "9px", textAlign: "center", color: "var(--text-muted)", paddingBottom: "2px" }}>{d}</div>
+        ))}
+        {calCells.map((day, i) => {
+          if (!day) return <div key={`e-${i}`} />;
+          const entries    = calDayMap[day] || [];
+          const isToday    = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
+          const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
+          const dow        = new Date(calYear, calMon, day).getDay();
+          const isWeekend  = dow === 0 || dow === 6;
+          return (
+            <div key={day} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              minHeight: "22px", borderRadius: "4px", border: "1px solid transparent",
+              ...(isWeekend && entries.length === 0 ? { background: "rgba(148,163,184,0.10)" } : {}),
+              ...(isToday ? { border: "1px solid var(--accent, #86efac)" } : {}),
+              ...(entries.length > 0 ? { background: firstColor + "33", borderColor: firstColor + "99" } : {}),
+            }}>
+              <span style={{ fontSize: "9px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : isWeekend ? "var(--text)" : "var(--text-muted)" }}>
+                {day}
+              </span>
+              {entries.length > 1 && (
+                <div style={{ display: "flex", gap: "1px", flexWrap: "wrap", justifyContent: "center" }}>
+                  {entries.map(e => (
+                    <span key={e.templateId} title={e.templateName} style={{ width: "4px", height: "4px", borderRadius: "50%", background: tplColorMap[e.templateId], display: "inline-block" }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {templates.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
+          {templates.map((t, i) => (
+            <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length], display: "inline-block", flexShrink: 0 }} />
+              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{t.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Section 3: Current Holdings ───────────────────────────────────────────────
+
+function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
+  const [revealed, setRevealed] = useState(false);
+
+  const snapshotsInEUR = useMemo(() =>
+    snapshots.map(s => ({ ...s, amount: toEUR(s.amount, s.currency, fxRates), currency: "EUR" })),
+    [snapshots, fxRates]
+  );
+
+  const latestByPlatform = useMemo(() => {
+    const result = {};
+    for (const s of snapshotsInEUR) {
+      if (!result[s.platform] || s.date > result[s.platform].date) result[s.platform] = s;
+    }
+    return result;
+  }, [snapshotsInEUR]);
+
+  const rawLatestByPlatform = useMemo(() => {
+    const result = {};
+    for (const s of snapshots) {
+      if (!result[s.platform] || s.date > result[s.platform].date) result[s.platform] = s;
+    }
+    return result;
+  }, [snapshots]);
+
+  const activePlatforms = useMemo(() => {
+    const cutoff = dayjs().subtract(12, "month").format("YYYY-MM-DD");
+    return PLATFORMS.filter(p =>
+      snapshots.some(s => s.platform === p && s.date >= cutoff && s.amount > 0)
+    );
+  }, [snapshots]);
+
+  const totalEUR = useMemo(() =>
+    Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
+    [latestByPlatform]
+  );
+
+  const fmtAmt = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const mask = "••••";
+
+  if (snapshots.length === 0) {
+    return <EmptyState>No investment snapshots yet.</EmptyState>;
   }
 
   return (
-    <div style={{ display: "flex", gap: "12px" }}>
-      {/* Chart (70%) */}
-      <div style={{ flex: "0 0 70%" }}>
-        {timelineData.length < 2 ? (
-          <EmptyState>Not enough data points for chart.</EmptyState>
-        ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={timelineData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
-              <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px", padding: "6px 10px", maxWidth: "200px" }}>
-                      <div style={{ color: "var(--text-muted)", marginBottom: "4px" }}>{label}</div>
-                      {payload.map(p => {
-                        const meta = timelineMeta[label]?.[p.dataKey];
-                        return (
-                          <div key={p.dataKey} style={{ marginBottom: "4px" }}>
-                            <span style={{ color: p.stroke, fontWeight: 600 }}>{p.name}</span>
-                            {": "}
-                            <strong>{p.value}</strong>
-                            {meta?.verified && <span style={{ color: "var(--accent)", marginLeft: "4px" }}>✓</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: "10px" }} />
-              {timelineTemplates.map(t => (
-                <Line
-                  key={t.templateId}
-                  type="linear"
-                  dataKey={t.templateId}
-                  name={t.name}
-                  stroke={tplColorMap[t.templateId]}
-                  strokeWidth={2}
-                  dot={(props) => {
-                    const { cx, cy, payload } = props;
-                    const meta = timelineMeta[payload.date]?.[t.templateId];
-                    const color = tplColorMap[t.templateId];
-                    if (meta?.verified) {
-                      return (
-                        <g key={`dot-${t.templateId}-${payload.date}`}>
-                          <circle cx={cx} cy={cy} r={6} fill="none" stroke="#ef4444" strokeWidth={2} />
-                          <circle cx={cx} cy={cy} r={3} fill={color} />
-                        </g>
-                      );
-                    }
-                    return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
-                  }}
-                  label={({ x, y, value }) => (
-                    <g>
-                      <rect x={x - 17} y={y - 24} width={34} height={15} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-                      <text x={x} y={y - 13} textAnchor="middle" fill={tplColorMap[t.templateId]} fontSize={11} fontWeight={600}>
-                        {Number(value).toFixed(2)}
-                      </text>
-                    </g>
-                  )}
-                  connectNulls
-                />
-              ))}
-              {timelineTemplates.map(t => {
-                const avg = tplAverages[t.templateId];
-                if (avg == null) return null;
-                const color = tplColorMap[t.templateId];
-                return (
-                  <ReferenceLine
-                    key={`avg-${t.templateId}`}
-                    y={avg}
-                    stroke={color}
-                    strokeDasharray="5 3"
-                    strokeOpacity={0.6}
-                    label={{ value: `avg ${avg}`, position: "insideTopRight", fontSize: 9, fill: color, dy: -4 }}
-                  />
-                );
-              })}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* Calendar (30%) */}
-      <div style={{ flex: "0 0 30%" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)" }}>{calMonth.format("MMM YYYY")}</span>
-          <div style={{ display: "flex", gap: "4px" }}>
-            <button
-              onClick={() => setCalMonth(m => m.subtract(1, "month"))}
-              style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}
-            >‹</button>
-            <button
-              onClick={() => setCalMonth(m => m.add(1, "month"))}
-              style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}
-            >›</button>
+    <div>
+      {/* Total card */}
+      <div style={{
+        background: "var(--surface-2, rgba(0,0,0,0.04))", border: "1px solid var(--border)",
+        borderRadius: "8px", padding: "10px 14px", marginBottom: "10px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>
+            Total Portfolio
+          </div>
+          <div style={{ fontSize: "18px", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "var(--text)", letterSpacing: "-0.01em" }}>
+            {revealed ? fmtAmt(totalEUR) : mask}
+          </div>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
+            EUR
+            {fxStatus === "none"     && <span style={{ marginLeft: "4px", opacity: 0.7 }}>· Getting rates…</span>}
+            {fxStatus === "buffered" && <span style={{ marginLeft: "4px", opacity: 0.7 }}>· Buffered</span>}
+            {fxStatus === "updated"  && <span style={{ marginLeft: "4px", color: "#22c55e" }}>· Live</span>}
           </div>
         </div>
+        {/* Reveal button — hold to show */}
+        <button
+          onMouseDown={() => setRevealed(true)}
+          onMouseUp={() => setRevealed(false)}
+          onMouseLeave={() => setRevealed(false)}
+          onTouchStart={() => setRevealed(true)}
+          onTouchEnd={() => setRevealed(false)}
+          title="Hold to reveal amounts"
+          style={{
+            background: revealed ? "rgba(134,239,172,0.15)" : "var(--surface)",
+            border: `1px solid ${revealed ? "var(--accent)" : "var(--border)"}`,
+            borderRadius: "6px", cursor: "pointer",
+            color: revealed ? "var(--accent)" : "var(--text-muted)",
+            padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.1s, border-color 0.1s, color 0.1s",
+            userSelect: "none",
+          }}
+        >
+          <svg viewBox="0 0 18 14" width="16" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            {revealed ? (
+              <>
+                <path d="M1 7 C4 1 14 1 17 7 C14 13 4 13 1 7" />
+                <circle cx="9" cy="7" r="2.8" />
+              </>
+            ) : (
+              <>
+                <path d="M1 7 C4 1 14 1 17 7 C14 13 4 13 1 7" />
+                <circle cx="9" cy="7" r="2.8" />
+                <line x1="2" y1="1" x2="16" y2="13" />
+              </>
+            )}
+          </svg>
+        </button>
+      </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
-          {["S","M","T","W","T","F","S"].map((d, i) => (
-            <div key={i} style={{ fontSize: "9px", textAlign: "center", color: "var(--text-muted)", paddingBottom: "2px" }}>{d}</div>
-          ))}
-          {calCells.map((day, i) => {
-            if (!day) return <div key={`e-${i}`} />;
-            const entries  = calDayMap[day] || [];
-            const isToday  = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
-            const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
+      {/* Platform table */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>Platform</th>
+            <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>EUR</th>
+            <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {activePlatforms.map(p => {
+            const snap    = latestByPlatform[p];
+            const rawSnap = rawLatestByPlatform[p];
+            const showOrig = rawSnap && rawSnap.currency !== "EUR";
             return (
-              <div key={day} style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                minHeight: "22px", borderRadius: "4px", border: "1px solid transparent",
-                ...(isToday ? { border: "1px solid var(--accent, #86efac)" } : {}),
-                ...(entries.length > 0 ? { background: firstColor + "33", borderColor: firstColor + "99" } : {}),
-              }}>
-                <span style={{ fontSize: "9px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : "var(--text-muted)" }}>
-                  {day}
-                </span>
-                {entries.length > 1 && (
-                  <div style={{ display: "flex", gap: "1px", flexWrap: "wrap", justifyContent: "center" }}>
-                    {entries.map(e => (
-                      <span key={e.templateId} title={e.templateName} style={{ width: "4px", height: "4px", borderRadius: "50%", background: tplColorMap[e.templateId], display: "inline-block" }} />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <tr key={p} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ padding: "6px 6px", verticalAlign: "middle" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: PLATFORM_COLOR[p], flexShrink: 0, display: "inline-block" }} />
+                    <span style={{ fontWeight: 600, color: "var(--text)", fontSize: "12px" }}>{p}</span>
+                  </span>
+                </td>
+                <td style={{ padding: "6px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)", verticalAlign: "middle" }}>
+                  {snap ? (revealed ? fmtAmt(snap.amount) : mask) : "—"}
+                  {showOrig && snap && (
+                    <div style={{ fontSize: "10px", fontWeight: 400, color: "var(--text-muted)", marginTop: "1px" }}>
+                      {revealed ? `${fmtAmt(rawSnap.amount)} ${rawSnap.currency}` : mask}
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: "6px 6px", textAlign: "right", color: "var(--text-muted)", fontSize: "11px", verticalAlign: "middle" }}>
+                  {snap ? snap.date : "—"}
+                </td>
+              </tr>
             );
           })}
-        </div>
-
-        {templates.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
-            {templates.map((t, i) => (
-              <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length], display: "inline-block", flexShrink: 0 }} />
-                <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{t.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }
 
 // ── Section 4: Books & Development ────────────────────────────────────────────
 
+const BOOK_TYPES = ["Book", "Audiobook", "Training", "Other"];
+
 function BooksSnippet({ books }) {
-  const byPerson = useMemo(() => {
+  // latest entry per (person, type) — keyed as `${person}|${type}`
+  const latestByPersonType = useMemo(() => {
     const map = {};
     for (const b of books) {
-      const name = b.name || "Unknown";
-      if (!map[name]) map[name] = [];
-      map[name].push(b);
+      const key = `${b.name || "Unknown"}|${b.type || "Other"}`;
+      if (!map[key] || (b.dateCompleted || "") > (map[key].dateCompleted || "")) {
+        map[key] = b;
+      }
     }
     return map;
   }, [books]);
 
   const persons = useMemo(() =>
-    Object.keys(byPerson).sort(),
-    [byPerson]
+    [...new Set(books.map(b => b.name || "Unknown"))].sort(),
+    [books]
   );
+
+  // only show types that have at least one entry, sorted by most recent dateCompleted desc
+  const activeTypes = useMemo(() => {
+    const latestDateByType = {};
+    for (const b of books) {
+      const t = b.type || "Other";
+      if ((b.dateCompleted || "") > (latestDateByType[t] || "")) {
+        latestDateByType[t] = b.dateCompleted || "";
+      }
+    }
+    return BOOK_TYPES
+      .filter(t => latestDateByType[t] !== undefined)
+      .sort((a, b) => (latestDateByType[b] || "").localeCompare(latestDateByType[a] || ""));
+  }, [books]);
 
   if (books.length === 0) {
     return <EmptyState>No books or trainings yet.</EmptyState>;
   }
 
+  const thStyle = {
+    padding: "4px 8px", fontSize: "10px", fontWeight: 700,
+    color: "var(--text-muted)", textTransform: "uppercase",
+    letterSpacing: "0.05em", borderBottom: "1px solid var(--border)",
+    textAlign: "center", whiteSpace: "nowrap",
+  };
+  const tdTypeStyle = {
+    padding: "5px 8px", fontSize: "10px", fontWeight: 600,
+    borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+    verticalAlign: "middle",
+  };
+  const tdStyle = {
+    padding: "5px 8px", borderBottom: "1px solid var(--border)",
+    verticalAlign: "top", minWidth: 0,
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      {persons.map(person => {
-        const personBooks = byPerson[person];
-        const latest = [...personBooks].sort((a, b) => {
-          const da = a.dateCompleted || "";
-          const db = b.dateCompleted || "";
-          return db.localeCompare(da);
-        })[0];
-
-        const typeColor = TYPE_COLORS[latest.type] || TYPE_COLORS.Other;
-
-        return (
-          <div key={person}>
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "6px" }}>
-              {person} <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({personBooks.length})</span>
-            </div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: "8px",
-              padding: "8px 10px", borderRadius: "8px",
-              border: "1px solid var(--border)",
-              background: "var(--surface-2, rgba(0,0,0,0.04))",
-            }}>
-              <span style={{
-                fontSize: "10px", fontWeight: 600, padding: "2px 6px", borderRadius: "4px",
-                background: typeColor.bg, color: typeColor.text, flexShrink: 0,
-              }}>
-                {latest.type}
-              </span>
-              <span style={{ flex: 1, fontSize: "13px", color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                {latest.title}
-              </span>
-              <ReadOnlyStars value={latest.rating} />
-              {latest.dateCompleted && (
-                <span style={{ fontSize: "11px", color: "var(--text-muted)", flexShrink: 0 }}>{latest.dateCompleted}</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", tableLayout: "fixed" }}>
+        <thead>
+          <tr>
+            {/* Type column header (empty — types are row headers) */}
+            <th style={{ ...thStyle, width: "70px", textAlign: "left" }} />
+            {persons.map(p => (
+              <th key={p} style={thStyle}>{p}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {activeTypes.map(type => {
+            const typeColor = TYPE_COLORS[type] || TYPE_COLORS.Other;
+            return (
+              <tr key={type}>
+                {/* Row header — type badge */}
+                <td style={tdTypeStyle}>
+                  <span style={{
+                    fontSize: "10px", fontWeight: 600, padding: "2px 6px",
+                    borderRadius: "4px", background: typeColor.bg, color: typeColor.text,
+                    display: "inline-block",
+                  }}>
+                    {type}
+                  </span>
+                </td>
+                {persons.map(person => {
+                  const entry = latestByPersonType[`${person}|${type}`];
+                  return (
+                    <td key={person} style={tdStyle}>
+                      {entry ? (
+                        <div>
+                          <div style={{
+                            fontSize: "11px", color: "var(--text)", fontWeight: 500,
+                            overflow: "hidden", textOverflow: "ellipsis",
+                            display: "-webkit-box", WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            lineHeight: "1.35",
+                          }} title={entry.title}>
+                            {entry.title}
+                          </div>
+                          {entry.dateCompleted && (
+                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                              {entry.dateCompleted}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -513,10 +907,33 @@ export default function HomeOverview() {
   const [books,     setBooks]     = useState([]);
   const [templates, setTemplates] = useState([]);
   const [results,   setResults]   = useState([]);
+  const [snapshots, setSnapshots] = useState([]);
+  const [fxRates,   setFxRates]   = useState(null);
+  const [fxStatus,  setFxStatus]  = useState("none");
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
 
   useEffect(() => {
+    // Apply cached FX rates immediately for instant render
+    try {
+      const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
+      if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
+        setFxRates(cached.rates);
+        setFxStatus("buffered");
+      }
+    } catch { /* ignore corrupt cache */ }
+
+    // Fresh FX rates in background
+    fetch("https://api.frankfurter.app/latest?from=EUR&to=USD,RON")
+      .then(r => r.json())
+      .then(d => {
+        if (!d?.rates) return;
+        setFxRates(d.rates);
+        setFxStatus("updated");
+        try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates: d.rates, ts: Date.now() })); } catch { /**/ }
+      })
+      .catch(() => {});
+
     Promise.all([
       listIncomes(),
       listExpenses(),
@@ -525,18 +942,31 @@ export default function HomeOverview() {
       listTemplates(),
       listResults(),
       getKids(),
+      listSnapshots(),
     ])
-      .then(([inc, exp, pay, bks, tpls, res]) => {
+      .then(([inc, exp, pay, bks, tpls, res, , snaps]) => {
         setIncomes(inc);
         setExpenses(exp);
         setPayments(pay);
         setBooks(bks);
         setTemplates(tpls);
         setResults(res);
+        setSnapshots(snaps);
       })
       .catch(e => setError(e?.message || "Failed to load data."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleToggleExpense(exp) {
+    // Optimistically mark as Completed in local state
+    setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: "Completed" } : e));
+    try {
+      await updateExpense(exp.expenseId, { ...exp, status: "Completed" });
+    } catch {
+      // Rollback on failure
+      setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: "Pending" } : e));
+    }
+  }
 
   if (loading) {
     return (
@@ -555,30 +985,44 @@ export default function HomeOverview() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", padding: "0", overflow: "auto" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", padding: "0", overflow: "auto" }}>
 
-      {/* Section 1 — Pending Expenses */}
-      <Card>
-        <SectionHeader>Pending Expenses</SectionHeader>
-        <PendingExpenses incomes={incomes} expenses={expenses} />
+      {/* Section 1 — Pending Expenses (span 2) */}
+      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
+        <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
+      </div>
+
+      {/* Section 2 — Split Payments + Books stacked (span 2) */}
+      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <Card>
+          <SectionHeader>Split Payments — Latest</SectionHeader>
+          <SplitPaymentsSnippet
+            payments={payments}
+            onUpdate={saved => setPayments(prev => prev.map(p => p.splitPaymentId === saved.splitPaymentId ? saved : p))}
+          />
+        </Card>
+        <Card style={{ flex: 1 }}>
+          <SectionHeader>Books & Development — Latest per Person</SectionHeader>
+          <BooksSnippet books={books} />
+        </Card>
+      </div>
+
+      {/* Section 3 — Current Holdings (span 2) */}
+      <Card style={{ gridColumn: "span 2" }}>
+        <SectionHeader>Current Holdings</SectionHeader>
+        <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
       </Card>
 
-      {/* Section 2 — Split Payments */}
-      <Card>
-        <SectionHeader>Split Payments — Latest</SectionHeader>
-        <SplitPaymentsSnippet payments={payments} />
+      {/* Section 4a — Practice Tests: Grade Evolution (span 4) */}
+      <Card style={{ gridColumn: "span 4" }}>
+        <SectionHeader>Practice Tests — Grade Evolution</SectionHeader>
+        <PracticeChart templates={templates} results={results} />
       </Card>
 
-      {/* Section 3 — Practice Tests */}
-      <Card>
-        <SectionHeader>Practice Tests</SectionHeader>
-        <PracticeOverview templates={templates} results={results} />
-      </Card>
-
-      {/* Section 4 — Books & Development */}
-      <Card>
-        <SectionHeader>Books & Development — Latest per Person</SectionHeader>
-        <BooksSnippet books={books} />
+      {/* Section 4b — Practice Tests: Calendar (span 2) */}
+      <Card style={{ gridColumn: "span 2" }}>
+        <SectionHeader>Practice Tests — Calendar</SectionHeader>
+        <PracticeCalendar templates={templates} results={results} />
       </Card>
 
     </div>

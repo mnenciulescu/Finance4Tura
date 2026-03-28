@@ -24,7 +24,7 @@ const s = {
     flexShrink:     0,
   },
   tabBtn: {
-    background:     "transparent",
+    background:     "var(--surface-2)",
     border:         "none",
     outline:        "none",
     boxShadow:      "none",
@@ -33,16 +33,16 @@ const s = {
     padding:        "6px 16px",
     fontSize:       "13px",
     fontWeight:     500,
-    color:          "var(--text-muted)",
+    color:          "var(--text)",
     cursor:         "pointer",
     fontFamily:     "inherit",
     letterSpacing:  "0.01em",
     transition:     "background 0.15s, color 0.15s",
   },
   tabBtnActive: {
-    background:  "var(--badge-text)",
+    background:  "var(--accent)",
     color:       "#fff",
-    fontWeight:  600,
+    fontWeight:  700,
   },
   content: {
     flex:      1,

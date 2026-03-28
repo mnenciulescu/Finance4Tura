@@ -24,6 +24,7 @@ import Admin from "./pages/Admin";
 import AiNews from "./pages/AiNews";
 import PracticeTests from "./pages/PracticeTests";
 import BooksAndDev from "./pages/BooksAndDev";
+import Headquarters from "./pages/Headquarters";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
           <Route path="/ai-news" element={<AiNews />} />
           <Route path="/practice-tests" element={<PracticeTests />} />
           <Route path="/books-and-dev" element={<BooksAndDev />} />
+          <Route path="/headquarters" element={<Headquarters />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </ErrorBoundary>

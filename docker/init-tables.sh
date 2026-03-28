@@ -141,5 +141,50 @@ create_table_if_missing "AppSettings" \
    --key-schema AttributeName=settingKey,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# HQ_Locations table
+create_table_if_missing "HQ_Locations" \
+  "--table-name HQ_Locations \
+   --attribute-definitions AttributeName=hqId,AttributeType=S AttributeName=userId,AttributeType=S \
+   --key-schema AttributeName=hqId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"userId-index\",
+       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# HQ_Templates table
+create_table_if_missing "HQ_Templates" \
+  "--table-name HQ_Templates \
+   --attribute-definitions AttributeName=templateId,AttributeType=S AttributeName=userId,AttributeType=S AttributeName=hqId,AttributeType=S \
+   --key-schema AttributeName=templateId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"userId-hqId-index\",
+       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"hqId\", \"KeyType\": \"RANGE\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
+# HQ_Entries table
+create_table_if_missing "HQ_Entries" \
+  "--table-name HQ_Entries \
+   --attribute-definitions AttributeName=entryId,AttributeType=S AttributeName=templateId,AttributeType=S AttributeName=date,AttributeType=S \
+   --key-schema AttributeName=entryId,KeyType=HASH \
+   --global-secondary-indexes '[
+     {
+       \"IndexName\": \"templateId-date-index\",
+       \"KeySchema\": [{\"AttributeName\": \"templateId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"date\", \"KeyType\": \"RANGE\"}],
+       \"Projection\": {\"ProjectionType\": \"ALL\"},
+       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
+     }
+   ]' \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 echo "Done. Tables:"
 aws dynamodb list-tables --endpoint-url "$ENDPOINT"

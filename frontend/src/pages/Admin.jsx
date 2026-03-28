@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { listUsers, updateUserRole, deleteUser } from "../api/admin";
+import { backupPreview, backupPrepare, backupRunTable } from "../api/adminBackup";
 
 export default function Admin() {
   const { user, verifyPassword } = useAuth();
@@ -22,6 +23,66 @@ export default function Admin() {
   // App settings
   const { settings, saveSettings } = useAppSettings();
   const [savingKey, setSavingKey] = useState(null);
+
+  // Backup
+  // phase: null | "loading" | "preview" | "running" | "done"
+  // rows: [{ name, count, status: "pending"|"running"|"ok"|"error", rows?, error? }]
+  const [backupModal, setBackupModal] = useState(null);
+  const [backupError, setBackupError] = useState(null);
+
+  async function handleBackupClick() {
+    setBackupError(null);
+    setBackupModal({ phase: "loading" });
+    try {
+      const data = await backupPreview();
+      setBackupModal({
+        phase: "preview",
+        folderName: data.folderName,
+        folderUrl:  null,
+        rows: data.tables.map(t => ({ name: t.name, count: t.count, status: "pending" })),
+      });
+    } catch (e) {
+      setBackupError(e?.response?.data?.message || e.message || "Preview failed");
+      setBackupModal(null);
+    }
+  }
+
+  async function handleBackupConfirm() {
+    // Mark all rows pending, switch to running
+    setBackupModal(m => ({ ...m, phase: "running" }));
+
+    let folderId, folderName, folderUrl;
+    try {
+      const prep = await backupPrepare();
+      folderId  = prep.folderId;
+      folderName = prep.folderName;
+      folderUrl  = prep.folderUrl;
+      setBackupModal(m => ({ ...m, folderName, folderUrl }));
+    } catch (e) {
+      setBackupModal(m => ({ ...m, phase: "done", folderError: e?.response?.data?.message || e.message || "Folder creation failed" }));
+      return;
+    }
+
+    const tableNames = backupModal.rows.map(r => r.name);
+    for (const tableName of tableNames) {
+      setBackupModal(m => ({
+        ...m,
+        rows: m.rows.map(r => r.name === tableName ? { ...r, status: "running" } : r),
+      }));
+      const result = await backupRunTable(tableName, folderId).catch(e => ({
+        table: tableName, rows: 0, ok: false,
+        error: e?.response?.data?.message || e.message,
+      }));
+      setBackupModal(m => ({
+        ...m,
+        rows: m.rows.map(r => r.name === tableName
+          ? { ...r, status: result.ok ? "ok" : "error", rows: result.rows, error: result.error }
+          : r),
+      }));
+    }
+
+    setBackupModal(m => ({ ...m, phase: "done" }));
+  }
 
   const handleToggle = async (key) => {
     setSavingKey(key);
@@ -133,6 +194,24 @@ export default function Admin() {
               );
             })}
           </div>
+
+          {/* Database Backup */}
+          <div style={{ ...s.settingsCard, marginTop: "16px" }}>
+            <div style={s.settingsTitle}>Database Backup</div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
+              Export all DynamoDB tables to CSV and save them to Google Drive.
+            </p>
+            {backupError && (
+              <div style={{ ...s.deleteError, marginBottom: "10px" }}>{backupError}</div>
+            )}
+            <button
+              style={{ ...s.btn, background: "var(--accent)", color: "#000", border: "none", width: "100%", padding: "9px", fontSize: "12px" }}
+              onClick={handleBackupClick}
+              disabled={backupModal !== null}
+            >
+              {backupModal?.phase === "loading" ? "Loading…" : "Backup ALL Tables"}
+            </button>
+          </div>
         </div>
 
         {/* Right: Users */}
@@ -209,6 +288,109 @@ export default function Admin() {
           </div>{/* end usersCard */}
         </div>{/* end rightCol */}
       </div>{/* end columns */}
+
+      {/* Backup modal — unified */}
+      {backupModal && backupModal.phase !== "loading" && (
+        <div style={s.overlay}>
+          <div style={{ ...s.modal, maxWidth: "500px" }}>
+            {/* Title */}
+            <h2 style={s.modalTitle}>
+              {backupModal.phase === "preview" && "Backup ALL Tables"}
+              {backupModal.phase === "running" && "Backup in progress…"}
+              {backupModal.phase === "done" && (backupModal.folderError ? "Backup failed" : backupModal.rows.every(r => r.status === "ok") ? "Backup complete" : "Backup completed with errors")}
+            </h2>
+
+            {/* Folder error */}
+            {backupModal.phase === "done" && backupModal.folderError && (
+              <p style={{ ...s.modalBody, color: "var(--danger)" }}>{backupModal.folderError}</p>
+            )}
+
+            {/* Destination + Drive link */}
+            {backupModal.phase === "preview" && (
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 4px" }}>
+                Destination: <strong style={{ color: "var(--text)" }}>4TURA_DB_Backups / {backupModal.folderName}</strong>
+              </p>
+            )}
+            {(backupModal.phase === "running" || backupModal.phase === "done") && backupModal.folderName && (
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 4px" }}>
+                Folder: <strong style={{ color: "var(--text)" }}>4TURA_DB_Backups / {backupModal.folderName}</strong>
+                {backupModal.folderUrl && (
+                  <> · <a href={backupModal.folderUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open ↗</a></>
+                )}
+              </p>
+            )}
+
+            {backupModal.phase === "preview" && (
+              <p style={{ fontSize: "11px", color: "var(--danger)", margin: "4px 0 14px" }}>
+                Warning: This will export data for ALL users.
+              </p>
+            )}
+
+            {/* Table */}
+            {!backupModal.folderError && (
+              <div style={{ border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden", margin: "12px 0 20px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface-2)" }}>
+                      <th style={{ padding: "7px 12px", textAlign: "left",   color: "var(--text-muted)", fontWeight: 600 }}>Table</th>
+                      <th style={{ padding: "7px 12px", textAlign: "right",  color: "var(--text-muted)", fontWeight: 600 }}>
+                        {backupModal.phase === "preview" ? "Items" : "Rows"}
+                      </th>
+                      <th style={{ padding: "7px 12px", textAlign: "center", color: "var(--text-muted)", fontWeight: 600 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backupModal.rows.map((r, i) => {
+                      const statusColor =
+                        r.status === "ok"      ? "#16a34a" :
+                        r.status === "error"   ? "var(--danger)" :
+                        r.status === "running" ? "var(--accent)" :
+                        "var(--text-muted)";
+                      const statusLabel =
+                        r.status === "ok"      ? "✓" :
+                        r.status === "error"   ? "✗" :
+                        r.status === "running" ? "…" :
+                        "—";
+                      return (
+                        <tr key={r.name} style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
+                          <td style={{ padding: "6px 12px", color: "var(--text)" }}>
+                            {r.name}
+                            {r.error && <div style={{ fontSize: "10px", color: "var(--danger)", marginTop: "2px" }}>{r.error}</div>}
+                          </td>
+                          <td style={{ padding: "6px 12px", color: "var(--text)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                            {r.status === "pending" || r.status === "running" ? r.count : r.rows ?? r.count}
+                          </td>
+                          <td style={{ padding: "6px 12px", textAlign: "center", color: statusColor, fontWeight: 700 }}>
+                            {statusLabel}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={s.modalActions}>
+              {backupModal.phase === "preview" && (
+                <>
+                  <button style={s.btnCancel} onClick={() => setBackupModal(null)}>Cancel</button>
+                  <button
+                    style={{ background: "var(--accent)", color: "#000", border: "none", borderRadius: "8px", padding: "8px 20px", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    onClick={handleBackupConfirm}
+                  >
+                    Confirm & Backup
+                  </button>
+                </>
+              )}
+              {backupModal.phase === "done" && (
+                <button style={s.btnCancel} onClick={() => setBackupModal(null)}>Close</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {deleteTarget && (

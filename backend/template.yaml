@@ -20,6 +20,9 @@ Globals:
         KID_CONFIG_TABLE: KidConfig
         APP_SETTINGS_TABLE: AppSettings
         BOOKS_TABLE: Books_and_Dev
+        HQ_LOCATIONS_TABLE: HQ_Locations
+        HQ_TEMPLATES_TABLE: HQ_Templates
+        HQ_ENTRIES_TABLE: HQ_Entries
 
 Parameters:
   DynamoDbEndpoint:
@@ -238,6 +241,42 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: settingKey
+          KeyType: HASH
+
+  HQLocationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: HQ_Locations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: hqId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: hqId
+          KeyType: HASH
+
+  HQTemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: HQ_Templates
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: templateId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: templateId
+          KeyType: HASH
+
+  HQEntriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: HQ_Entries
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: entryId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: entryId
           KeyType: HASH
 
   # ──────────────────────────────────────────
@@ -809,6 +848,150 @@ Resources:
             RestApiId: !Ref Api
             Path: /app-settings
             Method: PUT
+
+  # ──────────────────────────────────────────
+  # Headquarters
+  # ──────────────────────────────────────────
+  HQFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/headquarters.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HQLocationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HQTemplatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HQEntriesTable
+      Events:
+        HQLocationsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters
+            Method: GET
+        HQLocationsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters
+            Method: POST
+        HQLocationPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/{hqId}
+            Method: PUT
+        HQLocationDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/{hqId}
+            Method: DELETE
+        HQTemplatesGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/templates
+            Method: GET
+        HQTemplatesPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/templates
+            Method: POST
+        HQTemplatePut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/templates/{templateId}
+            Method: PUT
+        HQTemplateDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/templates/{templateId}
+            Method: DELETE
+        HQEntriesGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/entries
+            Method: GET
+        HQEntriesPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/entries
+            Method: POST
+        HQEntryPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/entries/{entryId}
+            Method: PUT
+        HQEntryDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /headquarters/entries/{entryId}
+            Method: DELETE
+
+  # ──────────────────────────────────────────
+  # Admin — Database Backup
+  # ──────────────────────────────────────────
+  AdminBackupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/adminBackup.handler
+      CodeUri: .
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          GDRIVE_BACKUP_FOLDER_ID: "1S2l4rocr1YTgwS58OQZfl7IJyI0kvhUl"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Scan
+              Resource:
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Incomes"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Expenses"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/InvestmentOperations"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioSnapshots"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SP500Monthly"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SplitPayments"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestTemplates"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestResults"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/KidConfig"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/AppSettings"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Books_and_Dev"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Locations"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Templates"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Entries"
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:eu-central-1:${AWS::AccountId}:parameter/finance4tura/gdrive-oauth2"
+      Events:
+        AdminBackupPreview:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/backup/preview
+            Method: GET
+        AdminBackupPrepare:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/backup/prepare
+            Method: POST
+        AdminBackupRunTable:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/backup/run-table
+            Method: POST
 
 Outputs:
   ApiUrl:

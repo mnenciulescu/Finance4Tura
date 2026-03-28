@@ -81,7 +81,7 @@ export default function StatisticsTab({ templates, results, kids }) {
   const calYear  = calMonth.year();
   const calMon   = calMonth.month(); // 0-indexed
   const daysInMonth = calMonth.daysInMonth();
-  const firstDow    = calMonth.day(); // 0=Sun
+  const firstDow    = (calMonth.day() + 6) % 7; // 0=Mon…6=Sun
 
   // template color map (stable index by templateId)
   const tplColorMap = useMemo(() => {
@@ -258,7 +258,7 @@ export default function StatisticsTab({ templates, results, kids }) {
 
           {/* Day-of-week headers */}
           <div style={s.calGrid}>
-            {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+            {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
               <div key={d} style={s.calDow}>{d}</div>
             ))}
             {calCells.map((day, i) => {
@@ -266,13 +266,16 @@ export default function StatisticsTab({ templates, results, kids }) {
               const entries = calDayMap[day] || [];
               const isToday = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
               const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
+              const dow = new Date(calYear, calMon, day).getDay();
+              const isWeekend = dow === 0 || dow === 6;
               return (
                 <div key={day} style={{
                   ...s.calCell,
+                  ...(isWeekend && entries.length === 0 ? { background: "rgba(148,163,184,0.10)" } : {}),
                   ...(isToday ? s.calCellToday : {}),
                   ...(entries.length > 0 ? { background: firstColor + "33", borderColor: firstColor + "99" } : {}),
                 }}>
-                  <span style={{ fontSize: "12px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : "var(--text-muted)" }}>
+                  <span style={{ fontSize: "12px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : isWeekend ? "var(--text)" : "var(--text-muted)" }}>
                     {day}
                   </span>
                   {entries.length > 1 && (

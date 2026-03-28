@@ -144,6 +144,19 @@ function IconHome() {
   );
 }
 
+function IconHQ() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
+         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1.5" y="6" width="12" height="8" rx="1"/>
+      <path d="M1.5 6 L7.5 1.5 L13.5 6"/>
+      <rect x="5.5" y="9" width="4" height="5" rx="0.5"/>
+      <line x1="5.5" y1="9" x2="5.5" y2="14"/>
+      <line x1="9.5" y1="9" x2="9.5" y2="14"/>
+    </svg>
+  );
+}
+
 function IconFinance() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
@@ -174,12 +187,12 @@ function Logo() {
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const financeLinks = [
-  { to: "/finance",        label: "Dashboard",  Icon: IconDashboard },
-  { to: "/add-income",     label: "Add Income", Icon: IconIncome    },
-  { to: "/add-expense",    label: "Add Expense",Icon: IconExpense   },
-  { to: "/split-payments", label: "Split Pay",  Icon: IconSplit     },
-  { to: "/statistics",     label: "Statistics", Icon: IconStats     },
-  { to: "/investments",    label: "Investments",Icon: IconInvestments },
+  { to: "/finance",        label: "Dashboard",    Icon: IconDashboard   },
+  { to: "/add-income",     label: "Add Income",   Icon: IconIncome      },
+  { to: "/add-expense",    label: "Add Expense",  Icon: IconExpense     },
+  { to: "/split-payments", label: "Split Pay",    Icon: IconSplit       },
+  { to: "/statistics",     label: "Statistics",   Icon: IconStats       },
+  { to: "/investments",    label: "Investments",  Icon: IconInvestments },
 ];
 
 const evolveLinks = [
@@ -363,23 +376,22 @@ export default function Topbar() {
 
       {/* Navigation */}
       <nav style={s.nav}>
+        <FinanceDropdown />
+        <EvolveDropdown />
         <NavLink
-          to="/"
-          end
+          to="/headquarters"
           style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
         >
           {({ isActive }) => (
             <>
               <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
-                <IconHome />
+                <IconHQ />
               </span>
-              <span>Home</span>
+              <span>Headquarters</span>
               {isActive && <span style={s.activeDot} />}
             </>
           )}
         </NavLink>
-        <FinanceDropdown />
-        <EvolveDropdown />
         {links.filter(({ to }) => to !== "/backstage" || settings.backstageEnabled).map(({ to, label, end, Icon }) => (
           <NavLink
             key={to}
