@@ -82,7 +82,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practice Tests) and mobile bottom tab bar (Practice).
 
-**Tabs** (in order): Results · Statistics · Templates · Kids
+**Tabs** (in order): Statistics · Tests · Templates · Kids — **Statistics is the default tab on load**
 
 **File structure** (modular folder, replaces the old single `PracticeTests.jsx`):
 ```
@@ -101,7 +101,7 @@ frontend/src/pages/PracticeTests/
 
 `App.jsx` imports `PracticeTests` from `"./pages/PracticeTests"` — Vite resolves this to `index.jsx` automatically, no import change needed.
 
-**Results tab**:
+**Tests tab** (formerly "Results tab"):
 - Auto-selects first template and first kid on load, showing the inline table immediately
 - "New Test" button adds an editable row at the top of the table (requires template + kid selected)
 - **Auto-save**: any field change (topic scores, date, source, total, free points, verified) triggers a debounced save (600 ms); pressing "New Test" also schedules an immediate auto-save with default scores; Save button flushes any pending save and closes the row
@@ -119,19 +119,24 @@ frontend/src/pages/PracticeTests/
 - Each topic has a title and `defaultPoints`; topics can be reordered/removed
 
 **Statistics tab**:
-- Two filters: template + kid
+- **Summary bar** (top card): kid filter dropdown + two sections separated by vertical dividers:
+  - **Last 5** — overall avg (mean of per-template avgs, `var(--text)` color, 22px) + per-template avgs for each template's last 5 results (template color, 16px)
+  - **All tests** — same structure using all results; trailing vertical divider closes the bar
+  - All stats respect the kid filter; template toggles do NOT affect the summary bar
+- **Template toggle buttons** (below summary bar, above chart): pill buttons per template — click to show/hide that template's chart line and pass-rate block; active = colored bg + border, inactive = dimmed
 - Left (70%): Grade Evolution line chart — `totalScore / 10` displayed with `.toFixed(2)` (two decimals), straight lines, per-template colors, labels above each point
-  - Chart labels rendered as SVG: `<rect>` pill background (`var(--surface)` fill, `var(--border)` stroke) behind `<text>` (fontSize 13, fontWeight 600, offset 14px above dot)
+  - Template toggle buttons live inside the chart card header (replacing the "Grade Evolution" title)
+  - Chart labels rendered as SVG: `<rect>` pill background (`var(--surface)` fill, `var(--border)` stroke) behind `<text>` (fontSize 13, fontWeight 600, offset 14px above dot); `top` margin 36px prevents label clipping
+  - Custom dot renderer guards `isNaN(cy)` to prevent phantom half-dots when a date has data for only some templates
   - Verified test dots shown with a **red outer ring** around the filled dot
   - Dashed **average reference line** per template (same color, 60 % opacity), labelled `avg X.XX`
 - Right (30%): Monthly calendar with test-day color markers per template; nav arrows to change month
 - Custom tooltip on hover: Final grade, source title, verified status
 - Y-axis fixed to 8–10 range; chart and calendar cards stretch to equal height
-- **Topic Pass Rate blocks** below chart/calendar — one block per template (stacked vertically):
-  - Shown for all templates when "All templates" is selected; filtered to one when a specific template is chosen
-  - Kid filter applies to all blocks
+- **Topic Pass Rate blocks** below chart/calendar — one block per visible (non-hidden) template:
+  - Kid filter applies to all blocks; template toggle buttons control which blocks are shown
   - Each block header shows template name in its chart color
-  - Columns match the template's topics with same group-border coloring as Results tab
+  - Columns match the template's topics with same group-border coloring as Tests tab
   - Cells show pass-rate % (red = 0, yellow = partial, none = 100 %); `—` when no data
   - Excluded from calculation: results where `calcTotal(topicScores) ≠ totalScore` (i.e. manual total override differs from topic sum)
   - `calcTotal` on frontend: `Math.round(sum * 10) / 10` (raw sum rounded to 1 decimal); `totalScore` stored at this scale
@@ -189,7 +194,7 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 
 **Section 3 — Practice Tests (bottom-left)**:
 - Calls `listTemplates()`, `listResults()`, `getKids()`
-- Grade Evolution line chart (height 200px) — same logic as StatisticsTab, all templates + kids, no filters
+- Grade Evolution line chart — same logic as StatisticsTab, all templates + kids, no filters; height fills card (ResponsiveContainer height="100%" with flex-grow wrapper); legend rendered inline with the section title (not inside the chart); `isNaN(cy)` guard on dot renderer prevents phantom half-dots
 - Monthly calendar widget (same logic as StatisticsTab) — shows test-day color dots
 - Chart 70% / Calendar 30% side by side
 
@@ -398,7 +403,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
-| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics tab has average reference line and per-template Topic Pass Rate blocks |
+| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |

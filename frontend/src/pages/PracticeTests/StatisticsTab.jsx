@@ -11,41 +11,87 @@ import s from "./styles";
 const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
 
 export default function StatisticsTab({ templates, results, kids }) {
-  const [filterTpl, setFilterTpl] = useState("");
+  const [hiddenTpls, setHiddenTpls] = useState(new Set());
   const [filterKid, setFilterKid] = useState("");
-
-  // calendar state: current month view
   const [calMonth, setCalMonth] = useState(() => dayjs().startOf("month"));
 
-  const filtered = useMemo(() => {
-    let r = results;
-    if (filterTpl) r = r.filter(x => x.templateId === filterTpl);
-    if (filterKid) r = r.filter(x => x.kidName    === filterKid);
-    return r;
-  }, [results, filterTpl, filterKid]);
+  // template color map (stable index by templateId)
+  const tplColorMap = useMemo(() => {
+    const map = {};
+    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
+    return map;
+  }, [templates]);
 
   const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
 
-  // Results filtered only by kid (used for per-template pass-rate blocks)
-  const filteredByKid = useMemo(() => {
+  // All results filtered by kid only — used for summary stats and pass-rate blocks
+  const resultsByKid = useMemo(() => {
     if (!filterKid) return results;
     return results.filter(x => x.kidName === filterKid);
   }, [results, filterKid]);
 
-  // One pass-rate block per visible template (respects both filters)
+  // Results filtered by kid + hidden templates — used for the chart
+  const filtered = useMemo(() => {
+    return resultsByKid.filter(r => !hiddenTpls.has(r.templateId));
+  }, [resultsByKid, hiddenTpls]);
+
+  // Summary stats — only kid filter, all templates
+  const summaryStats = useMemo(() => {
+    const all = resultsByKid.filter(r => r.totalScore != null);
+
+    // Per-template average over all tests
+    const perTplAll = {};
+    for (const r of all) {
+      if (!perTplAll[r.templateId]) perTplAll[r.templateId] = { sum: 0, count: 0 };
+      perTplAll[r.templateId].sum   += r.totalScore / 10;
+      perTplAll[r.templateId].count += 1;
+    }
+
+    // Per-template average over last 5 tests per template
+    const perTplLast5 = {};
+    for (const tpl of templates) {
+      const tplResults = all
+        .filter(r => r.templateId === tpl.templateId)
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 5);
+      if (tplResults.length > 0) {
+        const sum = tplResults.reduce((acc, r) => acc + r.totalScore / 10, 0);
+        perTplLast5[tpl.templateId] = +(sum / tplResults.length).toFixed(2);
+      }
+    }
+
+    // Finalise per-template all-tests map
+    const perTplAllAvg = {};
+    for (const [id, { sum, count }] of Object.entries(perTplAll)) {
+      perTplAllAvg[id] = +(sum / count).toFixed(2);
+    }
+
+    // Overall all-tests: average of per-template averages
+    const allAvgValues = Object.values(perTplAllAvg);
+    const overall = allAvgValues.length > 0
+      ? +(allAvgValues.reduce((a, b) => a + b, 0) / allAvgValues.length).toFixed(2)
+      : null;
+
+    // Overall last-5: average of per-template last-5 averages
+    const last5AvgValues = Object.values(perTplLast5);
+    const overallLast5 = last5AvgValues.length > 0
+      ? +(last5AvgValues.reduce((a, b) => a + b, 0) / last5AvgValues.length).toFixed(2)
+      : null;
+
+    return { overall, overallLast5, perTplLast5, perTplAllAvg };
+  }, [resultsByKid, templates]);
+
+  // One pass-rate block per visible (non-hidden) template
   const allTemplateStats = useMemo(() => {
-    const tplsToShow = filterTpl
-      ? templates.filter(t => t.templateId === filterTpl)
-      : templates;
-    return tplsToShow
-      .filter(t => (t.topics || []).length > 0)
+    return templates
+      .filter(t => !hiddenTpls.has(t.templateId) && (t.topics || []).length > 0)
       .map(tpl => ({
         template: tpl,
-        ...computeTopicPassRate(tpl, filteredByKid.filter(r => r.templateId === tpl.templateId)),
+        ...computeTopicPassRate(tpl, resultsByKid.filter(r => r.templateId === tpl.templateId)),
       }));
-  }, [templates, filteredByKid, filterTpl]);
+  }, [templates, resultsByKid, hiddenTpls]);
 
-  // Timeline: one point per date, one line per template, grade = totalScore/10 (2 decimals)
+  // Timeline: one point per date, one line per template
   const timelineData = useMemo(() => {
     const byDate = {};
     for (const r of [...filtered].sort((a, b) => a.date.localeCompare(b.date))) {
@@ -71,26 +117,13 @@ export default function StatisticsTab({ templates, results, kids }) {
     return meta;
   }, [filtered]);
 
-  // Templates that appear in filtered results, preserving stable order
+  // Templates that appear in filtered results
   const timelineTemplates = useMemo(() => {
     const seen = new Set(filtered.map(r => r.templateId));
     return templates.filter(t => seen.has(t.templateId));
   }, [filtered, templates]);
 
-  // Calendar: map day → list of { templateId, templateName }
-  const calYear  = calMonth.year();
-  const calMon   = calMonth.month(); // 0-indexed
-  const daysInMonth = calMonth.daysInMonth();
-  const firstDow    = (calMonth.day() + 6) % 7; // 0=Mon…6=Sun
-
-  // template color map (stable index by templateId)
-  const tplColorMap = useMemo(() => {
-    const map = {};
-    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
-    return map;
-  }, [templates]);
-
-  // Average grade per template (over all filtered results)
+  // Average grade per template for reference lines
   const tplAverages = useMemo(() => {
     const sums = {}, counts = {};
     for (const r of filtered) {
@@ -105,6 +138,12 @@ export default function StatisticsTab({ templates, results, kids }) {
     }
     return map;
   }, [filtered]);
+
+  // Calendar
+  const calYear     = calMonth.year();
+  const calMon      = calMonth.month();
+  const daysInMonth = calMonth.daysInMonth();
+  const firstDow    = (calMonth.day() + 6) % 7;
 
   const calDayMap = useMemo(() => {
     const map = {};
@@ -125,38 +164,142 @@ export default function StatisticsTab({ templates, results, kids }) {
     return <div style={{ ...s.tabContent, ...s.empty }}>No results yet. Add some results first.</div>;
   }
 
-  // Build calendar grid cells (nulls for padding + day numbers)
   const calCells = [];
   for (let i = 0; i < firstDow; i++) calCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
 
+  function toggleTemplate(tplId) {
+    setHiddenTpls(prev => {
+      const next = new Set(prev);
+      if (next.has(tplId)) next.delete(tplId);
+      else next.add(tplId);
+      return next;
+    });
+  }
+
   return (
     <div style={s.tabContent}>
-      {/* Filters */}
-      <div style={s.filterBar}>
-        <select style={s.filterSel} value={filterTpl} onChange={e => setFilterTpl(e.target.value)}>
-          <option value="">All templates</option>
-          {templates.map(t => <option key={t.templateId} value={t.templateId}>{t.name}</option>)}
-        </select>
-        <select style={s.filterSel} value={filterKid} onChange={e => setFilterKid(e.target.value)}>
-          <option value="">All kids</option>
-          {kidNames.map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
+
+      {/* Summary block — 3 sections: kid filter | last 5 per template | all tests per template */}
+      <div style={{ ...s.statsCard, padding: "0", flexDirection: "row", alignItems: "stretch", gap: "0", flexWrap: "wrap", overflow: "hidden" }}>
+
+        {/* Kid filter */}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px", padding: "10px 16px", flexShrink: 0 }}>
+          <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Kid</span>
+          <select style={s.filterSel} value={filterKid} onChange={e => setFilterKid(e.target.value)}>
+            <option value="">All</option>
+            {kidNames.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+
+        <div style={{ width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+
+        {/* Section: last 5 */}
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ padding: "5px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+            Last 5
+          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "8px 16px", flex: 1 }}>
+            <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: summaryStats.overallLast5 != null ? "var(--text)" : "var(--text-muted)" }}>
+              {summaryStats.overallLast5 != null ? summaryStats.overallLast5.toFixed(2) : "—"}
+            </span>
+            <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+            {templates.map(t => {
+              const val = summaryStats.perTplLast5[t.templateId];
+              const color = tplColorMap[t.templateId];
+              return (
+                <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                  </div>
+                  <span style={{ fontSize: "16px", fontWeight: 700, color: val != null ? color : "var(--text-muted)", lineHeight: 1 }}>
+                    {val != null ? val.toFixed(2) : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+
+        {/* Section: all tests */}
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ padding: "5px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+            All tests
+          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "8px 16px", flex: 1 }}>
+            <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: summaryStats.overall != null ? "var(--text)" : "var(--text-muted)" }}>
+              {summaryStats.overall != null ? summaryStats.overall.toFixed(2) : "—"}
+            </span>
+            <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+            {templates.map(t => {
+              const val = summaryStats.perTplAllAvg[t.templateId];
+              const color = tplColorMap[t.templateId];
+              return (
+                <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                  </div>
+                  <span style={{ fontSize: "16px", fontWeight: 700, color: val != null ? color : "var(--text-muted)", lineHeight: 1 }}>
+                    {val != null ? val.toFixed(2) : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+
       </div>
 
-      {/* Two-column layout */}
+      {/* Chart + Calendar row */}
       <div style={s.statsRow}>
 
         {/* Left: grade timeline chart */}
         <div style={s.statsCard}>
-          <div style={s.statsCardTitle}>Grade Evolution</div>
+          {/* Template toggle buttons replace the title */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap", marginBottom: "8px" }}>
+            {templates.map(t => {
+              const active = !hiddenTpls.has(t.templateId);
+              const color  = tplColorMap[t.templateId];
+              return (
+                <button
+                  key={t.templateId}
+                  onClick={() => toggleTemplate(t.templateId)}
+                  style={{
+                    background:   active ? color + "22" : "var(--surface-2)",
+                    border:       `1.5px solid ${active ? color : "var(--border)"}`,
+                    borderRadius: "20px",
+                    padding:      "2px 8px",
+                    fontSize:     "11px",
+                    fontWeight:   active ? 600 : 400,
+                    color:        active ? color : "var(--text-muted)",
+                    cursor:       "pointer",
+                    fontFamily:   "inherit",
+                    display:      "flex",
+                    alignItems:   "center",
+                    gap:          "4px",
+                    opacity:      active ? 1 : 0.5,
+                    transition:   "all 0.15s",
+                  }}
+                >
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: active ? color : "var(--text-muted)", flexShrink: 0, display: "inline-block" }} />
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
           {timelineData.length < 2 ? (
             <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "20px 0" }}>
               Not enough data points yet.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={timelineData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+              <LineChart data={timelineData} margin={{ top: 36, right: 28, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                 <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
@@ -202,9 +345,10 @@ export default function StatisticsTab({ templates, results, kids }) {
                     strokeWidth={2}
                     dot={(props) => {
                       const { cx, cy, payload } = props;
-                      const meta = timelineMeta[payload.date]?.[t.templateId];
+                      if (!cx || !cy || isNaN(cx) || isNaN(cy)) return null;
+                      const meta    = timelineMeta[payload.date]?.[t.templateId];
                       const verified = meta?.verified;
-                      const color = tplColorMap[t.templateId];
+                      const color   = tplColorMap[t.templateId];
                       if (verified) {
                         return (
                           <g key={`dot-${t.templateId}-${payload.date}`}>
@@ -215,14 +359,17 @@ export default function StatisticsTab({ templates, results, kids }) {
                       }
                       return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
                     }}
-                    label={({ x, y, value }) => (
-                      <g>
-                        <rect x={x - 20} y={y - 27} width={40} height={17} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-                        <text x={x} y={y - 14} textAnchor="middle" fill={tplColorMap[t.templateId]} fontSize={13} fontWeight={600}>
-                          {Number(value).toFixed(2)}
-                        </text>
-                      </g>
-                    )}
+                    label={({ x, y, value }) => {
+                      if (value == null) return null;
+                      return (
+                        <g>
+                          <rect x={x - 20} y={y - 27} width={40} height={17} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
+                          <text x={x} y={y - 14} textAnchor="middle" fill={tplColorMap[t.templateId]} fontSize={13} fontWeight={600}>
+                            {Number(value).toFixed(2)}
+                          </text>
+                        </g>
+                      );
+                    }}
                     connectNulls
                   />
                 ))}
@@ -256,17 +403,16 @@ export default function StatisticsTab({ templates, results, kids }) {
             </div>
           </div>
 
-          {/* Day-of-week headers */}
           <div style={s.calGrid}>
             {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
               <div key={d} style={s.calDow}>{d}</div>
             ))}
             {calCells.map((day, i) => {
               if (!day) return <div key={`e-${i}`} />;
-              const entries = calDayMap[day] || [];
-              const isToday = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
+              const entries  = calDayMap[day] || [];
+              const isToday  = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
               const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
-              const dow = new Date(calYear, calMon, day).getDay();
+              const dow      = new Date(calYear, calMon, day).getDay();
               const isWeekend = dow === 0 || dow === 6;
               return (
                 <div key={day} style={{
@@ -290,8 +436,7 @@ export default function StatisticsTab({ templates, results, kids }) {
             })}
           </div>
 
-          {/* Template legend */}
-          {!filterTpl && templates.length > 0 && (
+          {templates.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px" }}>
               {templates.map((t, i) => (
                 <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
@@ -305,7 +450,7 @@ export default function StatisticsTab({ templates, results, kids }) {
 
       </div>
 
-      {/* Topic pass-rate blocks — one per template */}
+      {/* Topic pass-rate blocks — one per visible template */}
       {allTemplateStats.map(({ template, topicCols, groupInfo, groupSpans, kidRows }) => (
         <div key={template.templateId} style={{ ...s.statsCard, marginTop: "4px" }}>
           <div style={{ ...s.statsCardTitle, display: "flex", alignItems: "center", gap: "8px" }}>

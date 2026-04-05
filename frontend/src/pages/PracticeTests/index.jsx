@@ -8,10 +8,10 @@ import StatisticsTab from "./StatisticsTab";
 import KidsTab from "./KidsTab";
 import s from "./styles";
 
-const TABS = ["Results", "Statistics", "Templates", "Kids"];
+const TABS = ["Statistics", "Tests", "Templates", "Kids"];
 
 export default function PracticeTests() {
-  const [tab, setTab]             = useState("Results");
+  const [tab, setTab]             = useState("Statistics");
   const [templates, setTemplates] = useState([]);
   const [results, setResults]     = useState([]);
   const [kids, setKids]           = useState([]);
@@ -51,7 +51,7 @@ export default function PracticeTests() {
         {tab === "Templates"  && (
           <TemplatesTab templates={templates} setTemplates={setTemplates} />
         )}
-        {tab === "Results"    && (
+        {tab === "Tests"    && (
           <ResultsTab
             templates={templates}
             results={results} setResults={setResults}

@@ -30,12 +30,12 @@ Route: `/practice-tests`
 
 ### FR-2 Page Layout
 
-The Practice Tests page is a single-route page with two logical sub-views controlled by a tab or toggle at the top of the page:
+The Practice Tests page is a single-route page with four tabs at the top. Tab order and default:
 
+- **Statistics** *(default — first tab, shown on load)* — performance charts, summary grades bar, topic pass-rate blocks.
+- **Tests** *(formerly "Results")* — select a template and view/enter results.
 - **Templates** — list and manage test templates.
-- **Results** — select a template and view/enter results.
-
-A **Statistics** section appears below the results table (or as a third sub-view tab) and is always visible when a template is selected.
+- **Kids** — manage the kid list.
 
 ### FR-3 Kid List Configuration
 
@@ -420,42 +420,40 @@ Clicking the Verified cell immediately calls `PUT /practice-tests/results/{resul
 
 ### Statistics Tab
 
-A toggle **"This Template / All Templates"** switches the data scope.
+Default tab when the page loads.
 
-#### 1. Score Summary Table (per kid)
+#### Summary Bar (top card)
 
-| Column | Formula |
-|---|---|
-| Kid | Name |
-| Tests taken | Count of result rows |
-| Average Score | Mean of `totalScore`, 1 decimal |
-| Best Score | Max `totalScore`, 1 decimal |
-| Worst Score | Min `totalScore`, 1 decimal |
-| Verified | Count of `verified = true` |
+Horizontal card with three sections separated by vertical dividers:
 
-#### 2. Score Distribution Chart
+1. **Kid filter** — dropdown to filter all stats and chart to a specific kid (or "All").
+2. **Last 5** — overall average grade (mean of per-template averages, large `var(--text)` number) + per-template average of the last 5 results for each template (template color, smaller).
+3. **All tests** — same structure using all results instead of last 5.
 
-Bar chart (Recharts `BarChart`) — count of results in score buckets: `0–4`, `4–6`, `6–8`, `8–10`. Bars colored using existing `BAR_COLORS` from `frontend/src/utils/colors.js`. One bar group per kid.
+All three summary numbers are unaffected by template toggle buttons — they always reflect all templates.
 
-#### 3. Progress Over Time Chart
+#### Template Toggle Buttons
 
-Line chart (Recharts `LineChart`):
-- X axis: test date
-- Y axis: `totalScore` (0–10)
-- One line per kid, colored using `CHART_COLORS` from `frontend/src/utils/colors.js`
-- Tooltip: date, kid, score, source/title
+Pill buttons (one per template, colored) placed inside the Grade Evolution chart card header. Clicking a button shows/hides that template's chart line and its Topic Pass Rate block below. Inactive buttons are dimmed.
 
-#### 4. Topic Weakness Panel *(single template only)*
+#### Grade Evolution Chart (left 70%)
 
-For each topic: average awarded points vs. `defaultPoints` shown as a horizontal progress bar.
+Line chart (`LineChart`):
+- X axis: test date; Y axis: `totalScore / 10` (range 8–10)
+- One line per template (colors stable by template index)
+- Grade labels above each dot (SVG `<rect>` pill + colored `<text>`)
+- Verified test dots shown with a red outer ring
+- Dashed average reference line per template
+- `isNaN(cy)` guard on custom dot renderer prevents phantom half-dots at chart top
+- Chart top margin 36px ensures labels are never clipped
 
-`weaknessRatio = avg(awardedPoints) / defaultPoints`
+#### Monthly Calendar (right 30%)
 
-Topics with `weaknessRatio < 0.70` highlighted in amber as a weakness indicator. Topics with `defaultPoints = 0` are skipped (division by zero).
+Color-coded day cells per template with nav arrows.
 
-#### 5. Cross-Template Summary *(all templates scope)*
+#### Topic Pass Rate Blocks
 
-Table: rows = templates, columns = avg score, test count, verified count, date of last test.
+One block per visible (non-hidden) template below the chart/calendar row. Kid filter applies. Each block shows per-kid pass rates per topic.
 
 ---
 

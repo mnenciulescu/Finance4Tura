@@ -412,6 +412,38 @@ function SplitPaymentsSnippet({ payments, onUpdate }) {
 
 // ── Section 3a: Practice Tests — Grade Evolution chart ────────────────────────
 
+function PracticeChartWithHeader({ templates, results }) {
+  const tplColorMap = useMemo(() => {
+    const map = {};
+    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
+    return map;
+  }, [templates]);
+
+  const seen = useMemo(() => new Set(results.map(r => r.templateId)), [results]);
+  const visibleTemplates = templates.filter(t => seen.has(t.templateId));
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
+        <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>
+          Practice Tests — Grade Evolution
+        </span>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {visibleTemplates.map(t => (
+            <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: tplColorMap[t.templateId], display: "inline-block", flexShrink: 0 }} />
+              <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <PracticeChart templates={templates} results={results} />
+      </div>
+    </>
+  );
+}
+
 function PracticeChart({ templates, results }) {
   const tplColorMap = useMemo(() => {
     const map = {};
@@ -463,8 +495,8 @@ function PracticeChart({ templates, results }) {
   if (timelineData.length < 2) return <EmptyState>Not enough data points for chart.</EmptyState>;
 
   return (
-    <ResponsiveContainer width="100%" height={170}>
-      <LineChart data={timelineData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={timelineData} margin={{ top: 30, right: 20, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
         <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
@@ -488,7 +520,6 @@ function PracticeChart({ templates, results }) {
             );
           }}
         />
-        <Legend wrapperStyle={{ fontSize: "10px" }} />
         {timelineTemplates.map(t => (
           <Line
             key={t.templateId}
@@ -498,7 +529,7 @@ function PracticeChart({ templates, results }) {
             stroke={tplColorMap[t.templateId]}
             strokeWidth={2}
             dot={({ cx, cy, payload, value }) => {
-              if (value == null) return null;
+              if (value == null || !cy || isNaN(cy)) return null;
               const meta  = timelineMeta[payload.date]?.[t.templateId];
               const color = tplColorMap[t.templateId];
               if (meta?.verified) return (
@@ -510,7 +541,7 @@ function PracticeChart({ templates, results }) {
               return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
             }}
             label={({ x, y, value }) => {
-              if (value == null) return null;
+              if (value == null || !y || isNaN(y)) return null;
               return (
                 <g>
                   <rect x={x - 17} y={y - 24} width={34} height={15} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
@@ -1039,9 +1070,8 @@ export default function HomeOverview() {
       </Card>
 
       {/* Section 4a — Practice Tests: Grade Evolution (span 4) */}
-      <Card style={{ gridColumn: "span 4" }}>
-        <SectionHeader>Practice Tests — Grade Evolution</SectionHeader>
-        <PracticeChart templates={templates} results={results} />
+      <Card style={{ gridColumn: "span 4", display: "flex", flexDirection: "column" }}>
+        <PracticeChartWithHeader templates={templates} results={results} />
       </Card>
 
       {/* Section 4b — Practice Tests: Calendar (span 2) */}
