@@ -283,7 +283,7 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
                         type={p.type === "number" ? "number" : "text"}
                         style={{
                           ...s.inlineInput,
-                          width:     p.type === "number" ? "90px" : "120px",
+                          width:     p.type === "number" ? "90px" : "240px",
                           textAlign: p.type === "number" ? "right" : "left",
                         }}
                         value={val}
@@ -365,7 +365,7 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
                             type={p.type === "number" ? "number" : "text"}
                             style={{
                               ...s.inlineInput,
-                              width:     p.type === "number" ? "90px" : "120px",
+                              width:     p.type === "number" ? "90px" : "240px",
                               textAlign: p.type === "number" ? "right" : "left",
                             }}
                             value={val}

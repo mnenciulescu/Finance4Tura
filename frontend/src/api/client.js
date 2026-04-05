@@ -9,6 +9,9 @@ const client = axios.create({
 let _authToken = null;
 export const setAuthToken = (token) => { _authToken = token; };
 
+let _onUnauthorized = null;
+export const setUnauthorizedHandler = (fn) => { _onUnauthorized = fn; };
+
 // Operation log — max 50 entries, newest first
 export const opLog = [];
 let seq = 0;
@@ -36,7 +39,11 @@ client.interceptors.request.use(config => {
 
 client.interceptors.response.use(
   res  => { pushLog(res.config, res.status, Date.now() - res.config._ts); return res; },
-  err  => { pushLog(err.config, err.response?.status ?? 0, Date.now() - (err.config?._ts ?? Date.now())); return Promise.reject(err); },
+  err  => {
+    pushLog(err.config, err.response?.status ?? 0, Date.now() - (err.config?._ts ?? Date.now()));
+    if (err.response?.status === 401 && _onUnauthorized) _onUnauthorized();
+    return Promise.reject(err);
+  },
 );
 
 export default client;

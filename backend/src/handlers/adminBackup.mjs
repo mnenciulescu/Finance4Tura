@@ -37,8 +37,17 @@ const fail = (code, message) => ({
   body: JSON.stringify({ message }),
 });
 
-function userId(event) {
-  return event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+function isCallerAdmin(event) {
+  const sub = event.requestContext?.authorizer?.claims?.sub;
+  if (!sub) return true; // local dev — no authorizer
+  const raw = event.requestContext?.authorizer?.claims?.["cognito:groups"];
+  if (!raw) return false;
+  try {
+    const groups = JSON.parse(raw);
+    return Array.isArray(groups) ? groups.includes("admin") : groups === "admin";
+  } catch {
+    return raw === "admin" || raw.split(",").map(s => s.trim()).includes("admin");
+  }
 }
 
 // ── DynamoDB ──────────────────────────────────────────────────────────────────
@@ -217,8 +226,7 @@ async function runTable(body) {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
-  const uid  = userId(event);
-  if (uid !== "nenciulescu" && uid !== "local-dev") return fail(403, "Forbidden");
+  if (!isCallerAdmin(event)) return fail(403, "Forbidden");
 
   const method = event.httpMethod;
   const path   = event.path || "";

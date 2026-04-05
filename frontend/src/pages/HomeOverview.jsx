@@ -10,6 +10,7 @@ import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
 import { listTemplates, listResults, getKids } from "../api/practiceTests";
 import { listSnapshots } from "../api/investments";
+import apiClient from "../api/client";
 import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
 
 // ── Investment constants (shared with Investments page) ────────────────────────
@@ -638,7 +639,9 @@ function PracticeCalendar({ templates, results }) {
 // ── Section 3: Current Holdings ───────────────────────────────────────────────
 
 function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
-  const [revealed, setRevealed] = useState(false);
+  const [revealed,      setRevealed]      = useState(false);
+  const [funFact,       setFunFact]       = useState(null);
+  const [funFactLoading, setFunFactLoading] = useState(false);
 
   const snapshotsInEUR = useMemo(() =>
     snapshots.map(s => ({ ...s, amount: toEUR(s.amount, s.currency, fxRates), currency: "EUR" })),
@@ -672,6 +675,16 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
     Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
     [latestByPlatform]
   );
+
+  useEffect(() => {
+    if (!totalEUR || totalEUR <= 0) return;
+    const rounded = Math.round(totalEUR / 100) * 100;
+    setFunFactLoading(true);
+    apiClient.get(`/fun-fact?amount=${rounded}`)
+      .then(r => setFunFact(r.data.sentence))
+      .catch(() => setFunFact("Your portfolio is impressive — Claude ran out of words."))
+      .finally(() => setFunFactLoading(false));
+  }, [totalEUR]);
 
   const fmtAmt = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const mask = "••••";
@@ -736,6 +749,18 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
           </svg>
         </button>
       </div>
+
+      {/* Fun fact */}
+      {(funFact || funFactLoading) && (
+        <div style={{
+          fontSize: "11px", color: "var(--text-muted)", fontStyle: "italic",
+          padding: "7px 10px", marginBottom: "10px",
+          background: "rgba(134,239,172,0.06)", border: "1px solid rgba(134,239,172,0.15)",
+          borderRadius: "7px", lineHeight: 1.5,
+        }}>
+          {funFactLoading ? "💭 Thinking of something funny…" : `💡 ${funFact}`}
+        </div>
+      )}
 
       {/* Platform table */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>

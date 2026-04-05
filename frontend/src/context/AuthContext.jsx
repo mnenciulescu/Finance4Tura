@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { CognitoUserPool, CognitoUser, AuthenticationDetails } from "amazon-cognito-identity-js";
-import { setAuthToken } from "../api/client";
+import { setAuthToken, setUnauthorizedHandler } from "../api/client";
 
 const userPool = new CognitoUserPool({
   UserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
@@ -86,6 +86,10 @@ export function AuthProvider({ children }) {
     setUser(null);
     setAuthToken(null);
   };
+
+  useEffect(() => {
+    setUnauthorizedHandler(signOut);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle, verifyPassword }}>

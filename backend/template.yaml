@@ -939,6 +939,30 @@ Resources:
             Method: DELETE
 
   # ──────────────────────────────────────────
+  # Fun Fact (portfolio humour via Claude)
+  # ──────────────────────────────────────────
+  FunFactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/funFact.handler
+      CodeUri: .
+      Timeout: 15
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:eu-central-1:${AWS::AccountId}:parameter/finance4tura/anthropic-api-key"
+      Events:
+        FunFactGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /fun-fact
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # ──────────────────────────────────────────
   # Admin — Database Backup
   # ──────────────────────────────────────────
   AdminBackupFunction:
