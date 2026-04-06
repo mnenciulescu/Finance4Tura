@@ -410,6 +410,159 @@ function SplitPaymentsSnippet({ payments, onUpdate }) {
   );
 }
 
+// ── Section 3: Practice Tests — Summary Bar ───────────────────────────────────
+
+function PracticeSummaryBar({ templates, results }) {
+  const [filterKid, setFilterKid] = useState("");
+
+  const tplColorMap = useMemo(() => {
+    const map = {};
+    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
+    return map;
+  }, [templates]);
+
+  const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
+
+  const stats = useMemo(() => {
+    const all = (filterKid ? results.filter(r => r.kidName === filterKid) : results)
+      .filter(r => r.totalScore != null);
+
+    const perTplLast5 = {};
+    for (const tpl of templates) {
+      const sorted = all.filter(r => r.templateId === tpl.templateId)
+        .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      if (sorted.length) perTplLast5[tpl.templateId] = +(sorted.reduce((s, r) => s + r.totalScore / 10, 0) / sorted.length).toFixed(2);
+    }
+
+    const perTplValidated = {};
+    for (const tpl of templates) {
+      const v = all.filter(r => r.templateId === tpl.templateId && r.verified);
+      if (v.length) perTplValidated[tpl.templateId] = +(v.reduce((s, r) => s + r.totalScore / 10, 0) / v.length).toFixed(2);
+    }
+
+    const perTplAll = {};
+    for (const tpl of templates) {
+      const t = all.filter(r => r.templateId === tpl.templateId);
+      if (t.length) perTplAll[tpl.templateId] = +(t.reduce((s, r) => s + r.totalScore / 10, 0) / t.length).toFixed(2);
+    }
+
+    const avg = vals => vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
+    return {
+      overallLast5:     avg(Object.values(perTplLast5)),
+      overallValidated: avg(Object.values(perTplValidated)),
+      overall:          avg(Object.values(perTplAll)),
+      perTplLast5, perTplValidated, perTplAllAvg: perTplAll,
+    };
+  }, [results, templates, filterKid]);
+
+  if (!results.length) return null;
+
+  const DIV = { width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" };
+  const HDR = { padding: "5px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" };
+  const BOD = { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "8px 16px" };
+
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "row", alignItems: "stretch" }}>
+
+      {/* Kid filter */}
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px", padding: "10px 16px", flexShrink: 0 }}>
+        <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Kid</span>
+        <select style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "7px", color: "var(--text)", fontSize: "12px", padding: "5px 10px", cursor: "pointer", outline: "none" }}
+          value={filterKid} onChange={e => setFilterKid(e.target.value)}>
+          <option value="">All</option>
+          {kidNames.map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
+      </div>
+
+      <div style={DIV} />
+
+      {/* Last 5 */}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={HDR}>Last 5</div>
+        <div style={BOD}>
+          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overallLast5 != null ? "var(--text)" : "var(--text-muted)" }}>
+            {stats.overallLast5 != null ? stats.overallLast5.toFixed(2) : "—"}
+          </span>
+          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+          {templates.map(t => {
+            const val = stats.perTplLast5[t.templateId];
+            const color = tplColorMap[t.templateId];
+            return (
+              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                </div>
+                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
+                  {val != null ? val.toFixed(2) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={DIV} />
+
+      {/* Validated */}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={HDR}>Validated</div>
+        <div style={BOD}>
+          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overallValidated != null ? "var(--text)" : "var(--text-muted)" }}>
+            {stats.overallValidated != null ? stats.overallValidated.toFixed(2) : "—"}
+          </span>
+          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+          {templates.map(t => {
+            const val = stats.perTplValidated[t.templateId];
+            const color = tplColorMap[t.templateId];
+            return (
+              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                </div>
+                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
+                  {val != null ? val.toFixed(2) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={DIV} />
+
+      {/* All tests */}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={HDR}>All tests</div>
+        <div style={BOD}>
+          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overall != null ? "var(--text)" : "var(--text-muted)" }}>
+            {stats.overall != null ? stats.overall.toFixed(2) : "—"}
+          </span>
+          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+          {templates.map(t => {
+            const val = stats.perTplAllAvg[t.templateId];
+            const color = tplColorMap[t.templateId];
+            return (
+              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                </div>
+                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
+                  {val != null ? val.toFixed(2) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={DIV} />
+    </div>
+  );
+}
+
 // ── Section 3a: Practice Tests — Grade Evolution chart ────────────────────────
 
 function PracticeChartWithHeader({ templates, results }) {
@@ -1041,7 +1194,7 @@ export default function HomeOverview() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", padding: "0", overflow: "auto" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto", alignContent: "start" }}>
 
       {/* Section 1 — Pending Expenses (span 2) */}
       <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
@@ -1068,6 +1221,11 @@ export default function HomeOverview() {
         <SectionHeader>Current Holdings</SectionHeader>
         <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
       </Card>
+
+      {/* Practice Tests summary bar (span 6) */}
+      <div style={{ gridColumn: "span 6", display: "flex", flexDirection: "column" }}>
+        <PracticeSummaryBar templates={templates} results={results} />
+      </div>
 
       {/* Section 4a — Practice Tests: Grade Evolution (span 4) */}
       <Card style={{ gridColumn: "span 4", display: "flex", flexDirection: "column" }}>
