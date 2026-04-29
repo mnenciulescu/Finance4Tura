@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
 import { useAppSettings } from "../context/AppSettingsContext";
@@ -337,6 +337,56 @@ function EvolveDropdown() {
   );
 }
 
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
+
+function buildBreadcrumb(pathname) {
+  const home = { label: "Home", to: "/" };
+  const finance = { label: "Finance", to: "/finance" };
+  const evolve  = { label: "Evolve", to: null };
+
+  if (pathname === "/")                       return [home];
+  if (pathname === "/finance")                return [home, finance, { label: "Dashboard",     to: "/finance"        }];
+  if (pathname === "/add-income")             return [home, finance, { label: "Add Income",    to: "/add-income"     }];
+  if (pathname.startsWith("/add-expense"))    return [home, finance, { label: "Add Expense",   to: "/add-expense"    }];
+  if (pathname === "/split-payments")         return [home, finance, { label: "Split Pay",     to: "/split-payments" }];
+  if (pathname === "/statistics")             return [home, finance, { label: "Statistics",    to: "/statistics"     }];
+  if (pathname === "/investments")            return [home, finance, { label: "Investments",   to: "/investments"    }];
+  if (pathname.startsWith("/practice-tests")) return [home, evolve,  { label: "Practice Tests",to: "/practice-tests" }];
+  if (pathname.startsWith("/books-and-dev"))  return [home, evolve,  { label: "Books & Dev",   to: "/books-and-dev"  }];
+  if (pathname.startsWith("/headquarters"))   return [home, { label: "Headquarters", to: "/headquarters" }];
+  if (pathname.startsWith("/ai-news"))        return [home, { label: "AI",           to: "/ai-news"      }];
+  if (pathname.startsWith("/settings"))       return [home, { label: "Settings",     to: "/settings"     }];
+  if (pathname.startsWith("/backstage"))      return [home, { label: "Backstage",    to: "/backstage"    }];
+  if (pathname.startsWith("/admin"))          return [home, { label: "Admin",        to: "/admin"        }];
+  return [home];
+}
+
+function Breadcrumb({ pathname }) {
+  const crumbs = buildBreadcrumb(pathname);
+  return (
+    <div style={s.breadcrumbRow}>
+      {crumbs.map((crumb, i) => {
+        const isLast = i === crumbs.length - 1;
+        return (
+          <span key={i} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            {i > 0 && <span style={s.breadcrumbSep}>›</span>}
+            {crumb.to ? (
+              <Link
+                to={crumb.to}
+                style={{ ...s.breadcrumbLink, ...(isLast ? s.breadcrumbCurrent : {}) }}
+              >
+                {crumb.label}
+              </Link>
+            ) : (
+              <span style={{ ...s.breadcrumbLink, opacity: 0.55 }}>{crumb.label}</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function IconAdmin() {
@@ -361,90 +411,94 @@ export default function Topbar() {
 
   return (
     <header style={s.bar}>
-      {/* Brand + Dashboard combined */}
-      <div
-        style={{ ...s.brand, ...(isDashboard ? s.brandActive : {}) }}
-        onClick={() => navigate("/")}
-      >
-        <Logo />
-        <span style={s.brandName}>4TURA<span style={s.brandAccent}> Home</span></span>
-        {isDashboard && <span style={s.activeDot}/>}
-      </div>
-
-      {/* Divider */}
-      <div style={s.divider}/>
-
-      {/* Navigation */}
-      <nav style={s.nav}>
-        <FinanceDropdown />
-        <EvolveDropdown />
-        <NavLink
-          to="/headquarters"
-          style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
+      <div style={s.topRow}>
+        {/* Brand + Home Overview combined */}
+        <div
+          style={{ ...s.brand, ...(isDashboard ? s.brandActive : {}) }}
+          onClick={() => navigate("/")}
         >
-          {({ isActive }) => (
-            <>
-              <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
-                <IconHQ />
-              </span>
-              <span>Headquarters</span>
-              {isActive && <span style={s.activeDot} />}
-            </>
-          )}
-        </NavLink>
-        {links.filter(({ to }) => to !== "/backstage" || settings.backstageEnabled).map(({ to, label, end, Icon }) => (
+          <Logo />
+          <span style={s.brandName}>4TURA<span style={s.brandAccent}> Home</span></span>
+          {isDashboard && <span style={s.activeDot}/>}
+        </div>
+
+        {/* Divider */}
+        <div style={s.divider}/>
+
+        {/* Navigation */}
+        <nav style={s.nav}>
+          <FinanceDropdown />
+          <EvolveDropdown />
           <NavLink
-            key={to}
-            to={to}
-            end={end}
-            style={({ isActive }) => ({
-              ...s.link,
-              ...(isActive ? s.linkActive : {}),
-            })}
-          >
-            {({ isActive }) => (
-              <>
-                <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
-                  <Icon/>
-                </span>
-                <span>{label}</span>
-                {isActive && <span style={s.activeDot}/>}
-              </>
-            )}
-          </NavLink>
-        ))}
-        {user?.username === "nenciulescu" && (
-          <NavLink
-            to="/admin"
+            to="/headquarters"
             style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
           >
             {({ isActive }) => (
               <>
-                <span style={{ ...s.iconWrap, color: isActive ? "#a855f7" : "var(--text-muted)" }}><IconAdmin /></span>
-                <span>Admin</span>
-                {isActive && <span style={{ ...s.activeDot, background: "rgba(168,85,247,0.7)" }}/>}
+                <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
+                  <IconHQ />
+                </span>
+                <span>Headquarters</span>
+                {isActive && <span style={s.activeDot} />}
               </>
             )}
           </NavLink>
-        )}
-      </nav>
-
-      {/* User area */}
-      <div style={s.userArea}>
-        <select
-          style={s.yearSelect}
-          value={selectedYear}
-          onChange={e => setSelectedYear(Number(e.target.value))}
-          title="Select year"
-        >
-          {availableYears.map(y => (
-            <option key={y} value={y}>{y}</option>
+          {links.filter(({ to }) => to !== "/backstage" || settings.backstageEnabled).map(({ to, label, end, Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              style={({ isActive }) => ({
+                ...s.link,
+                ...(isActive ? s.linkActive : {}),
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <span style={{ ...s.iconWrap, color: isActive ? "var(--badge-text)" : "var(--text-muted)" }}>
+                    <Icon/>
+                  </span>
+                  <span>{label}</span>
+                  {isActive && <span style={s.activeDot}/>}
+                </>
+              )}
+            </NavLink>
           ))}
-        </select>
-        <div style={s.avatar}>{initials}</div>
-        <span style={s.username}>{user?.username}</span>
-        <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
+          {user?.username === "nenciulescu" && (
+            <NavLink
+              to="/admin"
+              style={({ isActive }) => ({ ...s.link, ...(isActive ? s.linkActive : {}) })}
+            >
+              {({ isActive }) => (
+                <>
+                  <span style={{ ...s.iconWrap, color: isActive ? "#a855f7" : "var(--text-muted)" }}><IconAdmin /></span>
+                  <span>Admin</span>
+                  {isActive && <span style={{ ...s.activeDot, background: "rgba(168,85,247,0.7)" }}/>}
+                </>
+              )}
+            </NavLink>
+          )}
+        </nav>
+
+        {/* User area */}
+        <div style={s.userArea}>
+          <select
+            style={s.yearSelect}
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            title="Select year"
+          >
+            {availableYears.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <div style={s.avatar}>{initials}</div>
+          <span style={s.username}>{user?.username}</span>
+          <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
+        </div>
       </div>
+
+      <Breadcrumb pathname={location.pathname} />
     </header>
   );
 }
@@ -457,14 +511,50 @@ const s = {
     top:            0,
     zIndex:         100,
     display:        "flex",
-    alignItems:     "center",
-    gap:            "12px",
-    padding:        "0 24px",
+    flexDirection:  "column",
     height:         "60px",
     background:     "var(--topbar-bg)",
     borderBottom:   "1px solid var(--topbar-border)",
     backdropFilter: "blur(12px)",
     boxShadow:      "0 1px 0 0 var(--topbar-shadow), 0 4px 24px rgba(0,0,0,0.15)",
+  },
+  topRow: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "12px",
+    padding:    "0 24px",
+    flex:       1,
+    minHeight:  0,
+  },
+  breadcrumbRow: {
+    display:     "flex",
+    alignItems:  "center",
+    gap:         "2px",
+    padding:     "0 24px",
+    height:      "20px",
+    flexShrink:  0,
+    borderTop:   "1px solid var(--topbar-border)",
+    boxSizing:   "border-box",
+  },
+  breadcrumbLink: {
+    fontSize:       "10px",
+    fontWeight:     500,
+    color:          "var(--text-muted)",
+    textDecoration: "none",
+    whiteSpace:     "nowrap",
+    transition:     "color 0.12s",
+  },
+  breadcrumbCurrent: {
+    color:      "var(--text)",
+    fontWeight: 600,
+  },
+  breadcrumbSep: {
+    fontSize:   "11px",
+    color:      "var(--text-muted)",
+    opacity:    0.4,
+    userSelect: "none",
+    lineHeight: 1,
+    padding:    "0 1px",
   },
   brand: {
     display:      "flex",

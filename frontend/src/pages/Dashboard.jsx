@@ -22,6 +22,7 @@ export default function Dashboard() {
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const location = useLocation();
+  const pendingRestoreRef = useRef(location.state?.returnStartIdx ?? null);
 
   // Incomes filtered to the selected year
   const yearIncomes = useMemo(() =>
@@ -46,10 +47,20 @@ export default function Dashboard() {
     setStartIdx(activeStartIdx);
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset startIdx whenever the selected year or mobile breakpoint changes
+  // Reset startIdx whenever the selected year or mobile breakpoint changes.
+  // Skip when we're about to restore a saved position (handled by the effect below).
   useEffect(() => {
+    if (pendingRestoreRef.current !== null) return;
     setStartIdx(activeStartIdx);
   }, [selectedYear, yearCurrentIdx, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After data finishes loading, apply a saved column position (from navigating back after add/edit).
+  useEffect(() => {
+    if (pendingRestoreRef.current === null || loading) return;
+    const maxIdx = Math.max(0, yearIncomes.length - 1);
+    setStartIdx(Math.min(pendingRestoreRef.current, maxIdx));
+    pendingRestoreRef.current = null;
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait for AuthContext to finish restoring the session before fetching
@@ -239,6 +250,7 @@ export default function Dashboard() {
               showAmount={showAmounts}
               isCurrent={safeStart + i === yearCurrentIdx}
               isMobile
+              dashboardStartIdx={safeStart}
             />
           ))}
         </div>
@@ -285,6 +297,7 @@ export default function Dashboard() {
                 showAmount={showAmounts}
                 isCurrent={safeStart + i === yearCurrentIdx}
                 isCenter={i === 1}
+                dashboardStartIdx={safeStart}
               />
             ))}
           </div>

@@ -78,7 +78,23 @@ export default function StatisticsTab({ templates, results, kids }) {
       ? +(last5AvgValues.reduce((a, b) => a + b, 0) / last5AvgValues.length).toFixed(2)
       : null;
 
-    return { overall, overallLast5, perTplLast5, perTplAllAvg };
+    // Per-template average over validated (verified) tests only
+    const perTplValidated = {};
+    for (const tpl of templates) {
+      const validated = all.filter(r => r.templateId === tpl.templateId && r.verified);
+      if (validated.length > 0) {
+        const sum = validated.reduce((acc, r) => acc + r.totalScore / 10, 0);
+        perTplValidated[tpl.templateId] = +(sum / validated.length).toFixed(2);
+      }
+    }
+
+    // Overall validated: average of per-template validated averages
+    const validatedAvgValues = Object.values(perTplValidated);
+    const overallValidated = validatedAvgValues.length > 0
+      ? +(validatedAvgValues.reduce((a, b) => a + b, 0) / validatedAvgValues.length).toFixed(2)
+      : null;
+
+    return { overall, overallLast5, perTplLast5, perTplAllAvg, overallValidated, perTplValidated };
   }, [resultsByKid, templates]);
 
   // One pass-rate block per visible (non-hidden) template
@@ -206,6 +222,36 @@ export default function StatisticsTab({ templates, results, kids }) {
             <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
             {templates.map(t => {
               const val = summaryStats.perTplLast5[t.templateId];
+              const color = tplColorMap[t.templateId];
+              return (
+                <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
+                  </div>
+                  <span style={{ fontSize: "16px", fontWeight: 700, color: val != null ? color : "var(--text-muted)", lineHeight: 1 }}>
+                    {val != null ? val.toFixed(2) : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+
+        {/* Section: validated */}
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ padding: "5px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+            Validated
+          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "8px 16px", flex: 1 }}>
+            <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: summaryStats.overallValidated != null ? "var(--text)" : "var(--text-muted)" }}>
+              {summaryStats.overallValidated != null ? summaryStats.overallValidated.toFixed(2) : "—"}
+            </span>
+            <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
+            {templates.map(t => {
+              const val = summaryStats.perTplValidated[t.templateId];
               const color = tplColorMap[t.templateId];
               return (
                 <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px", alignItems: "flex-start" }}>

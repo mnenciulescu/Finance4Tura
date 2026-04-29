@@ -21,7 +21,7 @@ const getDow = (income) =>
     ? income.dayOfWeek.slice(0, 3)
     : DOW[new Date(Date.UTC(...income.date.split("-").map((v, i) => i === 1 ? +v - 1 : +v))).getUTCDay()];
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false, isCenter = false }) {
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false, isCenter = false, dashboardStartIdx }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalCompleted, totalPending } = expenses.reduce(
@@ -37,7 +37,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   const cur     = income.currency ?? "RON";
 
   return (
-    <div className={!isMobile ? (isCenter ? "center-card" : "side-card") : undefined} style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", ...(!isCenter && { transform: "scale(0.95)", transformOrigin: "center center" }), ...(isCenter && { transform: "translateY(-6px)" }) }) }}>
+    <div className={!isMobile ? (isCenter ? "center-card" : "side-card") : undefined} style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", ...(!isCenter && { opacity: 0.9 }) }) }}>
       {/* Header */}
       <div style={{ ...s.header, ...(isCurrent ? s.headerCurrent : {}) }}>
         {/* Top accent strip */}
@@ -55,7 +55,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 <span style={{ ...s.badgeDow, fontSize: isMobile ? "14px" : "11px" }}>{getDow(income)}</span>
               </div>
             ); })()}
-            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} style={{ ...s.addBtn, fontSize: isMobile ? "13px" : "11px", padding: isMobile ? "5px 12px" : "3px 8px" }} title="Add expense">
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} state={{ from: "/finance", returnStartIdx: dashboardStartIdx }} style={{ ...s.addBtn, fontSize: isMobile ? "13px" : "11px", padding: isMobile ? "5px 12px" : "3px 8px" }} title="Add expense">
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="7" y1="2" x2="7" y2="12"/>
                 <line x1="2" y1="7" x2="12" y2="7"/>
@@ -76,7 +76,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 <line x1="8.5" y1="6" x2="8.5" y2="10"/>
               </svg>
             </button>
-            <Link to={`/add-income?id=${income.incomeId}`} style={s.iconLink} title="Edit income">
+            <Link to={`/add-income?id=${income.incomeId}`} state={{ from: "/finance" }} style={s.iconLink} title="Edit income">
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9.5 1.5l3 3L4 13H1v-3L9.5 1.5z"/>
               </svg>
@@ -124,7 +124,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                   </div>
                   <div style={s.expenseRight}>
                     <span style={{ ...s.expenseAmount, fontSize: isMobile ? "15px" : "12px" }}>{fmt(exp.amount ?? 0)}</span>
-                    <Link to={`/add-expense?id=${exp.expenseId}`} style={{ ...s.editLink, fontSize: isMobile ? "16px" : "13px" }} title="Edit expense">✎</Link>
+                    <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: "/finance", returnStartIdx: dashboardStartIdx }} style={{ ...s.editLink, fontSize: isMobile ? "16px" : "13px" }} title="Edit expense">✎</Link>
                     <button style={{ ...s.deleteBtn, fontSize: isMobile ? "14px" : "11px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
                 </li>

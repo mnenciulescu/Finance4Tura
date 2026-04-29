@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { getIncome, createIncome, updateIncome, updateIncomeSeries } from "../api/incomes";
 import Field from "../components/Field";
 import dayjs from "dayjs";
@@ -15,6 +15,7 @@ const EMPTY = {
 
 export default function AddIncome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("id");
   const isEdit = Boolean(editId);
@@ -94,7 +95,7 @@ export default function AddIncome() {
       } else {
         await updateIncome(editId, payload);
       }
-      navigate("/");
+      navigate(location.state?.from ?? "/");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong.");
     } finally {

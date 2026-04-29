@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { getExpense, createExpense, updateExpense, updateExpenseSeries, resolveIncome } from "../api/expenses";
 import Field from "../components/Field";
 import dayjs from "dayjs";
@@ -20,6 +20,7 @@ const EMPTY = {
 
 export default function AddExpense() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const editId      = searchParams.get("id");
   const isEdit      = Boolean(editId);
@@ -133,7 +134,9 @@ export default function AddExpense() {
       } else {
         await updateExpense(editId, payload);
       }
-      navigate("/");
+      navigate(location.state?.from ?? "/", {
+        state: location.state?.returnStartIdx != null ? { returnStartIdx: location.state.returnStartIdx } : undefined,
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong.");
     } finally {
