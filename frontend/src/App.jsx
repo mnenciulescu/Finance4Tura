@@ -21,7 +21,6 @@ import Backstage from "./pages/Backstage";
 import SplitPayment from "./pages/SplitPayment";
 import Investments from "./pages/Investments";
 import Admin from "./pages/Admin";
-import AiNews from "./pages/AiNews";
 import PracticeTests from "./pages/PracticeTests";
 import BooksAndDev from "./pages/BooksAndDev";
 import Headquarters from "./pages/Headquarters";
@@ -45,7 +44,6 @@ function AppRoutes() {
           <Route path="/split-payments" element={<SplitPayment />} />
           <Route path="/investments" element={<Investments />} />
           <Route path="/admin" element={user?.username === "nenciulescu" ? <Admin /> : <Navigate to="/" replace />} />
-          <Route path="/ai-news" element={<AiNews />} />
           <Route path="/practice-tests" element={<PracticeTests />} />
           <Route path="/books-and-dev" element={<BooksAndDev />} />
           <Route path="/headquarters" element={<Headquarters />} />
