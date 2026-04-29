@@ -4,7 +4,7 @@ Description: Finance4Tura – SAM backend
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Architectures: [x86_64]
     Environment:
       Variables:
