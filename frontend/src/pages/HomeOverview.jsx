@@ -30,7 +30,7 @@ function toEUR(amount, currency, rates) {
   return rate ? amount / rate : amount;
 }
 const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
-const FX_TTL_MS    = 6 * 60 * 60 * 1000;
+const FX_TTL_MS    = 30 * 60 * 1000; // 30 min client-side cache; server caches 24 h in DynamoDB
 
 const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
 
@@ -1062,25 +1062,37 @@ export default function HomeOverview() {
   const [error,     setError]     = useState(null);
 
   useEffect(() => {
-    // Apply cached FX rates immediately for instant render
+    // Apply client-side cached rates immediately for instant render
+    let clientCacheValid = false;
     try {
       const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
       if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
         setFxRates(cached.rates);
         setFxStatus("buffered");
+        clientCacheValid = true;
       }
     } catch { /* ignore corrupt cache */ }
 
-    // Fresh FX rates in background
-    fetch("https://api.frankfurter.app/latest?from=EUR&to=USD,RON")
-      .then(r => r.json())
-      .then(d => {
-        if (!d?.rates) return;
-        setFxRates(d.rates);
-        setFxStatus("updated");
-        try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates: d.rates, ts: Date.now() })); } catch { /**/ }
-      })
-      .catch(() => {});
+    // Always fetch from our backend in the background — it caches rates in DynamoDB
+    // so they are shared across all devices and browsers (24 h server-side TTL).
+    // Skip the network call only when the client cache is still warm.
+    if (!clientCacheValid) {
+      apiClient.get("/fx-rates")
+        .then(res => {
+          const { rates } = res.data;
+          if (!rates) return;
+          setFxRates(rates);
+          setFxStatus("updated");
+          try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates, ts: Date.now() })); } catch { /**/ }
+        })
+        .catch(() => {
+          // Backend call failed — fall back to any stale localStorage entry rather than showing nothing
+          try {
+            const stale = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
+            if (stale?.rates) { setFxRates(stale.rates); setFxStatus("buffered"); }
+          } catch { /**/ }
+        });
+    }
 
     Promise.all([
       listIncomes(),

@@ -850,6 +850,27 @@ Resources:
             Method: PUT
 
   # ──────────────────────────────────────────
+  # FX Rates (cached in DynamoDB, shared across all devices)
+  # ──────────────────────────────────────────
+  FxRatesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/fxRates.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppSettingsTable
+      Events:
+        FxRatesGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /fx-rates
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # ──────────────────────────────────────────
   # Headquarters
   # ──────────────────────────────────────────
   HQFunction:
