@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import {
   LineChart, Line, ReferenceLine,
@@ -234,179 +235,117 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
 // ── Section 2: Split Payments ──────────────────────────────────────────────────
 
-function SplitPaymentsSnippet({ payments, onUpdate }) {
-  const [editing, setEditing]   = useState(false);
-  const [editData, setEditData] = useState(null);
-  const debounceTimers          = useRef({});
+function SplitPaymentsTable({ payments, onUpdate }) {
+  const debounceTimers = useRef({});
 
-  const latest = useMemo(() => {
-    if (payments.length === 0) return null;
-    return [...payments].sort((a, b) => {
-      const da = a.createdDate || "";
-      const db = b.createdDate || "";
-      return db.localeCompare(da);
-    })[0];
-  }, [payments]);
+  const latest3 = useMemo(() =>
+    [...payments]
+      .sort((a, b) => (b.createdDate || "").localeCompare(a.createdDate || ""))
+      .slice(0, 3),
+    [payments]
+  );
 
-  if (!latest) return <EmptyState>No split payments yet.</EmptyState>;
+  const maxOcc = latest3.reduce((m, e) => Math.max(m, e.occurrenceCount || 0), 0);
 
-  const display    = editData ?? latest;
-  const paidCount  = (display.occurrences || []).filter(o => o.value !== "" && o.value != null).length;
-  const isFull     = paidCount === display.occurrenceCount;
-  const isAmount   = display.occurrenceType === "amount";
-
-  function openEdit() {
-    setEditData(JSON.parse(JSON.stringify(latest)));
-    setEditing(true);
+  function updateOcc(entry, occIdx, value) {
+    const updated = {
+      ...entry,
+      occurrences: entry.occurrences.map((o, i) => i !== occIdx ? o : { ...o, value }),
+    };
+    onUpdate(updated);
+    const key = `${entry.splitPaymentId}-${occIdx}`;
+    clearTimeout(debounceTimers.current[key]);
+    debounceTimers.current[key] = setTimeout(() => {
+      updateSplitPayment(entry.splitPaymentId, { occurrences: updated.occurrences }).catch(console.error);
+    }, 600);
   }
 
-  function closeEdit() {
-    setEditing(false);
-    setEditData(null);
-    Object.values(debounceTimers.current).forEach(clearTimeout);
-    debounceTimers.current = {};
-  }
+  if (latest3.length === 0) return <EmptyState>No split payments yet.</EmptyState>;
 
-  function updateOcc(occIdx, value) {
-    setEditData(prev => {
-      const updated = {
-        ...prev,
-        occurrences: prev.occurrences.map((o, i) => i === occIdx ? { ...o, value } : o),
-      };
-      const key = `occ-${occIdx}`;
-      clearTimeout(debounceTimers.current[key]);
-      debounceTimers.current[key] = setTimeout(() => {
-        updateSplitPayment(updated.splitPaymentId, { occurrences: updated.occurrences })
-          .then(saved => onUpdate(saved))
-          .catch(console.error);
-      }, 600);
-      return updated;
-    });
-  }
-
-  const occInputStyle = {
-    background: "var(--surface-2, rgba(0,0,0,0.04))", border: "1px solid var(--border)",
-    borderRadius: "6px", color: "var(--text)", fontSize: "12px", padding: "4px 7px",
-    outline: "none", fontFamily: "inherit", width: isAmount ? "90px" : "120px",
+  const th = {
+    textAlign: "left", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)",
+    textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 10px",
+    borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+    background: "var(--surface)", position: "sticky", top: 0, zIndex: 1,
+  };
+  const td = {
+    padding: "8px 10px", fontSize: "12px", color: "var(--text)",
+    whiteSpace: "nowrap", borderBottom: "1px solid var(--border)",
   };
 
   return (
-    <>
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{latest.title}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{latest.createdDate?.slice(5)}</span>
-            <button onClick={openEdit} title="Edit" style={{
-              background: "transparent", border: "none", cursor: "pointer",
-              color: "var(--text-muted)", fontSize: "14px", padding: "2px 4px", lineHeight: 1,
-            }}>✎</button>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-          <span style={{ fontSize: "15px", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--text)" }}>
-            {Number(latest.totalAmount).toLocaleString("ro-RO")} {latest.currency}
-          </span>
-          <span style={{
-            fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "4px",
-            background: isFull ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
-            color: isFull ? "#16a34a" : "#d97706",
-          }}>
-            {paidCount}/{display.occurrenceCount}{isFull ? " ✓" : ""}
-          </span>
-        </div>
-        {latest.occurrences && latest.occurrences.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {latest.occurrences.map((occ, i) => {
-              const hasPaid = occ.value !== "" && occ.value != null;
-              return (
-                <div key={i} style={{
-                  padding: "4px 10px", borderRadius: "6px", fontSize: "12px",
-                  background: hasPaid ? "rgba(34,197,94,0.13)" : "var(--surface-2, rgba(0,0,0,0.04))",
-                  border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
-                  color: hasPaid ? "#16a34a" : "var(--text-muted)",
-                  fontVariantNumeric: "tabular-nums",
-                }}>
-                  #{i + 1}{hasPaid ? `: ${/^\d{4}-\d{2}-\d{2}$/.test(occ.value) ? occ.value.slice(5) : occ.value}` : ""}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Edit modal ── */}
-      {editing && editData && (
-        <div
-          onClick={closeEdit}
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-            zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px",
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px",
-              width: "100%", maxWidth: "460px", maxHeight: "80vh",
-              display: "flex", flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
-              <div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{editData.title}</div>
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
-                  {Number(editData.totalAmount).toLocaleString("ro-RO")} {editData.currency} · {editData.createdDate}
-                </div>
-              </div>
-              <button onClick={closeEdit} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "18px", cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>✕</button>
-            </div>
-
-            {/* Occurrence inputs */}
-            <div style={{ padding: "16px 18px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>
-                Occurrences
-              </div>
-              {editData.occurrences.map((occ, i) => {
-                const hasPaid = occ.value !== "" && occ.value != null;
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)", width: "28px", flexShrink: 0 }}>#{i + 1}</span>
-                    <input
-                      type={isAmount ? "number" : "date"}
-                      value={occ.value ?? ""}
-                      min={isAmount ? "0" : undefined}
-                      step={isAmount ? "any" : undefined}
-                      placeholder={isAmount ? "0.00" : undefined}
-                      onChange={e => updateOcc(i, e.target.value)}
-                      style={{ ...occInputStyle, borderColor: hasPaid ? "rgba(34,197,94,0.5)" : "var(--border)", color: hasPaid ? "#16a34a" : "var(--text)" }}
-                    />
-                    {hasPaid && (
-                      <button
-                        onClick={() => updateOcc(i, "")}
-                        title="Clear"
-                        style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "12px", cursor: "pointer", padding: "2px 4px" }}
-                      >✕</button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={closeEdit}
-                style={{ background: "var(--accent)", color: "#000", border: "none", borderRadius: "8px", padding: "7px 20px", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={th}>Date</th>
+            <th style={th}>Title</th>
+            <th style={{ ...th, textAlign: "right" }}>Amount</th>
+            <th style={th}>Cur.</th>
+            {Array.from({ length: maxOcc }, (_, i) => (
+              <th key={i} style={{ ...th, textAlign: "center" }}>#{i + 1}</th>
+            ))}
+            <th style={th}>Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {latest3.map(entry => {
+            const isAmount  = entry.occurrenceType === "amount";
+            const paidCount = (entry.occurrences || []).filter(o => o.value !== "" && o.value != null).length;
+            const isFull    = paidCount === entry.occurrenceCount;
+            return (
+              <tr key={entry.splitPaymentId}>
+                <td style={td}>{entry.createdDate}</td>
+                <td style={{ ...td, fontWeight: 500 }}>{entry.title}</td>
+                <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {Number(entry.totalAmount).toLocaleString("ro-RO")}
+                </td>
+                <td style={td}>{entry.currency}</td>
+                {Array.from({ length: maxOcc }, (_, i) => {
+                  const occ = (entry.occurrences || [])[i];
+                  if (!occ) return <td key={i} style={td} />;
+                  const hasPaid = occ.value !== "" && occ.value != null;
+                  return (
+                    <td key={i} style={{ ...td, padding: "5px 6px", textAlign: "center" }}>
+                      <input
+                        type={isAmount ? "number" : "date"}
+                        value={occ.value ?? ""}
+                        min={isAmount ? "0" : undefined}
+                        step={isAmount ? "any" : undefined}
+                        placeholder={isAmount ? "0.00" : undefined}
+                        onChange={e => updateOcc(entry, i, e.target.value)}
+                        style={{
+                          width: isAmount ? "76px" : "108px",
+                          padding: "3px 5px", borderRadius: "5px", fontSize: "11px",
+                          border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
+                          background: hasPaid ? "rgba(34,197,94,0.10)" : "rgba(255,255,255,0.04)",
+                          color: hasPaid ? "#16a34a" : "var(--text)",
+                          outline: "none", fontFamily: "inherit",
+                          fontVariantNumeric: "tabular-nums", boxSizing: "border-box",
+                          transition: "border-color 0.15s, background 0.15s",
+                        }}
+                      />
+                    </td>
+                  );
+                })}
+                <td style={td}>
+                  <span style={{
+                    display: "inline-block", padding: "2px 7px", borderRadius: "10px",
+                    fontSize: "11px", fontWeight: 600, whiteSpace: "nowrap",
+                    ...(isFull
+                      ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
+                      : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+                    ),
+                  }}>
+                    {paidCount}/{entry.occurrenceCount}{isFull ? " ✓" : ""}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -1201,25 +1140,32 @@ export default function HomeOverview() {
         <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
       </div>
 
-      {/* Section 2 — Split Payments + Books stacked (span 2) */}
-      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: "16px" }}>
-        <Card>
-          <SectionHeader>Split Payments — Latest</SectionHeader>
-          <SplitPaymentsSnippet
-            payments={payments}
-            onUpdate={saved => setPayments(prev => prev.map(p => p.splitPaymentId === saved.splitPaymentId ? saved : p))}
-          />
-        </Card>
-        <Card style={{ flex: 1 }}>
-          <SectionHeader>Books & Development — Latest per Person</SectionHeader>
-          <BooksSnippet books={books} />
-        </Card>
-      </div>
+      {/* Section 2 — Split Payments (span 4 — wider for full table) */}
+      <Card style={{ gridColumn: "span 4" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Split Payments — Last 3
+          </span>
+          <Link to="/split-payments" style={{ fontSize: "11px", color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>
+            View all →
+          </Link>
+        </div>
+        <SplitPaymentsTable
+          payments={payments}
+          onUpdate={updated => setPayments(prev => prev.map(p => p.splitPaymentId === updated.splitPaymentId ? updated : p))}
+        />
+      </Card>
 
-      {/* Section 3 — Current Holdings (span 2) */}
-      <Card style={{ gridColumn: "span 2" }}>
+      {/* Section 3 — Current Holdings (span 3) */}
+      <Card style={{ gridColumn: "span 3" }}>
         <SectionHeader>Current Holdings</SectionHeader>
         <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
+      </Card>
+
+      {/* Section 4 — Books & Development (span 3 — same row/height as Holdings) */}
+      <Card style={{ gridColumn: "span 3" }}>
+        <SectionHeader>Books & Development — Latest per Person</SectionHeader>
+        <BooksSnippet books={books} />
       </Card>
 
       {/* Practice Tests summary bar (span 6) */}
