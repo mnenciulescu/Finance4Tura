@@ -1148,12 +1148,12 @@ export default function HomeOverview() {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto", alignContent: "start" }}>
 
       {/* Section 1 — Pending Expenses (span 2) */}
-      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column" }}>
+      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", height: "100%" }}>
         <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
       </div>
 
       {/* Section 2 — Split Payments (span 4 — wider for full table) */}
-      <Card style={{ gridColumn: "span 4" }}>
+      <Card style={{ gridColumn: "span 4", height: "100%", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
           <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Split Payments — Last 3
