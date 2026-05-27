@@ -222,11 +222,6 @@ const s = {
     color:     "var(--text)",
     whiteSpace:"nowrap",
   },
-  inlineEditRow: {
-    background:     "rgba(134,239,172,0.06)",
-    borderBottom:   "1px solid var(--border)",
-    borderLeft:     "3px solid var(--badge-text)",
-  },
   inlineInput: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",

@@ -163,7 +163,7 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
       </div>
 
       {/* Expense list */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {pending.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: "12px", padding: "12px 16px" }}>
             No pending expenses for this period.
@@ -1145,7 +1145,7 @@ export default function HomeOverview() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto", alignContent: "start" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gridTemplateRows: "420px 260px auto auto", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
 
       {/* Section 1 — Pending Expenses (span 2) */}
       <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1153,7 +1153,7 @@ export default function HomeOverview() {
       </div>
 
       {/* Section 2 — Split Payments (span 4 — wider for full table) */}
-      <Card style={{ gridColumn: "span 4", height: "100%", boxSizing: "border-box" }}>
+      <Card style={{ gridColumn: "span 4", height: "100%", boxSizing: "border-box", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
           <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Split Payments — Last 3
@@ -1169,15 +1169,19 @@ export default function HomeOverview() {
       </Card>
 
       {/* Section 3 — Current Holdings (span 3) */}
-      <Card style={{ gridColumn: "span 3" }}>
+      <Card style={{ gridColumn: "span 3", height: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <SectionHeader>Current Holdings</SectionHeader>
-        <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
+        </div>
       </Card>
 
       {/* Section 4 — Books & Development (span 3 — same row/height as Holdings) */}
-      <Card style={{ gridColumn: "span 3" }}>
+      <Card style={{ gridColumn: "span 3", height: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <SectionHeader>Books & Development — Latest per Person</SectionHeader>
-        <BooksSnippet books={books} />
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          <BooksSnippet books={books} />
+        </div>
       </Card>
 
       {/* Practice Tests summary bar (span 6) */}
