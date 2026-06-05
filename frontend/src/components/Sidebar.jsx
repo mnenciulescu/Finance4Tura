@@ -619,7 +619,7 @@ const s = {
     width:        "16px",
     height:       "2px",
     borderRadius: "2px",
-    background:   "rgba(134,239,172,0.7)",
+    background:   "var(--accent-nav-ind)",
     opacity:      1,
   },
   userArea: {

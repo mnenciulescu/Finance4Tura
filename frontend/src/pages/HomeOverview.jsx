@@ -141,7 +141,7 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
       {/* Header — matches IncomeCard headerCurrent */}
       <div style={{ background: "var(--header-current-bg)", borderBottom: "1px solid var(--header-current-border)", overflow: "hidden" }}>
-        <div style={{ height: "3px", background: "linear-gradient(90deg, var(--accent), rgba(134,239,172,0.2))" }} />
+        <div style={{ height: "3px", background: "linear-gradient(90deg, var(--accent), var(--accent-grad-end))" }} />
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px 12px" }}>
           {/* Date badge + title */}
           <div style={{ display: "flex", alignItems: "center", gap: "5px", lineHeight: 1 }}>
@@ -847,7 +847,7 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
           onTouchEnd={() => setRevealed(false)}
           title="Hold to reveal amounts"
           style={{
-            background: revealed ? "rgba(134,239,172,0.15)" : "var(--surface)",
+            background: revealed ? "var(--accent-reveal-bg)" : "var(--surface)",
             border: `1px solid ${revealed ? "var(--accent)" : "var(--border)"}`,
             borderRadius: "6px", cursor: "pointer",
             color: revealed ? "var(--accent)" : "var(--text-muted)",
@@ -878,7 +878,7 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
         <div style={{
           fontSize: "11px", color: "var(--text-muted)", fontStyle: "italic",
           padding: "7px 10px", marginBottom: "10px",
-          background: "rgba(134,239,172,0.06)", border: "1px solid rgba(134,239,172,0.15)",
+          background: "var(--accent-glow-bg)", border: "1px solid var(--accent-glow-border)",
           borderRadius: "7px", lineHeight: 1.5,
         }}>
           {funFactLoading ? "💭 Thinking of something funny…" : `💡 ${funFact}`}

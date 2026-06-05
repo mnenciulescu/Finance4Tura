@@ -7,11 +7,80 @@ export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "tr
 export const setPrivacySetting = (val) => localStorage.setItem(PRIVACY_KEY, String(val));
 
 const THEME_KEY = "appTheme";
-const getTheme = () => localStorage.getItem(THEME_KEY) ?? "light";
-const applyTheme = (theme) => {
-  localStorage.setItem(THEME_KEY, theme);
-  document.documentElement.setAttribute("data-theme", theme);
-};
+const getStoredTheme = () => localStorage.getItem(THEME_KEY) ?? "light";
+const applyThemeToDOM = (theme) => document.documentElement.setAttribute("data-theme", theme);
+const saveTheme = (theme) => localStorage.setItem(THEME_KEY, theme);
+
+const THEMES = [
+  {
+    id: "dark",
+    label: "Dark",
+    bg: "#1a1d27",
+    surface: "#222535",
+    border: "#2e3148",
+    accent: "#16a34a",
+    strip: "#86efac",
+  },
+  {
+    id: "light",
+    label: "Light",
+    bg: "#f9fbf9",
+    surface: "#eef2ee",
+    border: "#c2d4c4",
+    accent: "#15803d",
+    strip: "#15803d",
+  },
+  {
+    id: "amber",
+    label: "Amber",
+    bg: "#fffdf8",
+    surface: "#f6ecd6",
+    border: "#d4a845",
+    accent: "#b45309",
+    strip: "#b45309",
+  },
+];
+
+function ThemeCard({ theme, selected, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(theme.id)}
+      style={{
+        ...s.themeCard,
+        ...(selected ? s.themeCardSelected : {}),
+        borderColor: selected ? theme.accent : "var(--border)",
+        boxShadow: selected ? `0 0 0 2px ${theme.accent}33` : "none",
+      }}
+    >
+      {/* Mini app preview */}
+      <div style={{ ...s.themePreviewBox, background: theme.bg }}>
+        {/* Top bar */}
+        <div style={{ ...s.themeTopbar, background: theme.surface, borderBottom: `1px solid ${theme.border}` }}>
+          <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: theme.accent, opacity: 0.9 }} />
+          <div style={{ display: "flex", gap: "4px" }}>
+            <div style={{ width: "18px", height: "3px", borderRadius: "2px", background: theme.border }} />
+            <div style={{ width: "12px", height: "3px", borderRadius: "2px", background: theme.border }} />
+          </div>
+        </div>
+        {/* Content rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "5px 5px 3px" }}>
+          {/* Accent strip */}
+          <div style={{ height: "2px", borderRadius: "1px", background: theme.strip, width: "60%" }} />
+          <div style={{ height: "3px", borderRadius: "2px", background: theme.border, width: "85%" }} />
+          <div style={{ height: "3px", borderRadius: "2px", background: theme.border, width: "70%", opacity: 0.6 }} />
+          <div style={{ height: "3px", borderRadius: "2px", background: theme.accent, width: "40%", opacity: 0.7 }} />
+        </div>
+      </div>
+      {/* Label */}
+      <span style={{ ...s.themeLabel, color: selected ? theme.accent : "var(--text-muted)" }}>
+        {theme.label}
+      </span>
+      {selected && (
+        <span style={{ ...s.themeCheck, color: theme.accent }}>✓</span>
+      )}
+    </button>
+  );
+}
 
 function Toggle({ value, onChange }) {
   return (
@@ -28,14 +97,13 @@ function Toggle({ value, onChange }) {
 export default function Settings() {
   const navigate = useNavigate();
   const [draftPrivacy, setDraftPrivacy] = useState(getPrivacySetting());
-  const [draftTheme,   setDraftTheme]   = useState(getTheme());
+  const [draftTheme,   setDraftTheme]   = useState(getStoredTheme());
 
   // SP500 sync
-  const [syncLog,     setSyncLog]     = useState(null);  // null = idle; string[] = all lines
-  const [syncVisible, setSyncVisible] = useState(0);     // how many lines currently shown
+  const [syncLog,     setSyncLog]     = useState(null);
+  const [syncVisible, setSyncVisible] = useState(0);
   const [syncing,     setSyncing]     = useState(false);
 
-  // Animate log lines appearing one by one
   useEffect(() => {
     if (!syncLog || syncVisible >= syncLog.length) return;
     const t = setTimeout(() => setSyncVisible(v => v + 1), 80);
@@ -48,7 +116,6 @@ export default function Settings() {
     setSyncLog(["Checking S&P 500 database..."]);
     setSyncVisible(1);
 
-    // Lambda fetches Yahoo Finance and returns complete log
     postSP500({ sync: true })
       .then(({ log }) => {
         setSyncLog(["Checking S&P 500 database...", ...log]);
@@ -60,21 +127,19 @@ export default function Settings() {
       });
   };
 
-  const handleThemeToggle = (isLight) => {
-    const next = isLight ? "light" : "dark";
-    setDraftTheme(next);
-    applyTheme(next); // live preview
+  const handleThemeSelect = (theme) => {
+    setDraftTheme(theme);
+    applyThemeToDOM(theme);
   };
 
   const handleOk = () => {
     setPrivacySetting(draftPrivacy);
-    applyTheme(draftTheme);
+    saveTheme(draftTheme);
     navigate(-1);
   };
 
   const handleCancel = () => {
-    // revert live preview
-    applyTheme(getTheme());
+    applyThemeToDOM(getStoredTheme());
     navigate(-1);
   };
 
@@ -87,14 +152,21 @@ export default function Settings() {
         <section style={s.section}>
           <h2 style={s.sectionTitle}>Appearance</h2>
 
-          <div style={s.settingRow}>
-            <div style={s.settingInfo}>
-              <span style={s.settingLabel}>Light Theme</span>
-              <span style={s.settingDesc}>
-                Switch between Dark (default) and Light color theme.
-              </span>
-            </div>
-            <Toggle value={draftTheme === "light"} onChange={handleThemeToggle} />
+          <div style={s.settingInfo}>
+            <span style={s.settingLabel}>Color Theme</span>
+            <span style={s.settingDesc}>
+              Choose a color theme for the application.
+            </span>
+          </div>
+          <div style={s.themeRow}>
+            {THEMES.map(theme => (
+              <ThemeCard
+                key={theme.id}
+                theme={theme}
+                selected={draftTheme === theme.id}
+                onSelect={handleThemeSelect}
+              />
+            ))}
           </div>
         </section>
 
@@ -169,7 +241,7 @@ const s = {
   },
   card: {
     width:        "100%",
-    maxWidth:     "480px",
+    maxWidth:     "520px",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
     borderRadius: "14px",
@@ -218,6 +290,57 @@ const s = {
     color:      "var(--text-muted)",
     lineHeight: 1.5,
   },
+  themeRow: {
+    display:   "flex",
+    gap:       "12px",
+    flexWrap:  "wrap",
+  },
+  themeCard: {
+    position:     "relative",
+    display:      "flex",
+    flexDirection:"column",
+    alignItems:   "center",
+    gap:          "8px",
+    padding:      "10px",
+    background:   "var(--surface-2)",
+    border:       "2px solid var(--border)",
+    borderRadius: "12px",
+    cursor:       "pointer",
+    transition:   "border-color 0.15s, box-shadow 0.15s",
+    minWidth:     "100px",
+    flex:         "1 1 0",
+  },
+  themeCardSelected: {
+    background: "var(--surface)",
+  },
+  themePreviewBox: {
+    width:        "80px",
+    height:       "54px",
+    borderRadius: "7px",
+    overflow:     "hidden",
+    display:      "flex",
+    flexDirection:"column",
+    border:       "1px solid rgba(0,0,0,0.08)",
+  },
+  themeTopbar: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    padding:        "4px 5px",
+    flexShrink:     0,
+  },
+  themeLabel: {
+    fontSize:   "12px",
+    fontWeight: 600,
+    transition: "color 0.15s",
+  },
+  themeCheck: {
+    position:   "absolute",
+    top:        "6px",
+    right:      "8px",
+    fontSize:   "11px",
+    fontWeight: 700,
+  },
   toggle: {
     position:     "relative",
     width:        "44px",
@@ -246,13 +369,13 @@ const s = {
     display:      "block",
   },
   logPanel: {
-    background:   "#0f172a",
-    borderRadius: "8px",
-    padding:      "14px 18px",
-    fontFamily:   "'Courier New', Courier, monospace",
-    fontSize:     "12px",
-    lineHeight:   1.7,
-    display:      "flex",
+    background:    "#0f172a",
+    borderRadius:  "8px",
+    padding:       "14px 18px",
+    fontFamily:    "'Courier New', Courier, monospace",
+    fontSize:      "12px",
+    lineHeight:    1.7,
+    display:       "flex",
     flexDirection: "column",
   },
   actions: {

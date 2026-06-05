@@ -274,7 +274,7 @@ const s = {
   },
   currentBadge: {
     fontSize: "11px", fontWeight: 600, color: "var(--accent)",
-    background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.3)",
+    background: "var(--accent-badge-bg)", border: "1px solid var(--accent-badge-border)",
     borderRadius: "6px", padding: "2px 8px", textTransform: "none", letterSpacing: "0",
   },
   chartBody: { flex: 1, minHeight: 0 },

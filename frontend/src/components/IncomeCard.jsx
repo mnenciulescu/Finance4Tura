@@ -265,7 +265,7 @@ const s = {
   },
   accentStrip: {
     height:     "3px",
-    background: "linear-gradient(90deg, var(--accent), rgba(134,239,172,0.2))",
+    background: "linear-gradient(90deg, var(--accent), var(--accent-grad-end))",
   },
   headerRow: {
     display:       "flex",
@@ -355,8 +355,8 @@ const s = {
     display:        "flex",
     alignItems:     "center",
     gap:            "4px",
-    background:     "rgba(134,239,172,0.1)",
-    border:         "1px solid rgba(134,239,172,0.25)",
+    background:     "var(--accent-tint-bg)",
+    border:         "1px solid var(--accent-tint-border)",
     borderRadius:   "6px",
     color:          "var(--accent)",
     fontSize:       "11px",

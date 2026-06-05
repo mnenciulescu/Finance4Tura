@@ -41,6 +41,18 @@
   --avatar-border:         rgba(134,239,172,0.3);
   --avatar-color:          #86efac;
 
+  /* accent overlay helpers — updated per theme */
+  --accent-grad-end:     rgba(134,239,172,0.2);
+  --accent-tint-bg:      rgba(134,239,172,0.1);
+  --accent-tint-border:  rgba(134,239,172,0.25);
+  --accent-glow-bg:      rgba(134,239,172,0.06);
+  --accent-glow-border:  rgba(134,239,172,0.15);
+  --accent-reveal-bg:    rgba(134,239,172,0.15);
+  --accent-nav-ind:      rgba(134,239,172,0.7);
+  --accent-row-bg:       rgba(134,239,172,0.06);
+  --accent-badge-bg:     rgba(22,163,74,0.1);
+  --accent-badge-border: rgba(22,163,74,0.3);
+
   --card-w: 280px;
 
   font-family: system-ui, -apple-system, sans-serif;
@@ -85,6 +97,66 @@
   --success-text:       #166534;
   --warning-bg:         #fffbeb;
   --warning-text:       #92400e;
+
+  --accent-grad-end:     rgba(22,163,74,0.2);
+  --accent-tint-bg:      rgba(22,163,74,0.1);
+  --accent-tint-border:  rgba(22,163,74,0.25);
+  --accent-glow-bg:      rgba(22,163,74,0.06);
+  --accent-glow-border:  rgba(22,163,74,0.15);
+  --accent-reveal-bg:    rgba(22,163,74,0.15);
+  --accent-nav-ind:      rgba(22,163,74,0.7);
+  --accent-row-bg:       rgba(22,163,74,0.06);
+  --accent-badge-bg:     rgba(22,163,74,0.1);
+  --accent-badge-border: rgba(22,163,74,0.3);
+}
+
+[data-theme="amber"] {
+  --bg:           #fef9f0;
+  --surface:      #fffdf8;
+  --surface-2:    #f6ecd6;
+  --border:       #d4a845;
+  --text:         #1a1100;
+  --text-muted:   #7c5c1e;
+  --accent:       #b45309;
+  --accent-hover: #92400e;
+  --danger:       #dc2626;
+  --success:      #15803d;
+  --warning:      #ea580c;
+
+  --topbar-bg:          rgba(254,249,240,0.97);
+  --topbar-border:      rgba(180,83,9,0.28);
+  --topbar-shadow:      rgba(180,83,9,0.10);
+  --topbar-link-active: rgba(180,83,9,0.10);
+
+  --badge-text:         #b45309;
+  --badge-text-muted:   rgba(180,83,9,0.6);
+  --amount-text:        #b45309;
+  --header-amount-text: #1a1100;
+  --bar-label:          rgba(0,0,0,0.75);
+
+  --header-current-bg:     rgba(180,83,9,0.08);
+  --header-current-border: rgba(180,83,9,0.35);
+  --avatar-bg:             rgba(180,83,9,0.10);
+  --avatar-border:         rgba(180,83,9,0.40);
+  --avatar-color:          #b45309;
+
+  --error-bg:           #fef2f2;
+  --error-text:         #b91c1c;
+  --success-bg:         #f0fdf4;
+  --success-text:       #166534;
+  --warning-bg:         #fff4ec;
+  --warning-text:       #9a3412;
+
+  --accent-grad-end:     rgba(212,121,28,0.2);
+  --accent-tint-bg:      rgba(180,83,9,0.10);
+  --accent-tint-border:  rgba(180,83,9,0.25);
+  --accent-glow-bg:      rgba(180,83,9,0.06);
+  --accent-glow-border:  rgba(180,83,9,0.15);
+  --accent-reveal-bg:    rgba(180,83,9,0.15);
+  --accent-nav-ind:      rgba(180,83,9,0.70);
+  --accent-row-bg:       rgba(180,83,9,0.06);
+  --accent-badge-bg:     rgba(180,83,9,0.10);
+  --accent-badge-border: rgba(180,83,9,0.30);
 }
 
 html {
@@ -132,10 +204,20 @@ button:focus-visible {
   --text-muted: #2a4233;
 }
 
+[data-theme="amber"] .side-card {
+  opacity: 0.72;
+  --text:       #0a0800;
+  --text-muted: #5c4415;
+}
+
 .center-card {
   box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2), 0 0 40px rgba(255,255,255,0.28);
 }
 
 [data-theme="light"] .center-card {
   box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(22,163,74,0.35);
+}
+
+[data-theme="amber"] .center-card {
+  box-shadow: 0 16px 48px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08), 0 0 32px rgba(180,83,9,0.22);
 }

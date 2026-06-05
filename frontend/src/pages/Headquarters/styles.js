@@ -209,7 +209,7 @@ const s = {
     whiteSpace:   "nowrap",
   },
   inlineEditRow: {
-    background:   "rgba(134,239,172,0.06)",
+    background:   "var(--accent-row-bg)",
     borderBottom: "1px solid var(--border)",
     borderLeft:   "3px solid var(--badge-text)",
   },
