@@ -115,7 +115,7 @@ export default function Login() {
     backgroundSize:     "cover",
     backgroundPosition: "center",
     justifyContent:     "flex-end",
-    paddingRight:       "8vw",
+    paddingRight:       "16vw",
   };
 
   const cardStyle = isMobile ? s.card : {
