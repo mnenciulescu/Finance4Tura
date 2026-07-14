@@ -332,9 +332,7 @@ function SplitPaymentsTable({ payments, onUpdate }) {
 // ── Section 3: Current Holdings ───────────────────────────────────────────────
 
 function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
-  const [revealed,      setRevealed]      = useState(false);
-  const [funFact,       setFunFact]       = useState(null);
-  const [funFactLoading, setFunFactLoading] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   const snapshotsInEUR = useMemo(() =>
     snapshots.map(s => ({ ...s, amount: toEUR(s.amount, s.currency, fxRates), currency: "EUR" })),
@@ -368,16 +366,6 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
     Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
     [latestByPlatform]
   );
-
-  useEffect(() => {
-    if (!totalEUR || totalEUR <= 0) return;
-    const rounded = Math.round(totalEUR / 100) * 100;
-    setFunFactLoading(true);
-    apiClient.get(`/fun-fact?amount=${rounded}`)
-      .then(r => setFunFact(r.data.sentence))
-      .catch(() => setFunFact("Your portfolio is impressive — Claude ran out of words."))
-      .finally(() => setFunFactLoading(false));
-  }, [totalEUR]);
 
   const fmtAmt = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const mask = "••••";
@@ -442,18 +430,6 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
           </svg>
         </button>
       </div>
-
-      {/* Fun fact */}
-      {(funFact || funFactLoading) && (
-        <div style={{
-          fontSize: "11px", color: "var(--text-muted)", fontStyle: "italic",
-          padding: "7px 10px", marginBottom: "10px",
-          background: "var(--accent-glow-bg)", border: "1px solid var(--accent-glow-border)",
-          borderRadius: "7px", lineHeight: 1.5,
-        }}>
-          {funFactLoading ? "💭 Thinking of something funny…" : `💡 ${funFact}`}
-        </div>
-      )}
 
       {/* Platform table */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
