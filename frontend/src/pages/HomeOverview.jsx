@@ -1,15 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
-import {
-  LineChart, Line, ReferenceLine,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
 import { listIncomes } from "../api/incomes";
 import { listExpenses, updateExpense } from "../api/expenses";
 import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
-import { listTemplates, listResults, getKids } from "../api/practiceTests";
 import { listSnapshots } from "../api/investments";
 import apiClient from "../api/client";
 import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
@@ -31,8 +26,6 @@ function toEUR(amount, currency, rates) {
 }
 const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
 const FX_TTL_MS    = 30 * 60 * 1000; // 30 min client-side cache; server caches 24 h in DynamoDB
-
-const TEMPLATE_COLORS = ["#16a34a", "#60a5fa", "#f9a8d4", "#fcd34d", "#a78bfa", "#34d399", "#fb923c"];
 
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -349,416 +342,6 @@ function SplitPaymentsTable({ payments, onUpdate }) {
   );
 }
 
-// ── Section 3: Practice Tests — Summary Bar ───────────────────────────────────
-
-function PracticeSummaryBar({ templates, results }) {
-  const [filterKid, setFilterKid] = useState("");
-
-  const tplColorMap = useMemo(() => {
-    const map = {};
-    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
-    return map;
-  }, [templates]);
-
-  const kidNames = useMemo(() => [...new Set(results.map(r => r.kidName))].sort(), [results]);
-
-  const stats = useMemo(() => {
-    const all = (filterKid ? results.filter(r => r.kidName === filterKid) : results)
-      .filter(r => r.totalScore != null);
-
-    const perTplLast5 = {};
-    for (const tpl of templates) {
-      const sorted = all.filter(r => r.templateId === tpl.templateId)
-        .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-      if (sorted.length) perTplLast5[tpl.templateId] = +(sorted.reduce((s, r) => s + r.totalScore / 10, 0) / sorted.length).toFixed(2);
-    }
-
-    const perTplValidated = {};
-    for (const tpl of templates) {
-      const v = all.filter(r => r.templateId === tpl.templateId && r.verified);
-      if (v.length) perTplValidated[tpl.templateId] = +(v.reduce((s, r) => s + r.totalScore / 10, 0) / v.length).toFixed(2);
-    }
-
-    const perTplAll = {};
-    for (const tpl of templates) {
-      const t = all.filter(r => r.templateId === tpl.templateId);
-      if (t.length) perTplAll[tpl.templateId] = +(t.reduce((s, r) => s + r.totalScore / 10, 0) / t.length).toFixed(2);
-    }
-
-    const avg = vals => vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
-    return {
-      overallLast5:     avg(Object.values(perTplLast5)),
-      overallValidated: avg(Object.values(perTplValidated)),
-      overall:          avg(Object.values(perTplAll)),
-      perTplLast5, perTplValidated, perTplAllAvg: perTplAll,
-    };
-  }, [results, templates, filterKid]);
-
-  if (!results.length) return null;
-
-  const DIV = { width: "1px", background: "var(--border)", flexShrink: 0, alignSelf: "stretch" };
-  const HDR = { padding: "5px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" };
-  const BOD = { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "8px 16px" };
-
-  return (
-    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "row", alignItems: "stretch" }}>
-
-      {/* Kid filter */}
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "4px", padding: "10px 16px", flexShrink: 0 }}>
-        <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Kid</span>
-        <select style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "7px", color: "var(--text)", fontSize: "12px", padding: "5px 10px", cursor: "pointer", outline: "none" }}
-          value={filterKid} onChange={e => setFilterKid(e.target.value)}>
-          <option value="">All</option>
-          {kidNames.map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
-      </div>
-
-      <div style={DIV} />
-
-      {/* Last 5 */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={HDR}>Last 5</div>
-        <div style={BOD}>
-          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overallLast5 != null ? "var(--text)" : "var(--text-muted)" }}>
-            {stats.overallLast5 != null ? stats.overallLast5.toFixed(2) : "—"}
-          </span>
-          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
-          {templates.map(t => {
-            const val = stats.perTplLast5[t.templateId];
-            const color = tplColorMap[t.templateId];
-            return (
-              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
-                </div>
-                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
-                  {val != null ? val.toFixed(2) : "—"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={DIV} />
-
-      {/* Validated */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={HDR}>Validated</div>
-        <div style={BOD}>
-          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overallValidated != null ? "var(--text)" : "var(--text-muted)" }}>
-            {stats.overallValidated != null ? stats.overallValidated.toFixed(2) : "—"}
-          </span>
-          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
-          {templates.map(t => {
-            const val = stats.perTplValidated[t.templateId];
-            const color = tplColorMap[t.templateId];
-            return (
-              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
-                </div>
-                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
-                  {val != null ? val.toFixed(2) : "—"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={DIV} />
-
-      {/* All tests */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={HDR}>All tests</div>
-        <div style={BOD}>
-          <span style={{ fontSize: "22px", fontWeight: 800, lineHeight: 1, color: stats.overall != null ? "var(--text)" : "var(--text-muted)" }}>
-            {stats.overall != null ? stats.overall.toFixed(2) : "—"}
-          </span>
-          <div style={{ width: "1px", height: "28px", background: "var(--border)", flexShrink: 0 }} />
-          {templates.map(t => {
-            const val = stats.perTplAllAvg[t.templateId];
-            const color = tplColorMap[t.templateId];
-            return (
-              <div key={t.templateId} style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
-                </div>
-                <span style={{ fontSize: "16px", fontWeight: 700, lineHeight: 1, color: val != null ? color : "var(--text-muted)" }}>
-                  {val != null ? val.toFixed(2) : "—"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={DIV} />
-    </div>
-  );
-}
-
-// ── Section 3a: Practice Tests — Grade Evolution chart ────────────────────────
-
-function PracticeChartWithHeader({ templates, results }) {
-  const tplColorMap = useMemo(() => {
-    const map = {};
-    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
-    return map;
-  }, [templates]);
-
-  const seen = useMemo(() => new Set(results.map(r => r.templateId)), [results]);
-  const visibleTemplates = templates.filter(t => seen.has(t.templateId));
-
-  return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
-        <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>
-          Practice Tests — Grade Evolution
-        </span>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {visibleTemplates.map(t => (
-            <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: tplColorMap[t.templateId], display: "inline-block", flexShrink: 0 }} />
-              <span style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <PracticeChart templates={templates} results={results} />
-      </div>
-    </>
-  );
-}
-
-function PracticeChart({ templates, results }) {
-  const tplColorMap = useMemo(() => {
-    const map = {};
-    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
-    return map;
-  }, [templates]);
-
-  const timelineData = useMemo(() => {
-    const byDate = {};
-    for (const r of [...results].sort((a, b) => a.date.localeCompare(b.date))) {
-      if (!byDate[r.date]) byDate[r.date] = { date: r.date };
-      const key   = r.templateId;
-      const grade = +(r.totalScore / 10).toFixed(2);
-      byDate[r.date][key] = byDate[r.date][key] === undefined
-        ? grade
-        : +((byDate[r.date][key] + grade) / 2).toFixed(2);
-    }
-    return Object.values(byDate).slice(-50);
-  }, [results]);
-
-  const timelineMeta = useMemo(() => {
-    const meta = {};
-    for (const r of results) {
-      if (!meta[r.date]) meta[r.date] = {};
-      meta[r.date][r.templateId] = { sourceTitle: r.sourceTitle || "", verified: r.verified };
-    }
-    return meta;
-  }, [results]);
-
-  const timelineTemplates = useMemo(() => {
-    const seen = new Set(results.map(r => r.templateId));
-    return templates.filter(t => seen.has(t.templateId));
-  }, [results, templates]);
-
-  const tplAverages = useMemo(() => {
-    const sums = {}, counts = {};
-    for (const r of results) {
-      if (r.totalScore == null) continue;
-      const grade = r.totalScore / 10;
-      sums[r.templateId]   = (sums[r.templateId]   || 0) + grade;
-      counts[r.templateId] = (counts[r.templateId] || 0) + 1;
-    }
-    const map = {};
-    for (const id of Object.keys(sums)) map[id] = +(sums[id] / counts[id]).toFixed(2);
-    return map;
-  }, [results]);
-
-  if (results.length === 0) return <EmptyState>No test results yet.</EmptyState>;
-  if (timelineData.length < 2) return <EmptyState>Not enough data points for chart.</EmptyState>;
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={timelineData} margin={{ top: 30, right: 20, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} />
-        <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} domain={[8, 10]} tickCount={5} />
-        <Tooltip
-          content={({ active, payload, label }) => {
-            if (!active || !payload?.length) return null;
-            return (
-              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px", padding: "6px 10px", maxWidth: "200px" }}>
-                <div style={{ color: "var(--text-muted)", marginBottom: "4px" }}>{label}</div>
-                {payload.map(p => {
-                  const meta = timelineMeta[label]?.[p.dataKey];
-                  return (
-                    <div key={p.dataKey} style={{ marginBottom: "4px" }}>
-                      <span style={{ color: p.stroke, fontWeight: 600 }}>{p.name}</span>
-                      {": "}<strong>{p.value}</strong>
-                      {meta?.verified && <span style={{ color: "var(--accent)", marginLeft: "4px" }}>✓</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          }}
-        />
-        {timelineTemplates.map(t => (
-          <Line
-            key={t.templateId}
-            type="linear"
-            dataKey={t.templateId}
-            name={t.name}
-            stroke={tplColorMap[t.templateId]}
-            strokeWidth={2}
-            dot={({ cx, cy, payload, value }) => {
-              if (value == null || !cy || isNaN(cy)) return null;
-              const meta  = timelineMeta[payload.date]?.[t.templateId];
-              const color = tplColorMap[t.templateId];
-              if (meta?.verified) return (
-                <g key={`dot-${t.templateId}-${payload.date}`}>
-                  <circle cx={cx} cy={cy} r={6} fill="none" stroke="#ef4444" strokeWidth={2} />
-                  <circle cx={cx} cy={cy} r={3} fill={color} />
-                </g>
-              );
-              return <circle key={`dot-${t.templateId}-${payload.date}`} cx={cx} cy={cy} r={3} fill={color} />;
-            }}
-            label={({ x, y, value }) => {
-              if (value == null || !y || isNaN(y)) return null;
-              return (
-                <g>
-                  <rect x={x - 17} y={y - 24} width={34} height={15} rx={3} ry={3} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
-                  <text x={x} y={y - 13} textAnchor="middle" fill={tplColorMap[t.templateId]} fontSize={11} fontWeight={600}>
-                    {Number(value).toFixed(2)}
-                  </text>
-                </g>
-              );
-            }}
-            connectNulls
-          />
-        ))}
-        {timelineTemplates.map(t => {
-          const avg = tplAverages[t.templateId];
-          if (avg == null) return null;
-          const color = tplColorMap[t.templateId];
-          return (
-            <ReferenceLine
-              key={`avg-${t.templateId}`}
-              y={avg} stroke={color} strokeDasharray="5 3" strokeOpacity={0.6}
-              label={{ value: `avg ${avg}`, position: "insideTopRight", fontSize: 9, fill: color, dy: -4 }}
-            />
-          );
-        })}
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ── Section 3b: Practice Tests — Calendar ─────────────────────────────────────
-
-function PracticeCalendar({ templates, results }) {
-  const [calMonth, setCalMonth] = useState(() => dayjs().startOf("month"));
-
-  const tplColorMap = useMemo(() => {
-    const map = {};
-    templates.forEach((t, i) => { map[t.templateId] = TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]; });
-    return map;
-  }, [templates]);
-
-  const calYear     = calMonth.year();
-  const calMon      = calMonth.month();
-  const daysInMonth = calMonth.daysInMonth();
-  const firstDow    = (calMonth.day() + 6) % 7; // 0=Mon…6=Sun
-
-  const calDayMap = useMemo(() => {
-    const map = {};
-    for (const r of results) {
-      if (!r.date) continue;
-      const d = dayjs(r.date);
-      if (d.year() !== calYear || d.month() !== calMon) continue;
-      const day = d.date();
-      if (!map[day]) map[day] = [];
-      if (!map[day].find(x => x.templateId === r.templateId))
-        map[day].push({ templateId: r.templateId, templateName: r.templateName });
-    }
-    return map;
-  }, [results, calYear, calMon]);
-
-  const calCells = [];
-  for (let i = 0; i < firstDow; i++) calCells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
-
-  if (results.length === 0) return <EmptyState>No test results yet.</EmptyState>;
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-        <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)" }}>{calMonth.format("MMM YYYY")}</span>
-        <div style={{ display: "flex", gap: "4px" }}>
-          <button onClick={() => setCalMonth(m => m.subtract(1, "month"))}
-            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}>‹</button>
-          <button onClick={() => setCalMonth(m => m.add(1, "month"))}
-            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: "4px", cursor: "pointer", color: "var(--text-muted)", padding: "1px 6px", fontSize: "13px", lineHeight: 1 }}>›</button>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
-        {["M","T","W","T","F","S","S"].map((d, i) => (
-          <div key={i} style={{ fontSize: "9px", textAlign: "center", color: "var(--text-muted)", paddingBottom: "2px" }}>{d}</div>
-        ))}
-        {calCells.map((day, i) => {
-          if (!day) return <div key={`e-${i}`} />;
-          const entries    = calDayMap[day] || [];
-          const isToday    = dayjs().date() === day && dayjs().month() === calMon && dayjs().year() === calYear;
-          const firstColor = entries.length > 0 ? tplColorMap[entries[0].templateId] : null;
-          const dow        = new Date(calYear, calMon, day).getDay();
-          const isWeekend  = dow === 0 || dow === 6;
-          return (
-            <div key={day} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              minHeight: "22px", borderRadius: "4px", border: "1px solid transparent",
-              ...(isWeekend && entries.length === 0 ? { background: "rgba(148,163,184,0.10)" } : {}),
-              ...(isToday ? { border: "1px solid var(--accent, #86efac)" } : {}),
-              ...(entries.length > 0 ? { background: firstColor + "33", borderColor: firstColor + "99" } : {}),
-            }}>
-              <span style={{ fontSize: "9px", fontWeight: isToday ? 700 : 400, color: entries.length > 0 ? firstColor : isWeekend ? "var(--text)" : "var(--text-muted)" }}>
-                {day}
-              </span>
-              {entries.length > 1 && (
-                <div style={{ display: "flex", gap: "1px", flexWrap: "wrap", justifyContent: "center" }}>
-                  {entries.map(e => (
-                    <span key={e.templateId} title={e.templateName} style={{ width: "4px", height: "4px", borderRadius: "50%", background: tplColorMap[e.templateId], display: "inline-block" }} />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {templates.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
-          {templates.map((t, i) => (
-            <div key={t.templateId} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length], display: "inline-block", flexShrink: 0 }} />
-              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{t.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Section 3: Current Holdings ───────────────────────────────────────────────
 
 function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
@@ -1053,8 +636,6 @@ export default function HomeOverview() {
   const [expenses,  setExpenses]  = useState([]);
   const [payments,  setPayments]  = useState([]);
   const [books,     setBooks]     = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [results,   setResults]   = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [fxRates,   setFxRates]   = useState(null);
   const [fxStatus,  setFxStatus]  = useState("none");
@@ -1099,18 +680,13 @@ export default function HomeOverview() {
       listExpenses(),
       listSplitPayments(),
       listBooks(),
-      listTemplates(),
-      listResults(),
-      getKids(),
       listSnapshots(),
     ])
-      .then(([inc, exp, pay, bks, tpls, res, , snaps]) => {
+      .then(([inc, exp, pay, bks, snaps]) => {
         setIncomes(inc);
         setExpenses(exp);
         setPayments(pay);
         setBooks(bks);
-        setTemplates(tpls);
-        setResults(res);
         setSnapshots(snaps);
       })
       .catch(e => setError(e?.message || "Failed to load data."))
@@ -1145,7 +721,7 @@ export default function HomeOverview() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gridTemplateRows: "420px 260px auto auto", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gridTemplateRows: "420px 260px", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
 
       {/* Section 1 — Pending Expenses (span 2) */}
       <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1182,22 +758,6 @@ export default function HomeOverview() {
         <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <BooksSnippet books={books} />
         </div>
-      </Card>
-
-      {/* Practice Tests summary bar (span 6) */}
-      <div style={{ gridColumn: "span 6", display: "flex", flexDirection: "column" }}>
-        <PracticeSummaryBar templates={templates} results={results} />
-      </div>
-
-      {/* Section 4a — Practice Tests: Grade Evolution (span 4) */}
-      <Card style={{ gridColumn: "span 4", display: "flex", flexDirection: "column" }}>
-        <PracticeChartWithHeader templates={templates} results={results} />
-      </Card>
-
-      {/* Section 4b — Practice Tests: Calendar (span 2) */}
-      <Card style={{ gridColumn: "span 2" }}>
-        <SectionHeader>Practice Tests — Calendar</SectionHeader>
-        <PracticeCalendar templates={templates} results={results} />
       </Card>
 
     </div>
