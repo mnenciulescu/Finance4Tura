@@ -721,45 +721,49 @@ export default function HomeOverview() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gridTemplateRows: "420px 260px", gap: "16px", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+    // Mobile-width single-column layout, rendered even on desktop. Blocks stack
+    // one after another in a centered, phone-width column; the column scrolls.
+    <div style={{ display: "flex", justifyContent: "center", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+      <div style={{ width: "100%", maxWidth: "430px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
-      {/* Section 1 — Pending Expenses (span 2) */}
-      <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", height: "100%" }}>
-        <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
+        {/* Section 1 — Pending Expenses */}
+        <div style={{ display: "flex", flexDirection: "column", height: "420px" }}>
+          <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
+        </div>
+
+        {/* Section 2 — Split Payments */}
+        <Card style={{ boxSizing: "border-box", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Split Payments — Last 3
+            </span>
+            <Link to="/split-payments" style={{ fontSize: "11px", color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>
+              View all →
+            </Link>
+          </div>
+          <SplitPaymentsTable
+            payments={payments}
+            onUpdate={updated => setPayments(prev => prev.map(p => p.splitPaymentId === updated.splitPaymentId ? updated : p))}
+          />
+        </Card>
+
+        {/* Section 3 — Current Holdings */}
+        <Card style={{ boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "420px" }}>
+          <SectionHeader>Current Holdings</SectionHeader>
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
+          </div>
+        </Card>
+
+        {/* Section 4 — Books & Development */}
+        <Card style={{ boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "420px" }}>
+          <SectionHeader>Books & Development — Latest per Person</SectionHeader>
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            <BooksSnippet books={books} />
+          </div>
+        </Card>
+
       </div>
-
-      {/* Section 2 — Split Payments (span 4 — wider for full table) */}
-      <Card style={{ gridColumn: "span 4", height: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Split Payments — Last 3
-          </span>
-          <Link to="/split-payments" style={{ fontSize: "11px", color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>
-            View all →
-          </Link>
-        </div>
-        <SplitPaymentsTable
-          payments={payments}
-          onUpdate={updated => setPayments(prev => prev.map(p => p.splitPaymentId === updated.splitPaymentId ? updated : p))}
-        />
-      </Card>
-
-      {/* Section 3 — Current Holdings (span 3) */}
-      <Card style={{ gridColumn: "span 3", height: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <SectionHeader>Current Holdings</SectionHeader>
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-          <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
-        </div>
-      </Card>
-
-      {/* Section 4 — Books & Development (span 3 — same row/height as Holdings) */}
-      <Card style={{ gridColumn: "span 3", height: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <SectionHeader>Books & Development — Latest per Person</SectionHeader>
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-          <BooksSnippet books={books} />
-        </div>
-      </Card>
-
     </div>
   );
 }
