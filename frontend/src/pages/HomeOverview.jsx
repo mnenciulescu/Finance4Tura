@@ -238,8 +238,6 @@ function SplitPaymentsTable({ payments, onUpdate }) {
     [payments]
   );
 
-  const maxOcc = latest3.reduce((m, e) => Math.max(m, e.occurrenceCount || 0), 0);
-
   function updateOcc(entry, occIdx, value) {
     const updated = {
       ...entry,
@@ -255,89 +253,78 @@ function SplitPaymentsTable({ payments, onUpdate }) {
 
   if (latest3.length === 0) return <EmptyState>No split payments yet.</EmptyState>;
 
-  const th = {
-    textAlign: "left", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)",
-    textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 10px",
-    borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
-    background: "var(--surface)", position: "sticky", top: 0, zIndex: 1,
-  };
-  const td = {
-    padding: "8px 10px", fontSize: "12px", color: "var(--text)",
-    whiteSpace: "nowrap", borderBottom: "1px solid var(--border)",
-  };
-
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={th}>Date</th>
-            <th style={th}>Title</th>
-            <th style={{ ...th, textAlign: "right" }}>Amount</th>
-            <th style={th}>Cur.</th>
-            {Array.from({ length: maxOcc }, (_, i) => (
-              <th key={i} style={{ ...th, textAlign: "center" }}>#{i + 1}</th>
-            ))}
-            <th style={th}>Coverage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {latest3.map(entry => {
-            const isAmount  = entry.occurrenceType === "amount";
-            const paidCount = (entry.occurrences || []).filter(o => o.value !== "" && o.value != null).length;
-            const isFull    = paidCount === entry.occurrenceCount;
-            return (
-              <tr key={entry.splitPaymentId}>
-                <td style={td}>{entry.createdDate}</td>
-                <td style={{ ...td, fontWeight: 500 }}>{entry.title}</td>
-                <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {Number(entry.totalAmount).toLocaleString("ro-RO")}
-                </td>
-                <td style={td}>{entry.currency}</td>
-                {Array.from({ length: maxOcc }, (_, i) => {
-                  const occ = (entry.occurrences || [])[i];
-                  if (!occ) return <td key={i} style={td} />;
-                  const hasPaid = occ.value !== "" && occ.value != null;
-                  return (
-                    <td key={i} style={{ ...td, padding: "5px 6px", textAlign: "center" }}>
-                      <input
-                        type={isAmount ? "number" : "date"}
-                        value={occ.value ?? ""}
-                        min={isAmount ? "0" : undefined}
-                        step={isAmount ? "any" : undefined}
-                        placeholder={isAmount ? "0.00" : undefined}
-                        onChange={e => updateOcc(entry, i, e.target.value)}
-                        style={{
-                          width: isAmount ? "76px" : "108px",
-                          padding: "3px 5px", borderRadius: "5px", fontSize: "11px",
-                          border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
-                          background: hasPaid ? "rgba(34,197,94,0.10)" : "rgba(255,255,255,0.04)",
-                          color: hasPaid ? "#16a34a" : "var(--text)",
-                          outline: "none", fontFamily: "inherit",
-                          fontVariantNumeric: "tabular-nums", boxSizing: "border-box",
-                          transition: "border-color 0.15s, background 0.15s",
-                        }}
-                      />
-                    </td>
-                  );
-                })}
-                <td style={td}>
-                  <span style={{
-                    display: "inline-block", padding: "2px 7px", borderRadius: "10px",
-                    fontSize: "11px", fontWeight: 600, whiteSpace: "nowrap",
-                    ...(isFull
-                      ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
-                      : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }
-                    ),
-                  }}>
-                    {paidCount}/{entry.occurrenceCount}{isFull ? " ✓" : ""}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {latest3.map(entry => {
+        const isAmount  = entry.occurrenceType === "amount";
+        const occs      = entry.occurrences || [];
+        const paidCount = occs.filter(o => o.value !== "" && o.value != null).length;
+        const isFull    = paidCount === entry.occurrenceCount;
+        return (
+          <div key={entry.splitPaymentId} style={{
+            border: "1px solid var(--border)", borderRadius: "10px",
+            padding: "12px 14px", background: "var(--surface-2, rgba(0,0,0,0.03))",
+          }}>
+            {/* Header: title + coverage badge */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {entry.title}
+              </span>
+              <span style={{
+                flexShrink: 0, display: "inline-block", padding: "2px 8px", borderRadius: "10px",
+                fontSize: "11px", fontWeight: 600, whiteSpace: "nowrap",
+                ...(isFull
+                  ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
+                  : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+                ),
+              }}>
+                {paidCount}/{entry.occurrenceCount}{isFull ? " ✓" : ""}
+              </span>
+            </div>
+
+            {/* Meta: date · total amount */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--text-muted)", marginBottom: "10px" }}>
+              <span>{entry.createdDate}</span>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)" }}>
+                {Number(entry.totalAmount).toLocaleString("ro-RO")} {entry.currency}
+              </span>
+            </div>
+
+            {/* Occurrence inputs — wrap onto multiple rows */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {Array.from({ length: entry.occurrenceCount || occs.length }, (_, i) => {
+                const occ = occs[i];
+                if (!occ) return null;
+                const hasPaid = occ.value !== "" && occ.value != null;
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)" }}>#{i + 1}</span>
+                    <input
+                      type={isAmount ? "number" : "date"}
+                      value={occ.value ?? ""}
+                      min={isAmount ? "0" : undefined}
+                      step={isAmount ? "any" : undefined}
+                      placeholder={isAmount ? "0.00" : undefined}
+                      onChange={e => updateOcc(entry, i, e.target.value)}
+                      style={{
+                        width: isAmount ? "88px" : "132px",
+                        padding: "6px 8px", borderRadius: "6px", fontSize: "12px",
+                        border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
+                        background: hasPaid ? "rgba(34,197,94,0.10)" : "rgba(255,255,255,0.04)",
+                        color: hasPaid ? "#16a34a" : "var(--text)",
+                        outline: "none", fontFamily: "inherit",
+                        fontVariantNumeric: "tabular-nums", boxSizing: "border-box",
+                        transition: "border-color 0.15s, background 0.15s",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
