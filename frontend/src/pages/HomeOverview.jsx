@@ -690,7 +690,7 @@ export default function HomeOverview() {
       <div style={{ width: "100%", maxWidth: "430px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
         {/* Section 1 — Pending Expenses */}
-        <div style={{ display: "flex", flexDirection: "column", height: "420px" }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
         </div>
 
@@ -711,19 +711,15 @@ export default function HomeOverview() {
         </Card>
 
         {/* Section 3 — Current Holdings */}
-        <Card style={{ boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "420px" }}>
+        <Card style={{ boxSizing: "border-box", overflow: "hidden" }}>
           <SectionHeader>Current Holdings</SectionHeader>
-          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-            <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
-          </div>
+          <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
         </Card>
 
         {/* Section 4 — Books & Development */}
-        <Card style={{ boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "420px" }}>
+        <Card style={{ boxSizing: "border-box", overflow: "hidden" }}>
           <SectionHeader>Books & Development — Latest per Person</SectionHeader>
-          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-            <BooksSnippet books={books} />
-          </div>
+          <BooksSnippet books={books} />
         </Card>
 
       </div>
