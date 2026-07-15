@@ -188,7 +188,13 @@ async function uploadFile(token, folderId, fileName, csvContent) {
 async function preview() {
   const today  = new Date().toISOString().slice(0, 10);
   const tables = await Promise.all(
-    TABLES.map(async name => ({ name, count: await countTable(name) }))
+    TABLES.map(async name => {
+      try {
+        return { name, count: await countTable(name) };
+      } catch (e) {
+        return { name, count: -1, error: e.message };
+      }
+    })
   );
   return ok({ folderName: today, tables });
 }
@@ -226,14 +232,19 @@ async function runTable(body) {
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
-  if (!isCallerAdmin(event)) return fail(403, "Forbidden");
+  try {
+    if (!isCallerAdmin(event)) return fail(403, "Forbidden");
 
-  const method = event.httpMethod;
-  const path   = event.path || "";
-  const body   = event.body ? JSON.parse(event.body) : {};
+    const method = event.httpMethod;
+    const path   = event.path || "";
+    const body   = event.body ? JSON.parse(event.body) : {};
 
-  if (method === "GET"  && path.endsWith("/preview"))   return preview();
-  if (method === "POST" && path.endsWith("/prepare"))   return prepare();
-  if (method === "POST" && path.endsWith("/run-table")) return runTable(body);
-  return fail(404, "Not found");
+    if (method === "GET"  && path.endsWith("/preview"))   return preview();
+    if (method === "POST" && path.endsWith("/prepare"))   return prepare();
+    if (method === "POST" && path.endsWith("/run-table")) return runTable(body);
+    return fail(404, "Not found");
+  } catch (e) {
+    console.error("[adminBackup] unhandled error:", e);
+    return fail(500, e.message || "Internal server error");
+  }
 };

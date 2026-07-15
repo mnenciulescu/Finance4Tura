@@ -8,6 +8,7 @@ const client = axios.create({
 
 let _authToken = null;
 export const setAuthToken = (token) => { _authToken = token; };
+export const getAuthToken = () => _authToken;
 
 let _onUnauthorized = null;
 export const setUnauthorizedHandler = (fn) => { _onUnauthorized = fn; };

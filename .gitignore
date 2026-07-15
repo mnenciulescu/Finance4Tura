@@ -18,3 +18,7 @@ frontend/.env.local
 
 # Logs
 *.log
+
+# Secrets — never commit
+get-refresh-token.mjs
+resources/

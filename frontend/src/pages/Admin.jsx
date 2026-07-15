@@ -39,7 +39,7 @@ export default function Admin() {
         phase: "preview",
         folderName: data.folderName,
         folderUrl:  null,
-        rows: data.tables.map(t => ({ name: t.name, count: t.count, status: "pending" })),
+        rows: data.tables.map(t => ({ name: t.name, count: t.count, error: t.error, status: t.error ? "error" : "pending" })),
       });
     } catch (e) {
       setBackupError(e?.response?.data?.message || e.message || "Preview failed");
@@ -358,7 +358,7 @@ export default function Admin() {
                             {r.error && <div style={{ fontSize: "10px", color: "var(--danger)", marginTop: "2px" }}>{r.error}</div>}
                           </td>
                           <td style={{ padding: "6px 12px", color: "var(--text)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                            {r.status === "pending" || r.status === "running" ? r.count : r.rows ?? r.count}
+                            {r.count === -1 ? "—" : r.status === "pending" || r.status === "running" ? r.count : r.rows ?? r.count}
                           </td>
                           <td style={{ padding: "6px 12px", textAlign: "center", color: statusColor, fontWeight: 700 }}>
                             {statusLabel}

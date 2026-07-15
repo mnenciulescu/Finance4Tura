@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
 import { useAppSettings } from "../context/AppSettingsContext";
+import { getAuthToken } from "../api/client";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -329,6 +330,48 @@ function EvolveDropdown() {
   );
 }
 
+// ── JWT expiry timer ──────────────────────────────────────────────────────────
+
+function getTokenExp() {
+  try {
+    const token = getAuthToken();
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).exp ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function JwtTimer() {
+  const [remaining, setRemaining] = useState(() => {
+    const exp = getTokenExp();
+    return exp ? Math.max(0, exp - Math.floor(Date.now() / 1000)) : null;
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const exp = getTokenExp();
+      setRemaining(exp ? Math.max(0, exp - Math.floor(Date.now() / 1000)) : null);
+    };
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (remaining === null) return null;
+
+  const totalMins = Math.floor(remaining / 60);
+  const hours = Math.floor(totalMins / 60);
+  const mins  = totalMins % 60;
+  const label = hours > 0 ? `${hours}h:${String(mins).padStart(2, "0")}m` : `${mins}m`;
+  const color = remaining <= 300 ? "var(--danger)" : remaining <= 600 ? "#f59e0b" : "var(--text-muted)";
+
+  return (
+    <span title="Session expires in" style={{ fontSize: "11px", fontVariantNumeric: "tabular-nums", fontWeight: 600, color, letterSpacing: "0.04em", flexShrink: 0 }}>
+      {label}
+    </span>
+  );
+}
+
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 function buildBreadcrumb(pathname) {
@@ -483,6 +526,7 @@ export default function Topbar() {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
+          <JwtTimer />
           <div style={s.avatar}>{initials}</div>
           <span style={s.username}>{user?.username}</span>
           <button style={s.signOutBtn} onClick={signOut}>Sign out</button>

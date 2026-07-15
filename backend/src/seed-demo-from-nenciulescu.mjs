@@ -7,6 +7,13 @@
  *  - InvestmentOperations: amount *= (1 ± random 0–20%)
  *  - PortfolioSnapshots:   amount *= (1 ± random 0–20%)
  *  - SplitPayments:        copied as-is (amounts unchanged)
+ *  - TestTemplates:        copied as-is (new templateIds; used to remap TestResults)
+ *  - TestResults:          copied as-is (new resultIds; templateId remapped)
+ *  - KidConfig:            copied as-is (single item keyed by userId)
+ *  - Books_and_Dev:        copied as-is (new bookIds)
+ *  - HQ_Locations:         copied as-is (new hqIds)
+ *  - HQ_Templates:         copied as-is (new templateIds; hqId remapped)
+ *  - HQ_Entries:           copied as-is (new entryIds; hqId + templateId remapped)
  *
  * ⚠️  Writes to PRODUCTION AWS DynamoDB.
  *     nenciulescu's records are NEVER modified or deleted.
@@ -16,7 +23,7 @@
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, BatchWriteCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "eu-central-1" }));
@@ -161,6 +168,114 @@ async function run() {
       userId:         DEMO_USER_ID,
     }));
     if (copies.length > 0) await batchWrite("SplitPayments", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
+  }
+
+  // ── Practice Tests: Templates ──────────────────────────────────────────────
+  // Build old→new templateId map so TestResults can remap their templateId.
+  const templateIdMap = new Map(); // oldTemplateId → newTemplateId
+  {
+    process.stdout.write("  TestTemplates…");
+    const source  = await scanAllForUser("TestTemplates", NENC_USER_ID);
+    const cleared = await deleteAllForUser("TestTemplates", "templateId", DEMO_USER_ID);
+    const copies  = source.map(r => {
+      const newId = randomUUID();
+      templateIdMap.set(r.templateId, newId);
+      return { ...r, templateId: newId, userId: DEMO_USER_ID };
+    });
+    if (copies.length > 0) await batchWrite("TestTemplates", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
+  }
+
+  // ── Practice Tests: Results ────────────────────────────────────────────────
+  {
+    process.stdout.write("  TestResults…");
+    const source  = await scanAllForUser("TestResults", NENC_USER_ID);
+    const cleared = await deleteAllForUser("TestResults", "resultId", DEMO_USER_ID);
+    const copies  = source.map(r => ({
+      ...r,
+      resultId:   randomUUID(),
+      userId:     DEMO_USER_ID,
+      templateId: templateIdMap.get(r.templateId) ?? r.templateId,
+    }));
+    if (copies.length > 0) await batchWrite("TestResults", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} (templateId remapped) ✓`);
+  }
+
+  // ── KidConfig ──────────────────────────────────────────────────────────────
+  // Single item keyed by userId — no userId scan needed; just get + put.
+  {
+    process.stdout.write("  KidConfig…");
+    const res = await client.send(new GetCommand({ TableName: "KidConfig", Key: { userId: NENC_USER_ID } }));
+    if (res.Item) {
+      await client.send(new PutCommand({
+        TableName: "KidConfig",
+        Item: { ...res.Item, userId: DEMO_USER_ID },
+      }));
+      console.log(` wrote 1 (${res.Item.kids?.length ?? 0} kids) ✓`);
+    } else {
+      console.log(" source not found, skipped");
+    }
+  }
+
+  // ── Books & Development ────────────────────────────────────────────────────
+  {
+    process.stdout.write("  Books_and_Dev…");
+    const source  = await scanAllForUser("Books_and_Dev", NENC_USER_ID);
+    const cleared = await deleteAllForUser("Books_and_Dev", "bookId", DEMO_USER_ID);
+    const copies  = source.map(r => ({ ...r, bookId: randomUUID(), userId: DEMO_USER_ID }));
+    if (copies.length > 0) await batchWrite("Books_and_Dev", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
+  }
+
+  // ── HQ_Locations ───────────────────────────────────────────────────────────
+  const hqIdMap = new Map(); // oldHqId → newHqId
+  {
+    process.stdout.write("  HQ_Locations…");
+    const source  = await scanAllForUser("HQ_Locations", NENC_USER_ID);
+    const cleared = await deleteAllForUser("HQ_Locations", "hqId", DEMO_USER_ID);
+    const copies  = source.map(r => {
+      const newId = randomUUID();
+      hqIdMap.set(r.hqId, newId);
+      return { ...r, hqId: newId, userId: DEMO_USER_ID };
+    });
+    if (copies.length > 0) await batchWrite("HQ_Locations", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
+  }
+
+  // ── HQ_Templates ───────────────────────────────────────────────────────────
+  const hqTemplateIdMap = new Map(); // oldTemplateId → newTemplateId
+  {
+    process.stdout.write("  HQ_Templates…");
+    const source  = await scanAllForUser("HQ_Templates", NENC_USER_ID);
+    const cleared = await deleteAllForUser("HQ_Templates", "templateId", DEMO_USER_ID);
+    const copies  = source.map(r => {
+      const newId = randomUUID();
+      hqTemplateIdMap.set(r.templateId, newId);
+      return {
+        ...r,
+        templateId: newId,
+        userId:     DEMO_USER_ID,
+        hqId:       hqIdMap.get(r.hqId) ?? r.hqId,
+      };
+    });
+    if (copies.length > 0) await batchWrite("HQ_Templates", copies);
+    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
+  }
+
+  // ── HQ_Entries ─────────────────────────────────────────────────────────────
+  {
+    process.stdout.write("  HQ_Entries…");
+    const source  = await scanAllForUser("HQ_Entries", NENC_USER_ID);
+    const cleared = await deleteAllForUser("HQ_Entries", "entryId", DEMO_USER_ID);
+    const copies  = source.map(r => ({
+      ...r,
+      entryId:    randomUUID(),
+      userId:     DEMO_USER_ID,
+      hqId:       hqIdMap.get(r.hqId)                ?? r.hqId,
+      templateId: hqTemplateIdMap.get(r.templateId)  ?? r.templateId,
+    }));
+    if (copies.length > 0) await batchWrite("HQ_Entries", copies);
     console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
   }
 
