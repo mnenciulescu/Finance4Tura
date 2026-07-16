@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { postSP500 } from "../api/investments";
 
 export const PRIVACY_KEY = "incomePrivacy";
 export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "true";
@@ -99,34 +98,6 @@ export default function Settings() {
   const [draftPrivacy, setDraftPrivacy] = useState(getPrivacySetting());
   const [draftTheme,   setDraftTheme]   = useState(getStoredTheme());
 
-  // SP500 sync
-  const [syncLog,     setSyncLog]     = useState(null);
-  const [syncVisible, setSyncVisible] = useState(0);
-  const [syncing,     setSyncing]     = useState(false);
-
-  useEffect(() => {
-    if (!syncLog || syncVisible >= syncLog.length) return;
-    const t = setTimeout(() => setSyncVisible(v => v + 1), 80);
-    return () => clearTimeout(t);
-  }, [syncLog, syncVisible]);
-
-  const handleSyncSP500 = () => {
-    if (syncing) return;
-    setSyncing(true);
-    setSyncLog(["Checking S&P 500 database..."]);
-    setSyncVisible(1);
-
-    postSP500({ sync: true })
-      .then(({ log }) => {
-        setSyncLog(["Checking S&P 500 database...", ...log]);
-        setSyncing(false);
-      })
-      .catch(e => {
-        setSyncLog(prev => [...(prev ?? []), `Error: ${e.message}`]);
-        setSyncing(false);
-      });
-  };
-
   const handleThemeSelect = (theme) => {
     setDraftTheme(theme);
     applyThemeToDOM(theme);
@@ -183,43 +154,6 @@ export default function Settings() {
             </div>
             <Toggle value={draftPrivacy} onChange={setDraftPrivacy} />
           </div>
-        </section>
-
-        {/* Data */}
-        <section style={{ ...s.section, marginTop: "24px" }}>
-          <h2 style={s.sectionTitle}>Data</h2>
-
-          <div style={s.settingRow}>
-            <div style={s.settingInfo}>
-              <span style={s.settingLabel}>Get latest S&amp;P 500 data</span>
-              <span style={s.settingDesc}>
-                Fetches missing monthly S&amp;P 500 closing prices from Yahoo Finance
-                and stores them in the database.
-              </span>
-            </div>
-            <button
-              style={{ ...s.btnOk, opacity: syncing ? 0.6 : 1, cursor: syncing ? "not-allowed" : "pointer" }}
-              onClick={handleSyncSP500}
-              disabled={syncing}
-            >
-              {syncing ? "Syncing…" : "Run"}
-            </button>
-          </div>
-
-          {syncLog && (
-            <div style={s.logPanel}>
-              {syncLog.slice(0, syncVisible).map((line, i) => {
-                const color = /stored|done|already up to date/i.test(line) ? "#22c55e"
-                  : /error|failed/i.test(line) ? "#ef4444"
-                  : /fetching|checking/i.test(line) ? "#f59e0b"
-                  : "#94a3b8";
-                return <div key={i} style={{ color, marginBottom: 2 }}>{line}</div>;
-              })}
-              {(syncing || syncVisible < syncLog.length) && (
-                <span style={{ color: "#f59e0b" }}>▋</span>
-              )}
-            </div>
-          )}
         </section>
 
         <div style={s.actions}>
@@ -367,16 +301,6 @@ const s = {
     background:   "#fff",
     transition:   "transform 0.2s",
     display:      "block",
-  },
-  logPanel: {
-    background:    "#0f172a",
-    borderRadius:  "8px",
-    padding:       "14px 18px",
-    fontFamily:    "'Courier New', Courier, monospace",
-    fontSize:      "12px",
-    lineHeight:    1.7,
-    display:       "flex",
-    flexDirection: "column",
   },
   actions: {
     display:        "flex",

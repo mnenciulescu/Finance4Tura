@@ -14,7 +14,6 @@ Globals:
         SPLIT_PAYMENTS_TABLE: SplitPayments
         INV_OPERATIONS_TABLE: InvestmentOperations
         INV_SNAPSHOTS_TABLE: PortfolioSnapshots
-        SP500_TABLE: SP500Monthly
         TEST_TEMPLATES_TABLE: TestTemplates
         TEST_RESULTS_TABLE: TestResults
         KID_CONFIG_TABLE: KidConfig
@@ -133,18 +132,6 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
-
-  SP500MonthlyTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: SP500Monthly
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: monthId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: monthId
-          KeyType: HASH
 
   FxRatesTable:
     Type: AWS::DynamoDB::Table
@@ -662,32 +649,6 @@ Resources:
             Method: DELETE
 
   # ──────────────────────────────────────────
-  # S&P 500 Monthly Data
-  # ──────────────────────────────────────────
-  SP500Function:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: src/handlers/sp500.handler
-      CodeUri: .
-      Timeout: 30
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SP500MonthlyTable
-      Events:
-        SP500Get:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /sp500
-            Method: GET
-        SP500Post:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /sp500
-            Method: POST
-
-  # ──────────────────────────────────────────
   # AI News (public RSS aggregator)
   # ──────────────────────────────────────────
   AiNewsFunction:
@@ -1000,7 +961,6 @@ Resources:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Expenses"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/InvestmentOperations"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioSnapshots"
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SP500Monthly"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SplitPayments"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestTemplates"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestResults"

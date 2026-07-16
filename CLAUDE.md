@@ -68,7 +68,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Mobile tab bar: Home · Expense · Income · AI · Practice · Settings
 - Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
 - Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
-- Investments module (`/investments`) shows portfolio evolution, S&P simulation, snapshots, and operation log
+- Investments module (`/investments`) shows portfolio evolution (actual portfolio + per-platform lines), snapshots, and operation log
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
 - Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
 - Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
@@ -235,9 +235,6 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 - `userId`, `date`, `platform`, `amount`, `currency`
 - One record per platform per snapshot date; used for portfolio valuation over time
 
-**SP500Monthly** table (PK: `monthId`):
-- `monthId` (format: `YYYY-MM`), `close` (S&P 500 closing price for that month)
-- No `userId` — shared reference data, seeded from CSV
 
 **SplitPayments** table (PK: `splitPaymentId`):
 - `userId`, `date`, `description`, `totalAmount`, `currency`, `participants` (array with name + share)
@@ -276,9 +273,7 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 
 **Google Sign-In flow**: Google ID token → `verifyGoogleToken` (tokeninfo API) → `AdminGetUser` / `AdminCreateUser` + `AdminSetUserPassword` → `AdminInitiateAuth` → Cognito JWT returned.
 
-**Portfolio Evolution chart** (Investments page): Starting from the closest portfolio snapshot to Jan 2023, simulate what the portfolio would be worth if invested in S&P 500. For each month: `runningValue *= sp500Close[thisMonth] / sp500Close[prevMonth]` (only when `close != null`). At each operation month (from 2nd onward): `runningValue += netCashFlowInEUR` (deposits/withdrawals converted to EUR). Actual portfolio (carry-forward of latest snapshot per platform) shown alongside. Chart auto-sizes X-axis to last data point; extends to `max(lastSnapshotMonth, lastOperationMonth)` even beyond last SP500 close. Legend order: Portfolio total → platform lines → S&P simulation (last).
-
-**SP500 sync**: Not automatic. Use **Settings → Data → "Get latest S&P 500 data" → Run** to fetch missing months from Yahoo Finance (Lambda calls Yahoo Finance server-side; browser cannot call Yahoo Finance directly due to CORS). SP500Function timeout is 30s.
+**Portfolio Evolution chart** (Investments page): Plots the actual portfolio value in EUR month by month across the full snapshot/operation date range. Per-month totals carry forward the latest snapshot per platform (`portfolioAt`/`platformAt`); the month spine runs from the earliest to the latest snapshot/operation month. Lines: Portfolio total + one per active platform, toggled via legend chips; dots mark operation months, and the tooltip shows the actual portfolio value plus that month's deposits/withdrawals and net cash. No S&P 500 simulation.
 
 ## API Endpoints
 
@@ -312,9 +307,6 @@ POST   /investments/snapshots              # create snapshot
 PUT    /investments/snapshots/{snapshotId}
 DELETE /investments/snapshots/{snapshotId}
 
-GET    /sp500                               # all SP500Monthly records (no auth required)
-POST   /sp500  { sync: true }              # fetch missing months from Yahoo Finance; returns { log, newRecords }
-POST   /sp500  { monthId, close }          # upsert a single SP500Monthly record
 
 GET    /split-payments
 POST   /split-payments
@@ -410,7 +402,6 @@ node src/seed-demo-from-nenciulescu.mjs
 | API | AWS SAM Lambda (`sam local` mirrors production) |
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
-| S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |

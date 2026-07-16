@@ -8,7 +8,6 @@ import {
 import {
   listOperations, createOperation, updateOperation, deleteOperation,
   listSnapshots, createSnapshot, deleteSnapshot,
-  listSP500,
 } from "../api/investments";
 import { getFxRates } from "../api/fxRates";
 
@@ -64,12 +63,10 @@ function toEUR(amount, currency, rates) {
 export default function Investments() {
   const [operations, setOperations] = useState([]);
   const [snapshots,  setSnapshots]  = useState([]);
-  const [sp500,      setSP500]      = useState([]);
   const [fxRates,    setFxRates]    = useState(null); // rates from EUR base, e.g. { USD: 1.08, RON: 4.97 }
   const [fxUpdatedAt, setFxUpdatedAt] = useState(null); // ISO date the shared rates were last updated by admin
   const [loading,    setLoading]    = useState(true);
-  const [hidden,     setHidden]     = useState(new Set(PLATFORMS)); // start with platforms hidden; Total visible
-  const [hiddenSim,  setHiddenSim]  = useState(new Set(PLATFORMS)); // sim chart: platforms hidden; Total+sim visible
+  const [hiddenLines, setHiddenLines] = useState(new Set(PLATFORMS)); // evolution chart: platforms hidden; Total visible
 
 
   // Operations modal
@@ -89,10 +86,6 @@ export default function Investments() {
       .then(([ops, snaps]) => { setOperations(ops); setSnapshots(snaps); })
       .catch(console.error)
       .finally(() => setLoading(false));
-
-    listSP500()
-      .then(setSP500)
-      .catch(() => {}); // non-critical — chart stays empty if unavailable
 
     // Load the shared FX rates stored in the database (updated by admin only)
     getFxRates()
@@ -128,39 +121,29 @@ export default function Investments() {
     return result;
   }, [snapshots]);
 
-  // Testing chart: cumulative simulation — S&P 500 monthly growth + deposits/withdrawals.
-  // First op-month point = startPortfolio. Each subsequent month: grow by S&P %, then
-  // at operation months add/subtract cash flows (converted to EUR).
+  // Portfolio evolution chart: actual portfolio total + per-platform values,
+  // carried forward month by month across the full snapshot/operation date range.
   const { data: testingChartData, years: testingChartYears, xMax: testingChartXMax } = useMemo(() => {
-    if (!sp500.length) return { data: [], years: [] };
+    // Month range spans every snapshot and operation
+    const allMonths = [
+      ...snapshotsInEUR.map(s => s.date.slice(0, 7)),
+      ...operations.map(op => op.date.slice(0, 7)),
+    ];
+    if (allMonths.length === 0) return { data: [], years: [] };
 
-    const allSorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
-    const sp500Visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
+    const startMonth = allMonths.reduce((min, m) => m < min ? m : min);
+    const endMonth   = allMonths.reduce((max, m) => m > max ? m : max);
 
-    // Extend chart to the last snapshot or operation date, whichever is later
-    const lastSnapMonth  = snapshotsInEUR.length
-      ? snapshotsInEUR.reduce((max, s) => s.date.slice(0, 7) > max ? s.date.slice(0, 7) : max, "")
-      : "";
-    const lastOpMonth = operations.length
-      ? operations.reduce((max, op) => op.date.slice(0, 7) > max ? op.date.slice(0, 7) : max, "")
-      : "";
-    const targetEndMonth = [lastSnapMonth, lastOpMonth, sp500Visible.at(-1)?.monthId ?? ""]
-      .filter(Boolean)
-      .reduce((max, m) => m > max ? m : max, "");
-    const lastSp500Month = sp500Visible.at(-1)?.monthId ?? "";
-    const extraMonths = [];
-    if (targetEndMonth > lastSp500Month) {
-      let cur = dayjs(lastSp500Month + "-01").add(1, "month");
-      const end = dayjs(targetEndMonth + "-01");
-      while (!cur.isAfter(end)) {
-        extraMonths.push({ monthId: cur.format("YYYY-MM"), close: null });
-        cur = cur.add(1, "month");
-      }
+    const months = [];
+    let cur = dayjs(startMonth + "-01");
+    const end = dayjs(endMonth + "-01");
+    while (!cur.isAfter(end)) {
+      months.push(cur.format("YYYY-MM"));
+      cur = cur.add(1, "month");
     }
-    const visible = [...sp500Visible, ...extraMonths];
 
-    const years = [...new Set(visible.map(d => d.monthId.slice(0, 4)))].sort();
-    const baseYear = parseInt(years[0] ?? "2023");
+    const years = [...new Set(months.map(m => m.slice(0, 4)))].sort();
+    const baseYear = parseInt(years[0] ?? String(new Date().getFullYear()));
 
     function dateToX(dateStr) {
       const [y, m, d] = dateStr.split("-").map(Number);
@@ -170,39 +153,13 @@ export default function Investments() {
       return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
     }
 
-    // Find startPortfolio (closest snapshot total in EUR to chart start)
-    const chartStartMonth = visible[0]?.monthId ?? "2023-01";
-    const totalByDate = {};
-    snapshotsInEUR.forEach(s => {
-      totalByDate[s.date] = (totalByDate[s.date] ?? 0) + s.amount;
-    });
-    const snapshotDates = Object.keys(totalByDate).sort();
-    const refTime = new Date(chartStartMonth + "-01").getTime();
-    const closestSnapDate = snapshotDates.length
-      ? snapshotDates.reduce((best, d) =>
-          Math.abs(new Date(d).getTime() - refTime) < Math.abs(new Date(best).getTime() - refTime) ? d : best
-        )
-      : null;
-    const startPortfolio = closestSnapDate ? totalByDate[closestSnapDate] : null;
-    if (startPortfolio == null) return { data: [], years };
-
-    // Carry-forward portfolio total in EUR per month (for the actual portfolio line)
+    // Carry-forward snapshots per platform (for the actual portfolio lines)
     const snapshotsByPlatform = {};
     snapshotsInEUR.forEach(s => {
       if (!snapshotsByPlatform[s.platform]) snapshotsByPlatform[s.platform] = [];
       snapshotsByPlatform[s.platform].push(s);
     });
     Object.values(snapshotsByPlatform).forEach(arr => arr.sort((a, b) => a.date.localeCompare(b.date)));
-    function portfolioAt(monthId) {
-      const endOfMonth = monthId + "-31";
-      const total = PLATFORMS.reduce((sum, p) => {
-        const arr = snapshotsByPlatform[p] ?? [];
-        let latest = null;
-        for (const s of arr) { if (s.date <= endOfMonth) latest = s; else break; }
-        return sum + (latest?.amount ?? 0);
-      }, 0);
-      return total > 0 ? parseFloat(total.toFixed(2)) : null;
-    }
     function platformAt(platform, monthId) {
       const endOfMonth = monthId + "-31";
       const arr = snapshotsByPlatform[platform] ?? [];
@@ -210,8 +167,12 @@ export default function Investments() {
       for (const s of arr) { if (s.date <= endOfMonth) latest = s; else break; }
       return latest?.amount > 0 ? parseFloat(latest.amount.toFixed(2)) : null;
     }
+    function portfolioAt(monthId) {
+      const total = PLATFORMS.reduce((sum, p) => sum + (platformAt(p, monthId) ?? 0), 0);
+      return total > 0 ? parseFloat(total.toFixed(2)) : null;
+    }
 
-    // Cash flows per month in EUR (deposits positive, withdrawals negative)
+    // Net cash flow per month in EUR (deposits positive, withdrawals negative)
     const opCashByMonth = {};
     operations.forEach(op => {
       const month = op.date.slice(0, 7);
@@ -220,66 +181,21 @@ export default function Investments() {
     });
     const opMonths = new Set(operations.map(op => op.date.slice(0, 7)));
 
-    let runningValue = startPortfolio;
-    // Track last op-point context for the tooltip breakdown
-    let lastOpValue = startPortfolio;   // portfolio value just after the last op point
-    let lastOpClose = visible[0]?.close ?? 1; // S&P close at the last op point
-
-    const data = visible.map((d, i) => {
-      let spPct = null;
-      let spGrowthSinceLastOp = null;
-      let valueBeforeCash = null;
-      let cashFlow = null;
-      let prevOpValue = null;
-
-      if (i > 0) {
-        const prevClose = visible[i - 1].close;
-        // Only apply S&P growth when both this month and previous have real close data
-        if (prevClose > 0 && d.close != null) {
-          spPct = parseFloat(((d.close - prevClose) / prevClose * 100).toFixed(2));
-          runningValue = runningValue * (d.close / prevClose);
-        }
-
-        if (opMonths.has(d.monthId)) {
-          // Capture snapshot for tooltip before touching runningValue with cash
-          prevOpValue        = lastOpValue;
-          spGrowthSinceLastOp = (lastOpClose > 0 && d.close != null)
-            ? parseFloat(((d.close - lastOpClose) / lastOpClose * 100).toFixed(2))
-            : null;
-          valueBeforeCash = parseFloat(runningValue.toFixed(2));
-
-          cashFlow = opCashByMonth[d.monthId] ?? 0;
-          runningValue += cashFlow;
-
-          // Advance last-op anchors
-          lastOpValue = parseFloat(runningValue.toFixed(2));
-          if (d.close != null) lastOpClose = d.close;
-        }
-      } else {
-        // First month is the anchor (no growth applied yet)
-        lastOpClose = d.close ?? 1;
-      }
-
-      const platformValues = Object.fromEntries(PLATFORMS.map(p => [p, platformAt(p, d.monthId)]));
+    const data = months.map(monthId => {
+      const platformValues = Object.fromEntries(PLATFORMS.map(p => [p, platformAt(p, monthId)]));
       return {
-        date: d.monthId,
-        x: dateToX(d.monthId + "-01"),
-        close: d.close,
-        adjusted: d.close != null ? parseFloat(runningValue.toFixed(2)) : null,
-        portfolio: portfolioAt(d.monthId),
+        date: monthId,
+        x: dateToX(monthId + "-01"),
+        portfolio: portfolioAt(monthId),
         ...platformValues,
-        spPct,
-        spGrowthSinceLastOp,
-        valueBeforeCash,
-        prevOpValue,
-        cashFlow,
-        hasOp: opMonths.has(d.monthId),
-        ops: operations.filter(op => op.date.slice(0, 7) === d.monthId),
+        cashFlow: opMonths.has(monthId) ? (opCashByMonth[monthId] ?? 0) : null,
+        hasOp: opMonths.has(monthId),
+        ops: operations.filter(op => op.date.slice(0, 7) === monthId),
       };
     });
 
     return { data, years, xMax: data.at(-1)?.x ?? years.length };
-  }, [sp500, operations, snapshotsInEUR, fxRates]);
+  }, [operations, snapshotsInEUR, fxRates]);
 
   const totalPortfolioEUR = useMemo(() =>
     Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
@@ -411,16 +327,8 @@ export default function Investments() {
     } catch (e) { console.error(e); }
   }
 
-  function togglePlatform(p) {
-    setHidden(prev => {
-      const next = new Set(prev);
-      next.has(p) ? next.delete(p) : next.add(p);
-      return next;
-    });
-  }
-
-  function toggleSimLine(key) {
-    setHiddenSim(prev => {
+  function toggleLine(key) {
+    setHiddenLines(prev => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
@@ -434,7 +342,7 @@ export default function Investments() {
   return (
     <div style={s.page}>
 
-      {/* ── Top row: Current Holdings (30%) + S&P Simulation (70%) ─────────── */}
+      {/* ── Top row: Current Holdings (30%) + Portfolio evolution (70%) ─────── */}
       <div style={s.topRow}>
         <div style={s.holdingsCol}>
           <Section title="Current Holdings">
@@ -491,23 +399,22 @@ export default function Investments() {
         </div>
 
         <div style={s.chartCol}>
-        {/* ── S&P Simulation ─────────────────────────────────────────────────── */}
         <Section title="Portfolio evolution">
         {testingChartData.length < 2 ? (
-          <p style={s.muted}>S&P 500 data unavailable.</p>
+          <p style={s.muted}>Not enough snapshot data to plot yet.</p>
         ) : (
           <>
           {/* Legend toggles */}
           <div style={s.legendRow}>
             {/* Portfolio total chip */}
             <button
-              onClick={() => toggleSimLine(TOTAL_KEY)}
+              onClick={() => toggleLine(TOTAL_KEY)}
               style={{
                 ...s.legendChip,
-                opacity:         hiddenSim.has(TOTAL_KEY) ? 0.35 : 1,
+                opacity:         hiddenLines.has(TOTAL_KEY) ? 0.35 : 1,
                 borderColor:     TOTAL_COLOR,
-                color:           hiddenSim.has(TOTAL_KEY) ? "var(--text-muted)" : TOTAL_COLOR,
-                backgroundColor: hiddenSim.has(TOTAL_KEY) ? "transparent" : `${TOTAL_COLOR}22`,
+                color:           hiddenLines.has(TOTAL_KEY) ? "var(--text-muted)" : TOTAL_COLOR,
+                backgroundColor: hiddenLines.has(TOTAL_KEY) ? "transparent" : `${TOTAL_COLOR}22`,
               }}
             >
               Portfolio total
@@ -516,31 +423,18 @@ export default function Investments() {
             {activePlatforms.map(p => (
               <button
                 key={p}
-                onClick={() => toggleSimLine(p)}
+                onClick={() => toggleLine(p)}
                 style={{
                   ...s.legendChip,
-                  opacity:         hiddenSim.has(p) ? 0.35 : 1,
+                  opacity:         hiddenLines.has(p) ? 0.35 : 1,
                   borderColor:     PLATFORM_COLOR[p],
-                  color:           hiddenSim.has(p) ? "var(--text-muted)" : PLATFORM_COLOR[p],
-                  backgroundColor: hiddenSim.has(p) ? "transparent" : `${PLATFORM_COLOR[p]}18`,
+                  color:           hiddenLines.has(p) ? "var(--text-muted)" : PLATFORM_COLOR[p],
+                  backgroundColor: hiddenLines.has(p) ? "transparent" : `${PLATFORM_COLOR[p]}18`,
                 }}
               >
                 {p}
               </button>
             ))}
-            {/* S&P simulation chip */}
-            <button
-              onClick={() => toggleSimLine("adjusted")}
-              style={{
-                ...s.legendChip,
-                opacity:         hiddenSim.has("adjusted") ? 0.35 : 1,
-                borderColor:     "#f59e0b",
-                color:           hiddenSim.has("adjusted") ? "var(--text-muted)" : "#f59e0b",
-                backgroundColor: hiddenSim.has("adjusted") ? "transparent" : "#f59e0b22",
-              }}
-            >
-              S&P simulation
-            </button>
           </div>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={testingChartData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
@@ -565,9 +459,7 @@ export default function Investments() {
               />
               <Tooltip content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
-                const { date, adjusted, portfolio, spPct, spGrowthSinceLastOp, valueBeforeCash, prevOpValue, cashFlow, ops, hasOp } = payload[0].payload;
-                const isOpPoint = hasOp && prevOpValue != null;
-                const growthColor = v => v == null ? "var(--text-muted)" : v >= 0 ? "#22c55e" : "#ef4444";
+                const { date, portfolio, cashFlow, ops, hasOp } = payload[0].payload;
                 const cfColor = cashFlow == null ? "var(--text-muted)" : cashFlow >= 0 ? "#22c55e" : "#ef4444";
                 const divider = <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />;
                 const row = (label, value, color, bold) => (
@@ -577,52 +469,26 @@ export default function Investments() {
                   </div>
                 );
                 return (
-                  <div style={{ ...st.tooltip, minWidth: "260px" }}>
+                  <div style={{ ...st.tooltip, minWidth: "220px" }}>
                     <div style={st.tooltipDate}>{date}</div>
 
-                    {/* Actual portfolio line — always shown when data available */}
                     {portfolio != null && row("Portfolio (actual)", `${fmtNum(portfolio)} EUR`, TOTAL_COLOR, true)}
 
-                    {isOpPoint ? (
-                      // ── Operation-point breakdown ──────────────────────────
+                    {hasOp && ops?.length > 0 && (
                       <>
                         {divider}
-                        {row("① Value at last op-point", `${fmtNum(prevOpValue)} EUR`)}
-                        {row(
-                          "② S&P 500 growth since then",
-                          `${spGrowthSinceLastOp >= 0 ? "+" : ""}${fmtNum(spGrowthSinceLastOp)}%`,
-                          growthColor(spGrowthSinceLastOp),
-                        )}
-                        {row("③ After S&P growth", `${fmtNum(valueBeforeCash)} EUR`, "var(--text)")}
-                        {divider}
-                        {ops?.map((op, i) => (
+                        {ops.map((op, i) => (
                           <div key={i} style={{ ...st.tooltipRow, color: op.type === "Deposit" ? "#22c55e" : "#ef4444", marginBottom: "2px" }}>
-                            <span>④ {op.type} · {op.platform}</span>
+                            <span>{op.type} · {op.platform}</span>
                             <span style={st.tooltipVal}>
                               {op.type === "Deposit" ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
                             </span>
                           </div>
                         ))}
-                        {row(
-                          `${ops?.length > 1 ? "   " : ""}Net cash (EUR)`,
+                        {cashFlow != null && row(
+                          "Net cash (EUR)",
                           `${cashFlow >= 0 ? "+" : ""}${fmtNum(cashFlow)} EUR`,
                           cfColor,
-                        )}
-                        {divider}
-                        {row("= S&P simulation", `${fmtNum(adjusted)} EUR`, "#f59e0b", true)}
-                        <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "4px" }}>
-                          = ③ {cashFlow >= 0 ? "+" : "−"} net cash
-                        </div>
-                      </>
-                    ) : (
-                      // ── Non-operation month ────────────────────────────────
-                      <>
-                        {portfolio != null && divider}
-                        {row("S&P simulation", `${fmtNum(adjusted)} EUR`, "#f59e0b", true)}
-                        {spPct != null && row(
-                          "S&P 500 this month",
-                          `${spPct >= 0 ? "+" : ""}${fmtNum(spPct)}%`,
-                          growthColor(spPct),
                         )}
                       </>
                     )}
@@ -643,7 +509,7 @@ export default function Investments() {
                     return <circle key={`${p}-dot-${payload.date}`} cx={cx} cy={cy} r={4} fill={PLATFORM_COLOR[p]} stroke="var(--card)" strokeWidth={2} />;
                   }}
                   activeDot={{ r: 3, fill: PLATFORM_COLOR[p] }}
-                  hide={hiddenSim.has(p)}
+                  hide={hiddenLines.has(p)}
                   connectNulls={true}
                 />
               ))}
@@ -660,31 +526,15 @@ export default function Investments() {
                   return <circle key={`pdot-${payload.date}`} cx={cx} cy={cy} r={5} fill={TOTAL_COLOR} stroke="var(--card)" strokeWidth={2} />;
                 }}
                 activeDot={{ r: 4, fill: TOTAL_COLOR }}
-                hide={hiddenSim.has(TOTAL_KEY)}
+                hide={hiddenLines.has(TOTAL_KEY)}
                 connectNulls={true}
-              />
-              {/* S&P simulation line */}
-              <Line
-                type="monotone"
-                dataKey="adjusted"
-                name="S&P simulation"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  if (!payload.hasOp) return null;
-                  return <circle key={`dot-${payload.date}`} cx={cx} cy={cy} r={5} fill="#f59e0b" stroke="var(--card)" strokeWidth={2} />;
-                }}
-                activeDot={{ r: 5, fill: "#f59e0b" }}
-                hide={hiddenSim.has("adjusted")}
               />
             </LineChart>
           </ResponsiveContainer>
           </>
         )}
         <p style={{ ...s.muted, marginTop: "6px", fontSize: "10px" }}>
-          <span style={{ color: TOTAL_COLOR, fontWeight: 600 }}>■</span> Actual portfolio (EUR) &nbsp;
-          <span style={{ color: "#f59e0b", fontWeight: 600 }}>■</span> S&P 500 simulation — same deposits invested in S&P 500 instead. Dots mark operation months.
+          <span style={{ color: TOTAL_COLOR, fontWeight: 600 }}>■</span> Actual portfolio (EUR). Dots mark operation months.
         </p>
       </Section>
         </div>

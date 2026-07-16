@@ -83,13 +83,6 @@ create_table_if_missing "SplitPayments" \
    --key-schema AttributeName=splitPaymentId,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
-# SP500Monthly table (shared reference data, no userId)
-create_table_if_missing "SP500Monthly" \
-  "--table-name SP500Monthly \
-   --attribute-definitions AttributeName=monthId,AttributeType=S \
-   --key-schema AttributeName=monthId,KeyType=HASH \
-   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
-
 # TestTemplates table
 create_table_if_missing "TestTemplates" \
   "--table-name TestTemplates \

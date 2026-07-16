@@ -22,7 +22,6 @@ const TABLES = {
   Expenses:              "expenseId",
   InvestmentOperations:  "operationId",
   PortfolioSnapshots:    "snapshotId",
-  SP500Monthly:          "monthId",
   SplitPayments:         "splitPaymentId",
   TestTemplates:         "templateId",
   TestResults:           "resultId",
@@ -100,7 +99,7 @@ async function sync() {
     let awsItems = await scanAll(awsClient, table);
     process.stdout.write(` fetched ${awsItems.length} from AWS`);
 
-    // 2. Remap userId in user-scoped tables (SP500Monthly has no userId)
+    // 2. Remap userId in user-scoped tables (shared tables have no userId)
     if (realUserId) {
       awsItems = awsItems.map(item =>
         item.userId === realUserId ? { ...item, userId: "local-dev" } : item
