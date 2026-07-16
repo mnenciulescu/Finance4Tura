@@ -233,6 +233,12 @@ function SplitPaymentsTable({ payments, onUpdate }) {
 
   const latest3 = useMemo(() =>
     [...payments]
+      // Only payments that are not fully paid (incomplete occurrences)
+      .filter(p => {
+        const occs = p.occurrences || [];
+        const paidCount = occs.filter(o => o.value !== "" && o.value != null).length;
+        return paidCount < p.occurrenceCount;
+      })
       .sort((a, b) => (b.createdDate || "").localeCompare(a.createdDate || ""))
       .slice(0, 3),
     [payments]
@@ -251,7 +257,7 @@ function SplitPaymentsTable({ payments, onUpdate }) {
     }, 600);
   }
 
-  if (latest3.length === 0) return <EmptyState>No split payments yet.</EmptyState>;
+  if (latest3.length === 0) return <EmptyState>No pending split payments.</EmptyState>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
