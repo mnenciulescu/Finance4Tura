@@ -3,6 +3,9 @@ import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { listUsers, updateUserRole, deleteUser } from "../api/admin";
 import { backupPreview, backupPrepare, backupRunTable } from "../api/adminBackup";
+import { getFxRates, updateFxRates } from "../api/fxRates";
+
+const FX_CURRENCIES = ["EUR", "USD", "RON"];
 
 export default function Admin() {
   const { user, verifyPassword } = useAuth();
@@ -29,6 +32,29 @@ export default function Admin() {
   // rows: [{ name, count, status: "pending"|"running"|"ok"|"error", rows?, error? }]
   const [backupModal, setBackupModal] = useState(null);
   const [backupError, setBackupError] = useState(null);
+
+  // FX rates (shared across all users, stored in DB)
+  const [fx, setFx]             = useState(null); // { rates, updatedAt }
+  const [fxUpdating, setFxUpdating] = useState(false);
+  const [fxError, setFxError]   = useState(null);
+
+  useEffect(() => {
+    getFxRates().then(setFx).catch(() => {});
+  }, []);
+
+  async function handleUpdateFx() {
+    if (fxUpdating) return;
+    setFxUpdating(true);
+    setFxError(null);
+    try {
+      const { rates, updatedAt } = await updateFxRates();
+      setFx({ rates, updatedAt });
+    } catch (e) {
+      setFxError(e?.response?.data?.message || e.message || "Update failed");
+    } finally {
+      setFxUpdating(false);
+    }
+  }
 
   async function handleBackupClick() {
     setBackupError(null);
@@ -193,6 +219,57 @@ export default function Admin() {
                 </div>
               );
             })}
+          </div>
+
+          {/* FX Rates */}
+          <div style={{ ...s.settingsCard, marginTop: "16px" }}>
+            <div style={s.settingsTitle}>FX Rates</div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
+              Conversion rates between EUR, USD and RON used across the app for all
+              users. Update fetches the latest rates and stores every combination in
+              the database.
+            </p>
+            <div style={{ marginBottom: "6px" }}>
+              {fx?.rates?.EUR ? (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                  <thead>
+                    <tr>
+                      <th style={s.fxCornerCell}>1 →</th>
+                      {FX_CURRENCIES.map(to => (
+                        <th key={to} style={s.fxHeadCell}>{to}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FX_CURRENCIES.map(from => (
+                      <tr key={from}>
+                        <td style={s.fxHeadCell}>{from}</td>
+                        {FX_CURRENCIES.map(to => (
+                          <td key={to} style={{ ...s.fxCell, ...(from === to ? { color: "var(--text-muted)" } : {}) }}>
+                            {fx.rates[from]?.[to] ?? "—"}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>No rates stored yet.</div>
+              )}
+            </div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "12px" }}>
+              {fx?.updatedAt ? `Last updated: ${new Date(fx.updatedAt).toLocaleString()}` : " "}
+            </div>
+            {fxError && (
+              <div style={{ ...s.deleteError, marginBottom: "10px" }}>{fxError}</div>
+            )}
+            <button
+              style={{ ...s.btn, background: "var(--accent)", color: "#000", border: "none", width: "100%", padding: "9px", fontSize: "12px", opacity: fxUpdating ? 0.6 : 1, cursor: fxUpdating ? "not-allowed" : "pointer" }}
+              onClick={handleUpdateFx}
+              disabled={fxUpdating}
+            >
+              {fxUpdating ? "Updating…" : "Update FX rates"}
+            </button>
           </div>
 
           {/* Database Backup */}
@@ -476,6 +553,9 @@ const s = {
     padding: "16px 20px", overflow: "hidden",
   },
   settingsTitle: { fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" },
+  fxCornerCell: { padding: "4px 6px", textAlign: "left", fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" },
+  fxHeadCell:   { padding: "4px 6px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" },
+  fxCell:       { padding: "4px 6px", textAlign: "center", fontVariantNumeric: "tabular-nums", color: "var(--text)", borderBottom: "1px solid var(--border)" },
   settingRow:  { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" },
   settingLabel:{ fontSize: "13px", fontWeight: 600, color: "var(--text)" },
   settingDesc: { fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" },

@@ -19,6 +19,7 @@ Globals:
         TEST_RESULTS_TABLE: TestResults
         KID_CONFIG_TABLE: KidConfig
         APP_SETTINGS_TABLE: AppSettings
+        FX_RATES_TABLE: FxRates
         BOOKS_TABLE: Books_and_Dev
         HQ_LOCATIONS_TABLE: HQ_Locations
         HQ_TEMPLATES_TABLE: HQ_Templates
@@ -143,6 +144,18 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: monthId
+          KeyType: HASH
+
+  FxRatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: FxRates
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: rateId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: rateId
           KeyType: HASH
 
   SplitPaymentsTable:
@@ -850,7 +863,7 @@ Resources:
             Method: PUT
 
   # ──────────────────────────────────────────
-  # FX Rates (cached in DynamoDB, shared across all devices)
+  # FX Rates (stored in DynamoDB, shared across all users; updated by admin only)
   # ──────────────────────────────────────────
   FxRatesFunction:
     Type: AWS::Serverless::Function
@@ -859,7 +872,7 @@ Resources:
       CodeUri: .
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref AppSettingsTable
+            TableName: !Ref FxRatesTable
       Events:
         FxRatesGet:
           Type: Api
@@ -869,6 +882,12 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        FxRatesPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /fx-rates
+            Method: POST
 
   # ──────────────────────────────────────────
   # Headquarters
@@ -987,6 +1006,7 @@ Resources:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestResults"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/KidConfig"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/AppSettings"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FxRates"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Books_and_Dev"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Locations"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Templates"

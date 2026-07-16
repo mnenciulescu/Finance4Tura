@@ -257,6 +257,12 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 - Single global item `settingKey = "global"` with `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled`
 - No `userId` — applies to all users; GET is public (no auth), PUT requires admin
 
+**FxRates** table (PK: `rateId`):
+- Single global item `rateId = "global"` with `rates` and `updatedAt`
+- `rates` is the full EUR/USD/RON conversion matrix: `rates[FROM][TO]` = value of 1 `FROM` in `TO` (e.g. `rates.USD.EUR`); all 9 combinations stored, diagonal = 1
+- No `userId` — shared across all users; GET is public (no auth), POST (refresh from frankfurter.app, derives the matrix from EUR base) is admin-only
+- Updated manually from **Admin → FX Rates → "Update FX rates"**. No runtime fetching or client-side buffering — all pages read these stored rates. Frontend `toEUR()` uses `rates[currency].EUR` (with legacy flat-form fallback)
+
 **Books_and_Dev** table (PK: `bookId`):
 - `userId`, `name`, `source`, `type`, `author`, `title`, `dateCompleted` (YYYY-MM), `rating` (1–5 or null), `comments`, `createdAt`, `updatedAt`
 
@@ -337,6 +343,9 @@ DELETE /books-and-dev/{bookId}
 
 GET    /app-settings                          # public (no auth required)
 PUT    /app-settings                          # admin only
+
+GET    /fx-rates                              # public (no auth required) — returns stored { rates, updatedAt }
+POST   /fx-rates                              # admin only — refresh rates from frankfurter.app and store
 ```
 
 ## Testing
@@ -402,6 +411,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | S&P simulation | Carry-forward snapshot totals + cumulative monthly S&P growth applied to running value |
+| FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
 | Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |

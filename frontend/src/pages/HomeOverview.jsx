@@ -6,7 +6,7 @@ import { listExpenses, updateExpense } from "../api/expenses";
 import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
 import { listSnapshots } from "../api/investments";
-import apiClient from "../api/client";
+import { getFxRates } from "../api/fxRates";
 import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
 
 // ── Investment constants (shared with Investments page) ────────────────────────
@@ -21,11 +21,13 @@ const PLATFORM_COLOR = {
 };
 function toEUR(amount, currency, rates) {
   if (!rates || currency === "EUR") return amount;
-  const rate = rates[currency];
-  return rate ? amount / rate : amount;
+  const row = rates[currency];
+  // New matrix form: rates[FROM][TO], so rates[currency].EUR = value of 1 CUR in EUR
+  if (row && typeof row === "object" && row.EUR != null) return amount * row.EUR;
+  // Legacy flat form (base EUR): rates.USD = 1 EUR in USD
+  if (typeof row === "number") return amount / row;
+  return amount;
 }
-const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
-const FX_TTL_MS    = 30 * 60 * 1000; // 30 min client-side cache; server caches 24 h in DynamoDB
 
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -333,7 +335,7 @@ function SplitPaymentsTable({ payments, onUpdate }) {
 
 // ── Section 3: Current Holdings ───────────────────────────────────────────────
 
-function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
+function CurrentHoldings({ snapshots, fxRates, fxUpdatedAt }) {
   const [revealed, setRevealed] = useState(false);
 
   const snapshotsInEUR = useMemo(() =>
@@ -393,9 +395,9 @@ function CurrentHoldings({ snapshots, fxRates, fxStatus }) {
           </div>
           <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
             EUR
-            {fxStatus === "none"     && <span style={{ marginLeft: "4px", opacity: 0.7 }}>· Getting rates…</span>}
-            {fxStatus === "buffered" && <span style={{ marginLeft: "4px", opacity: 0.7 }}>· Buffered</span>}
-            {fxStatus === "updated"  && <span style={{ marginLeft: "4px", color: "#22c55e" }}>· Live</span>}
+            {fxUpdatedAt
+              ? <span style={{ marginLeft: "4px", opacity: 0.7 }}>· FX {dayjs(fxUpdatedAt).format("YYYY-MM-DD")}</span>
+              : <span style={{ marginLeft: "4px", opacity: 0.7 }}>· No FX rates</span>}
           </div>
         </div>
         {/* Reveal button — hold to show */}
@@ -603,42 +605,18 @@ export default function HomeOverview() {
   const [books,     setBooks]     = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [fxRates,   setFxRates]   = useState(null);
-  const [fxStatus,  setFxStatus]  = useState("none");
+  const [fxUpdatedAt, setFxUpdatedAt] = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
 
   useEffect(() => {
-    // Apply client-side cached rates immediately for instant render
-    let clientCacheValid = false;
-    try {
-      const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
-      if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
-        setFxRates(cached.rates);
-        setFxStatus("buffered");
-        clientCacheValid = true;
-      }
-    } catch { /* ignore corrupt cache */ }
-
-    // Always fetch from our backend in the background — it caches rates in DynamoDB
-    // so they are shared across all devices and browsers (24 h server-side TTL).
-    // Skip the network call only when the client cache is still warm.
-    if (!clientCacheValid) {
-      apiClient.get("/fx-rates")
-        .then(res => {
-          const { rates } = res.data;
-          if (!rates) return;
-          setFxRates(rates);
-          setFxStatus("updated");
-          try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates, ts: Date.now() })); } catch { /**/ }
-        })
-        .catch(() => {
-          // Backend call failed — fall back to any stale localStorage entry rather than showing nothing
-          try {
-            const stale = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
-            if (stale?.rates) { setFxRates(stale.rates); setFxStatus("buffered"); }
-          } catch { /**/ }
-        });
-    }
+    // Load the shared FX rates stored in the database (updated by admin only)
+    getFxRates()
+      .then(({ rates, updatedAt }) => {
+        if (rates) setFxRates(rates);
+        setFxUpdatedAt(updatedAt ?? null);
+      })
+      .catch(() => {});
 
     Promise.all([
       listIncomes(),
@@ -716,7 +694,7 @@ export default function HomeOverview() {
         {/* Section 3 — Current Holdings */}
         <Card style={{ boxSizing: "border-box", overflow: "hidden" }}>
           <SectionHeader>Current Holdings</SectionHeader>
-          <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxStatus={fxStatus} />
+          <CurrentHoldings snapshots={snapshots} fxRates={fxRates} fxUpdatedAt={fxUpdatedAt} />
         </Card>
 
         {/* Section 4 — Books & Development */}

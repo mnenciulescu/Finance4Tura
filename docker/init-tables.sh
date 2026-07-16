@@ -141,6 +141,13 @@ create_table_if_missing "AppSettings" \
    --key-schema AttributeName=settingKey,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
+# FxRates table (shared reference data, no userId; single item rateId="global")
+create_table_if_missing "FxRates" \
+  "--table-name FxRates \
+   --attribute-definitions AttributeName=rateId,AttributeType=S \
+   --key-schema AttributeName=rateId,KeyType=HASH \
+   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
+
 # HQ_Locations table
 create_table_if_missing "HQ_Locations" \
   "--table-name HQ_Locations \

@@ -9,7 +9,7 @@ const ssm    = new SSMClient({ region: "eu-central-1" });
 const TABLES = [
   "Incomes", "Expenses", "InvestmentOperations", "PortfolioSnapshots",
   "SP500Monthly", "SplitPayments", "TestTemplates", "TestResults",
-  "KidConfig", "AppSettings", "Books_and_Dev",
+  "KidConfig", "AppSettings", "FxRates", "Books_and_Dev",
   "HQ_Locations", "HQ_Templates", "HQ_Entries",
 ];
 

@@ -10,6 +10,7 @@ import {
   listSnapshots, createSnapshot, deleteSnapshot,
   listSP500,
 } from "../api/investments";
+import { getFxRates } from "../api/fxRates";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -50,8 +51,12 @@ function defaultSnapForm() {
 
 function toEUR(amount, currency, rates) {
   if (!rates || currency === "EUR") return amount;
-  const rate = rates[currency]; // e.g. rates.USD = 1.08 means 1 EUR = 1.08 USD
-  return rate ? amount / rate : amount;
+  const row = rates[currency];
+  // New matrix form: rates[FROM][TO], so rates[currency].EUR = value of 1 CUR in EUR
+  if (row && typeof row === "object" && row.EUR != null) return amount * row.EUR;
+  // Legacy flat form (base EUR): rates.USD = 1 EUR in USD
+  if (typeof row === "number") return amount / row;
+  return amount;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -61,7 +66,7 @@ export default function Investments() {
   const [snapshots,  setSnapshots]  = useState([]);
   const [sp500,      setSP500]      = useState([]);
   const [fxRates,    setFxRates]    = useState(null); // rates from EUR base, e.g. { USD: 1.08, RON: 4.97 }
-  const [fxStatus,   setFxStatus]   = useState("none"); // "none" | "buffered" | "updated"
+  const [fxUpdatedAt, setFxUpdatedAt] = useState(null); // ISO date the shared rates were last updated by admin
   const [loading,    setLoading]    = useState(true);
   const [hidden,     setHidden]     = useState(new Set(PLATFORMS)); // start with platforms hidden; Total visible
   const [hiddenSim,  setHiddenSim]  = useState(new Set(PLATFORMS)); // sim chart: platforms hidden; Total+sim visible
@@ -89,27 +94,11 @@ export default function Investments() {
       .then(setSP500)
       .catch(() => {}); // non-critical — chart stays empty if unavailable
 
-    // Apply cached rates immediately so the page renders without waiting for the network
-    const FX_CACHE_KEY = "fxRates_EUR_USD_RON";
-    const FX_TTL_MS    = 6 * 60 * 60 * 1000; // 6 hours
-    try {
-      const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY));
-      if (cached?.rates && Date.now() - cached.ts < FX_TTL_MS) {
-        setFxRates(cached.rates);
-        setFxStatus("buffered");
-      }
-    } catch { /* ignore corrupt cache */ }
-
-    // Fetch fresh rates in the background; update state + cache if they changed
-    fetch("https://api.frankfurter.app/latest?from=EUR&to=USD,RON")
-      .then(r => r.json())
-      .then(d => {
-        if (!d?.rates) return;
-        setFxRates(d.rates);
-        setFxStatus("updated");
-        try {
-          localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rates: d.rates, ts: Date.now() }));
-        } catch { /* storage full or unavailable */ }
+    // Load the shared FX rates stored in the database (updated by admin only)
+    getFxRates()
+      .then(({ rates, updatedAt }) => {
+        if (rates) setFxRates(rates);
+        setFxUpdatedAt(updatedAt ?? null);
       })
       .catch(() => {});
   }, []);
@@ -456,9 +445,9 @@ export default function Investments() {
               <div style={s.totalCurrency}>
                 EUR
                 <span style={s.fxStatus}>
-                  {fxStatus === "none"     && " · Getting rates…"}
-                  {fxStatus === "buffered" && " · Buffered"}
-                  {fxStatus === "updated"  && " · Updated FX rates."}
+                  {fxUpdatedAt
+                    ? ` · FX rates as of ${dayjs(fxUpdatedAt).format("YYYY-MM-DD")}`
+                    : " · No FX rates set"}
                 </span>
               </div>
             </div>
