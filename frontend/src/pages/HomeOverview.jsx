@@ -254,7 +254,7 @@ function SplitPaymentsTable({ payments, onUpdate }) {
   if (latest3.length === 0) return <EmptyState>No split payments yet.</EmptyState>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
       {latest3.map(entry => {
         const isAmount  = entry.occurrenceType === "amount";
         const occs      = entry.occurrences || [];
@@ -262,17 +262,22 @@ function SplitPaymentsTable({ payments, onUpdate }) {
         const isFull    = paidCount === entry.occurrenceCount;
         return (
           <div key={entry.splitPaymentId} style={{
-            border: "1px solid var(--border)", borderRadius: "10px",
-            padding: "12px 14px", background: "var(--surface-2, rgba(0,0,0,0.03))",
+            border: "1px solid var(--border)", borderRadius: "8px",
+            padding: "8px 10px", background: "var(--surface-2, rgba(0,0,0,0.03))",
           }}>
-            {/* Header: title + coverage badge */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
-              <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {/* Header: title · date · amount + coverage badge */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "7px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
                 {entry.title}
               </span>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{entry.createdDate}</span>
+              <span style={{ fontSize: "11px", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                {Number(entry.totalAmount).toLocaleString("ro-RO")} {entry.currency}
+              </span>
+              <span style={{ flex: 1 }} />
               <span style={{
-                flexShrink: 0, display: "inline-block", padding: "2px 8px", borderRadius: "10px",
-                fontSize: "11px", fontWeight: 600, whiteSpace: "nowrap",
+                flexShrink: 0, display: "inline-block", padding: "1px 7px", borderRadius: "9px",
+                fontSize: "10px", fontWeight: 600, whiteSpace: "nowrap",
                 ...(isFull
                   ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
                   : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }
@@ -282,24 +287,15 @@ function SplitPaymentsTable({ payments, onUpdate }) {
               </span>
             </div>
 
-            {/* Meta: date · total amount */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--text-muted)", marginBottom: "10px" }}>
-              <span>{entry.createdDate}</span>
-              <span style={{ opacity: 0.5 }}>·</span>
-              <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)" }}>
-                {Number(entry.totalAmount).toLocaleString("ro-RO")} {entry.currency}
-              </span>
-            </div>
-
             {/* Occurrence inputs — wrap onto multiple rows */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
               {Array.from({ length: entry.occurrenceCount || occs.length }, (_, i) => {
                 const occ = occs[i];
                 if (!occ) return null;
                 const hasPaid = occ.value !== "" && occ.value != null;
                 return (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                    <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)" }}>#{i + 1}</span>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", flexShrink: 0 }}>#{i + 1}</span>
                     <input
                       type={isAmount ? "number" : "date"}
                       value={occ.value ?? ""}
@@ -308,8 +304,8 @@ function SplitPaymentsTable({ payments, onUpdate }) {
                       placeholder={isAmount ? "0.00" : undefined}
                       onChange={e => updateOcc(entry, i, e.target.value)}
                       style={{
-                        width: isAmount ? "88px" : "132px",
-                        padding: "6px 8px", borderRadius: "6px", fontSize: "12px",
+                        width: isAmount ? "76px" : "124px",
+                        padding: "4px 6px", borderRadius: "5px", fontSize: "12px",
                         border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
                         background: hasPaid ? "rgba(34,197,94,0.10)" : "rgba(255,255,255,0.04)",
                         color: hasPaid ? "#16a34a" : "var(--text)",
