@@ -156,7 +156,7 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
       </div>
 
       {/* Expense list */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1 }}>
         {pending.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: "12px", padding: "12px 16px" }}>
             No pending expenses for this period.
@@ -685,8 +685,9 @@ export default function HomeOverview() {
 
   return (
     // Mobile-width single-column layout, rendered even on desktop. Blocks stack
-    // one after another in a centered, phone-width column; the column scrolls.
-    <div style={{ display: "flex", justifyContent: "center", padding: "16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+    // one after another in a centered, phone-width column at their natural
+    // content height; the surrounding page (main) scrolls to reveal them.
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "16px" }}>
       <div style={{ width: "100%", maxWidth: "430px", display: "flex", flexDirection: "column", gap: "16px" }}>
 
         {/* Section 1 — Pending Expenses */}

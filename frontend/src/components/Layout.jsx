@@ -29,7 +29,7 @@ const s = {
     display:        "flex",
     flexDirection:  "column",
     padding:        "28px 32px",
-    overflow:       "hidden",
+    overflowY:      "auto",
     minHeight:      0,
   },
 };
