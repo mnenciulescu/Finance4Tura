@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import dayjs from "dayjs";
-import useIsMobile from "../hooks/useIsMobile";
 import {
   listSplitPayments,
   createSplitPayment,
   updateSplitPayment,
   deleteSplitPayment,
 } from "../api/splitPayments";
+
+// The whole page is a single phone-width column, rendered the same way on
+// desktop and on mobile — same widths, paddings and font sizes everywhere.
+const COL_WIDTH = "430px";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,10 +37,10 @@ function stats(entry) {
   return {
     occs,
     paid,
-    count:    occs.length,
+    count:     occs.length,
     covered,
     remaining: Math.max(0, round2(Number(entry.totalAmount || 0) - covered)),
-    complete: occs.length > 0 && paid === occs.length,
+    complete:  occs.length > 0 && paid === occs.length,
   };
 }
 
@@ -63,8 +66,6 @@ function defaultForm() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SplitPayment() {
-  const isMobile = useIsMobile();
-
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -145,12 +146,12 @@ export default function SplitPayment() {
       if (e.occurrenceType !== "amount") {
         return occs.map(o => (isFilled(o) ? o : { ...o, value: todayStr() }));
       }
-      const covered   = occs.reduce((sum, o) => sum + num(o.value), 0);
-      const emptyIdx  = occs.map((o, i) => (isFilled(o) ? -1 : i)).filter(i => i >= 0);
+      const covered  = occs.reduce((sum, o) => sum + num(o.value), 0);
+      const emptyIdx = occs.map((o, i) => (isFilled(o) ? -1 : i)).filter(i => i >= 0);
       if (emptyIdx.length === 0) return occs;
-      const each      = Math.max(0, round2((Number(e.totalAmount || 0) - covered) / emptyIdx.length));
-      const next      = [...occs];
-      let   used      = 0;
+      const each = Math.max(0, round2((Number(e.totalAmount || 0) - covered) / emptyIdx.length));
+      const next = [...occs];
+      let   used = 0;
       emptyIdx.forEach((i, k) => {
         const last  = k === emptyIdx.length - 1;
         const value = last
@@ -195,10 +196,10 @@ export default function SplitPayment() {
 
   async function handleSubmit() {
     const errs = {};
-    if (!form.title.trim())                                errs.title           = "Required";
-    if (!form.amount || +form.amount <= 0)                 errs.amount          = "Must be greater than 0";
-    if (!form.occurrenceCount || +form.occurrenceCount < 1) errs.occurrenceCount = "Min 1";
-    if (+form.occurrenceCount > MAX_OCC)                   errs.occurrenceCount = `Max ${MAX_OCC}`;
+    if (!form.title.trim())                                 errs.title           = "Required";
+    if (!form.amount || +form.amount <= 0)                  errs.amount          = "Must be greater than 0";
+    if (!form.occurrenceCount || +form.occurrenceCount < 1)  errs.occurrenceCount = "Min 1";
+    if (+form.occurrenceCount > MAX_OCC)                    errs.occurrenceCount = `Max ${MAX_OCC}`;
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -264,77 +265,81 @@ export default function SplitPayment() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const cardProps = {
-    isMobile,
-    onToggle:       toggle,
-    onSetOcc:       setOcc,
-    onQuickFill:    quickFill,
-    onFillRest:     fillRemaining,
-    onClearAll:     clearAll,
-    onEdit:         openEdit,
-    onAskDelete:    askDelete,
-    onDelete:       handleDelete,
+    onToggle:    toggle,
+    onSetOcc:    setOcc,
+    onQuickFill: quickFill,
+    onFillRest:  fillRemaining,
+    onClearAll:  clearAll,
+    onEdit:      openEdit,
+    onAskDelete: askDelete,
+    onDelete:    handleDelete,
     confirmId,
   };
 
   return (
     <div style={s.page}>
-      <div style={s.header(isMobile)}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={s.title(isMobile)}>Split Pay</h2>
-          <p style={s.subtitle}>
-            {open.length} open · {done.length} settled
-            {outstanding.length > 0 && (
-              <> · left to cover {outstanding.map(([cur, v]) => `${fmt(v)} ${cur}`).join(" · ")}</>
-            )}
-          </p>
-        </div>
-        <button style={s.addBtn(isMobile)} onClick={openCreate}>
-          <span style={{ fontSize: "17px", lineHeight: 1 }}>+</span>
-          {isMobile ? "New" : "New Split Payment"}
-        </button>
-      </div>
+      <div style={s.column}>
 
-      {error && (
-        <div style={s.errorBox} onClick={() => setError("")}>{error} <span style={{ opacity: 0.6 }}>(tap to dismiss)</span></div>
-      )}
-
-      <div style={s.scroll(isMobile)}>
-        {loading ? (
-          <div style={s.empty}>Loading…</div>
-        ) : entries.length === 0 ? (
-          <div style={s.empty}>
-            No split payments yet.<br />
-            <button style={{ ...s.addBtn(false), marginTop: "14px" }} onClick={openCreate}>+ Add your first one</button>
+        <div style={s.header}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={s.title}>Split Pay</h2>
+            <p style={s.subtitle}>
+              {open.length} open · {done.length} settled
+              {outstanding.length > 0 && (
+                <> · left to cover {outstanding.map(([cur, v]) => `${fmt(v)} ${cur}`).join(" · ")}</>
+              )}
+            </p>
           </div>
-        ) : (
-          <>
-            {open.length > 0 && (
-              <>
-                <div style={s.sectionLabel}>In progress · {open.length}</div>
-                {open.map(entry => (
-                  <EntryCard key={entry.splitPaymentId} entry={entry} expanded={isExpanded(entry, false)} {...cardProps} />
-                ))}
-              </>
-            )}
+          <button style={s.addBtn} onClick={openCreate}>
+            <span style={{ fontSize: "17px", lineHeight: 1 }}>+</span>
+            New
+          </button>
+        </div>
 
-            {done.length > 0 && (
-              <>
-                <button style={s.sectionToggle} onClick={() => setShowDone(v => !v)}>
-                  <span>Settled · {done.length}</span>
-                  <Chevron open={showDone} />
-                </button>
-                {showDone && done.map(entry => (
-                  <EntryCard key={entry.splitPaymentId} entry={entry} expanded={isExpanded(entry, true)} {...cardProps} />
-                ))}
-              </>
-            )}
-          </>
+        {error && (
+          <div style={s.errorBox} onClick={() => setError("")}>
+            {error} <span style={{ opacity: 0.6 }}>(tap to dismiss)</span>
+          </div>
         )}
+
+        <div style={s.scroll}>
+          {loading ? (
+            <div style={s.empty}>Loading…</div>
+          ) : entries.length === 0 ? (
+            <div style={s.empty}>
+              No split payments yet.<br />
+              <button style={{ ...s.addBtn, marginTop: "14px" }} onClick={openCreate}>+ Add your first one</button>
+            </div>
+          ) : (
+            <>
+              {open.length > 0 && (
+                <>
+                  <div style={s.sectionLabel}>In progress · {open.length}</div>
+                  {open.map(entry => (
+                    <EntryCard key={entry.splitPaymentId} entry={entry} expanded={isExpanded(entry, false)} {...cardProps} />
+                  ))}
+                </>
+              )}
+
+              {done.length > 0 && (
+                <>
+                  <button style={s.sectionToggle} onClick={() => setShowDone(v => !v)}>
+                    <span>Settled · {done.length}</span>
+                    <Chevron open={showDone} />
+                  </button>
+                  {showDone && done.map(entry => (
+                    <EntryCard key={entry.splitPaymentId} entry={entry} expanded={isExpanded(entry, true)} {...cardProps} />
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
       </div>
 
       {modal && (
         <EntryModal
-          isMobile={isMobile}
           mode={modal.mode}
           entry={modal.entry}
           form={form}
@@ -352,22 +357,22 @@ export default function SplitPayment() {
 // ── Entry card ────────────────────────────────────────────────────────────────
 
 function EntryCard({
-  entry, expanded, isMobile, confirmId,
+  entry, expanded, confirmId,
   onToggle, onSetOcc, onQuickFill, onFillRest, onClearAll, onEdit, onAskDelete, onDelete,
 }) {
   const { occs, paid, count, covered, remaining, complete } = stats(entry);
-  const isAmount = entry.occurrenceType === "amount";
-  const pct      = count ? Math.round((paid / count) * 100) : 0;
-  const id       = entry.splitPaymentId;
+  const isAmount   = entry.occurrenceType === "amount";
+  const pct        = count ? Math.round((paid / count) * 100) : 0;
+  const id         = entry.splitPaymentId;
   const confirming = confirmId === id;
 
   return (
     <div style={s.card(complete)}>
       {/* Head — tap anywhere to expand / collapse */}
-      <div style={s.cardHead(isMobile)} onClick={() => onToggle(entry, complete)} role="button" tabIndex={0}>
+      <div style={s.cardHead} onClick={() => onToggle(entry, complete)} role="button" tabIndex={0}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={s.cardTitleRow}>
-            <span style={s.cardTitle(isMobile)}>{entry.title}</span>
+            <span style={s.cardTitle}>{entry.title}</span>
             <span style={s.badge(complete)}>{paid}/{count}{complete ? " ✓" : ""}</span>
           </div>
           <div style={s.cardMeta}>
@@ -390,8 +395,8 @@ function EntryCard({
       </div>
 
       {expanded && (
-        <div style={s.cardBody(isMobile)}>
-          <div style={s.grid(isMobile, isAmount)}>
+        <div style={s.cardBody}>
+          <div style={s.grid(isAmount)}>
             {occs.map((occ, i) => {
               const filled = isFilled(occ);
               return (
@@ -405,7 +410,7 @@ function EntryCard({
                     step={isAmount ? "any" : undefined}
                     placeholder={isAmount ? "0.00" : undefined}
                     onChange={e => onSetOcc(id, i, e.target.value)}
-                    style={s.occInput(isMobile, filled)}
+                    style={s.occInput(filled)}
                   />
                   <button
                     style={s.occAction(filled)}
@@ -439,7 +444,9 @@ function EntryCard({
           {isAmount && (
             <div style={s.coverLine}>
               Covered <strong style={{ color: "var(--text)" }}>{fmt(covered)}</strong> of {fmt(entry.totalAmount)} {entry.currency}
-              {covered > Number(entry.totalAmount || 0) && <span style={s.over}> · over by {fmt(round2(covered - entry.totalAmount))}</span>}
+              {covered > Number(entry.totalAmount || 0) && (
+                <span style={s.over}> · over by {fmt(round2(covered - entry.totalAmount))}</span>
+              )}
             </div>
           )}
         </div>
@@ -460,7 +467,7 @@ function Chevron({ open }) {
 
 // ── Add / edit sheet ──────────────────────────────────────────────────────────
 
-function EntryModal({ isMobile, mode, entry, form, setForm, errors, saving, onClose, onSubmit }) {
+function EntryModal({ mode, entry, form, setForm, errors, saving, onClose, onSubmit }) {
   const field = (key) => ({
     value:    form[key],
     onChange: e => setForm(f => ({ ...f, [key]: e.target.value })),
@@ -468,9 +475,9 @@ function EntryModal({ isMobile, mode, entry, form, setForm, errors, saving, onCl
   const lockedType = mode === "edit" && entry && stats(entry).paid > 0;
 
   return (
-    <div style={s.overlay(isMobile)} onClick={onClose}>
-      <div style={s.sheet(isMobile)} onClick={e => e.stopPropagation()}>
-        {isMobile && <div style={s.grabber} />}
+    <div style={s.overlay} onClick={onClose}>
+      <div style={s.sheet} onClick={e => e.stopPropagation()}>
+        <div style={s.grabber} />
 
         <div style={s.sheetHead}>
           <span style={s.sheetTitle}>{mode === "create" ? "New Split Payment" : "Edit Split Payment"}</span>
@@ -479,19 +486,19 @@ function EntryModal({ isMobile, mode, entry, form, setForm, errors, saving, onCl
 
         <div style={s.sheetBody}>
           <Field label="Title" error={errors.title}>
-            <input style={s.input(isMobile, errors.title)} placeholder="e.g. Car loan, Laptop instalments" {...field("title")} />
+            <input style={s.input(errors.title)} placeholder="e.g. Car loan, Laptop instalments" {...field("title")} />
           </Field>
 
           <Field label="Date">
-            <input style={s.input(isMobile)} type="date" {...field("date")} />
+            <input style={s.input()} type="date" {...field("date")} />
           </Field>
 
           <div style={s.row2}>
             <Field label="Total amount" error={errors.amount}>
-              <input style={s.input(isMobile, errors.amount)} type="number" inputMode="decimal" min="0" step="any" placeholder="0" {...field("amount")} />
+              <input style={s.input(errors.amount)} type="number" inputMode="decimal" min="0" step="any" placeholder="0" {...field("amount")} />
             </Field>
             <Field label="Currency">
-              <select style={s.input(isMobile)} {...field("currency")}>
+              <select style={s.input()} {...field("currency")}>
                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </Field>
@@ -499,10 +506,10 @@ function EntryModal({ isMobile, mode, entry, form, setForm, errors, saving, onCl
 
           <div style={s.row2}>
             <Field label="Occurrences" error={errors.occurrenceCount}>
-              <input style={s.input(isMobile, errors.occurrenceCount)} type="number" inputMode="numeric" min="1" max={MAX_OCC} {...field("occurrenceCount")} />
+              <input style={s.input(errors.occurrenceCount)} type="number" inputMode="numeric" min="1" max={MAX_OCC} {...field("occurrenceCount")} />
             </Field>
             <Field label="Track by" error={lockedType ? "Locked — entries exist" : undefined}>
-              <select style={s.input(isMobile)} disabled={lockedType} {...field("occurrenceType")}>
+              <select style={s.input()} disabled={lockedType} {...field("occurrenceType")}>
                 <option value="amount">Amount paid</option>
                 <option value="date">Payment date</option>
               </select>
@@ -510,9 +517,9 @@ function EntryModal({ isMobile, mode, entry, form, setForm, errors, saving, onCl
           </div>
         </div>
 
-        <div style={s.sheetFoot(isMobile)}>
-          <button style={s.cancelBtn(isMobile)} onClick={onClose}>Cancel</button>
-          <button style={s.saveBtn(isMobile)} onClick={onSubmit} disabled={saving}>
+        <div style={s.sheetFoot}>
+          <button style={s.cancelBtn} onClick={onClose}>Cancel</button>
+          <button style={s.saveBtn} onClick={onSubmit} disabled={saving}>
             {saving ? "Saving…" : mode === "create" ? "Create" : "Save"}
           </button>
         </div>
@@ -537,53 +544,63 @@ const GREEN_BG     = "rgba(34,197,94,0.10)";
 const GREEN_BORDER = "rgba(34,197,94,0.35)";
 
 const s = {
+  // Centered phone-width column — identical on desktop and mobile
   page: {
+    display:        "flex",
+    flexDirection:  "column",
+    alignItems:     "center",
+    flex:           1,
+    minHeight:      0,
+  },
+  column: {
     display:       "flex",
     flexDirection: "column",
+    width:         "100%",
+    maxWidth:      COL_WIDTH,
     flex:          1,
     minHeight:     0,
   },
 
-  header: (m) => ({
+  header: {
     display:        "flex",
     alignItems:     "center",
     justifyContent: "space-between",
     gap:            "12px",
     flexShrink:     0,
-    padding:        m ? "12px 14px" : "0 0 16px",
-    borderBottom:   m ? "1px solid var(--border)" : "none",
-  }),
-  title: (m) => ({
+    padding:        "12px 14px",
+    borderBottom:   "1px solid var(--border)",
+  },
+  title: {
     margin:     0,
-    fontSize:   m ? "17px" : "20px",
+    fontSize:   "17px",
     fontWeight: 700,
     color:      "var(--text)",
-  }),
+  },
   subtitle: {
     margin:   "3px 0 0",
     fontSize: "12px",
     color:    "var(--text-muted)",
   },
-  addBtn: (m) => ({
-    display:        "inline-flex",
-    alignItems:     "center",
-    gap:            "6px",
-    flexShrink:     0,
-    background:     "var(--accent)",
-    border:         "none",
-    borderRadius:   "9px",
-    color:          "#fff",
-    fontSize:       "13px",
-    fontWeight:     600,
-    padding:        m ? "10px 14px" : "9px 16px",
-    minHeight:      m ? "42px" : "auto",
-    cursor:         "pointer",
-    whiteSpace:     "nowrap",
-  }),
+  addBtn: {
+    display:      "inline-flex",
+    alignItems:   "center",
+    gap:          "6px",
+    flexShrink:   0,
+    background:   "var(--accent)",
+    border:       "none",
+    borderRadius: "9px",
+    color:        "#fff",
+    fontSize:     "13px",
+    fontWeight:   600,
+    padding:      "10px 14px",
+    minHeight:    "42px",
+    cursor:       "pointer",
+    whiteSpace:   "nowrap",
+  },
 
   errorBox: {
     flexShrink:   0,
-    margin:       "10px 14px 0",
+    margin:       "10px 12px 0",
     background:   "var(--error-bg)",
     color:        "var(--error-text)",
     border:       "1px solid var(--danger)",
@@ -593,7 +610,7 @@ const s = {
     cursor:       "pointer",
   },
 
-  scroll: (m) => ({
+  scroll: {
     flex:          1,
     minHeight:     0,
     overflowY:     "auto",
@@ -601,8 +618,8 @@ const s = {
     display:       "flex",
     flexDirection: "column",
     gap:           "10px",
-    padding:       m ? "12px 12px 24px" : "0 0 8px",
-  }),
+    padding:       "12px 12px 24px",
+  },
 
   empty: {
     background:   "var(--surface)",
@@ -649,29 +666,29 @@ const s = {
     overflow:     "hidden",
     flexShrink:   0,
   }),
-  cardHead: (m) => ({
+  cardHead: {
     display:    "flex",
     alignItems: "center",
     gap:        "10px",
-    padding:    m ? "12px 13px" : "13px 15px",
+    padding:    "12px 13px",
     cursor:     "pointer",
     userSelect: "none",
-  }),
+  },
   cardTitleRow: {
     display:    "flex",
     alignItems: "center",
     gap:        "8px",
     minWidth:   0,
   },
-  cardTitle: (m) => ({
-    fontSize:     m ? "14px" : "15px",
+  cardTitle: {
+    fontSize:     "14px",
     fontWeight:   600,
     color:        "var(--text)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
     minWidth:     0,
-  }),
+  },
   cardMeta: {
     display:    "flex",
     alignItems: "center",
@@ -709,17 +726,18 @@ const s = {
     transition: "width 0.25s",
   }),
 
-  cardBody: (m) => ({
+  cardBody: {
     display:       "flex",
     flexDirection: "column",
     gap:           "10px",
-    padding:       m ? "12px 13px 13px" : "13px 15px 15px",
+    padding:       "12px 13px 13px",
     borderTop:     "1px solid var(--border)",
-  }),
+  },
 
-  grid: (m, isAmount) => ({
+  // Fixed column counts so the grid never reflows between desktop and phone
+  grid: (isAmount) => ({
     display:             "grid",
-    gridTemplateColumns: `repeat(auto-fill, minmax(${isAmount ? (m ? 148 : 160) : 168}px, 1fr))`,
+    gridTemplateColumns: isAmount ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
     gap:                 "8px",
   }),
   occ: (filled) => ({
@@ -732,24 +750,24 @@ const s = {
     padding:      "4px 5px 4px 7px",
   }),
   occIdx: (filled) => ({
-    flexShrink:   0,
-    fontSize:     "10px",
-    fontWeight:   700,
-    minWidth:     "16px",
-    textAlign:    "center",
-    color:        filled ? "var(--success-text)" : "var(--text-muted)",
+    flexShrink: 0,
+    fontSize:   "10px",
+    fontWeight: 700,
+    minWidth:   "16px",
+    textAlign:  "center",
+    color:      filled ? "var(--success-text)" : "var(--text-muted)",
   }),
-  occInput: (m, filled) => ({
-    flex:         1,
-    minWidth:     0,
-    width:        "100%",
-    background:   "transparent",
-    border:       "none",
-    outline:      "none",
-    color:        filled ? "var(--text)" : "var(--text-muted)",
-    fontSize:     m ? "16px" : "13px",   // 16px keeps iOS from zooming on focus
-    fontWeight:   600,
-    padding:      m ? "7px 0" : "5px 0",
+  occInput: (filled) => ({
+    flex:       1,
+    minWidth:   0,
+    width:      "100%",
+    background: "transparent",
+    border:     "none",
+    outline:    "none",
+    color:      filled ? "var(--text)" : "var(--text-muted)",
+    fontSize:   "16px",   // 16px keeps iOS from zooming on focus
+    fontWeight: 600,
+    padding:    "7px 0",
     fontVariantNumeric: "tabular-nums",
   }),
   occAction: (filled) => ({
@@ -822,28 +840,28 @@ const s = {
   },
   over: { color: "var(--warning-text)" },
 
-  // ── Sheet / modal
-  overlay: (m) => ({
+  // ── Sheet / modal — bottom sheet at phone width, on desktop too
+  overlay: {
     position:       "fixed",
     inset:          0,
     background:     "rgba(0,0,0,0.55)",
     display:        "flex",
-    alignItems:     m ? "flex-end" : "center",
+    alignItems:     "flex-end",
     justifyContent: "center",
     zIndex:         500,
-  }),
-  sheet: (m) => ({
+  },
+  sheet: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  m ? "16px 16px 0 0" : "14px",
-    width:         m ? "100%" : "460px",
-    maxWidth:      "100%",
-    maxHeight:     m ? "92dvh" : "90vh",
+    borderRadius:  "16px 16px 0 0",
+    width:         "100%",
+    maxWidth:      COL_WIDTH,
+    maxHeight:     "92dvh",
     display:       "flex",
     flexDirection: "column",
     overflow:      "hidden",
     boxShadow:     "0 -6px 40px rgba(0,0,0,0.45)",
-  }),
+  },
   grabber: {
     width:        "38px",
     height:       "4px",
@@ -865,12 +883,12 @@ const s = {
     color:      "var(--text)",
   },
   closeBtn: {
-    background:   "transparent",
-    border:       "none",
-    color:        "var(--text-muted)",
-    fontSize:     "15px",
-    cursor:       "pointer",
-    padding:      "6px 8px",
+    background: "transparent",
+    border:     "none",
+    color:      "var(--text-muted)",
+    fontSize:   "15px",
+    cursor:     "pointer",
+    padding:    "6px 8px",
   },
   sheetBody: {
     display:       "flex",
@@ -880,14 +898,14 @@ const s = {
     overflowY:     "auto",
     minHeight:     0,
   },
-  sheetFoot: (m) => ({
-    display:       "grid",
+  sheetFoot: {
+    display:             "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap:           "10px",
-    padding:       `12px 18px calc(16px + ${m ? "env(safe-area-inset-bottom)" : "0px"})`,
-    borderTop:     "1px solid var(--border)",
-    flexShrink:    0,
-  }),
+    gap:                 "10px",
+    padding:             "12px 18px calc(16px + env(safe-area-inset-bottom))",
+    borderTop:           "1px solid var(--border)",
+    flexShrink:          0,
+  },
   row2: {
     display:             "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -900,13 +918,13 @@ const s = {
     textTransform: "uppercase",
     letterSpacing: "0.04em",
   },
-  input: (m, err) => ({
+  input: (err) => ({
     background:   "var(--surface-2)",
     border:       `1px solid ${err ? "var(--danger)" : "var(--border)"}`,
     borderRadius: "9px",
     color:        "var(--text)",
-    fontSize:     m ? "16px" : "13px",
-    padding:      m ? "11px 12px" : "9px 11px",
+    fontSize:     "16px",
+    padding:      "11px 12px",
     width:        "100%",
     boxSizing:    "border-box",
     outline:      "none",
@@ -915,24 +933,24 @@ const s = {
     fontSize: "11px",
     color:    "var(--danger)",
   },
-  cancelBtn: (m) => ({
+  cancelBtn: {
     background:   "transparent",
     border:       "1px solid var(--border)",
     borderRadius: "9px",
     color:        "var(--text-muted)",
     fontSize:     "13px",
     fontWeight:   600,
-    padding:      m ? "12px 16px" : "9px 18px",
+    padding:      "12px 16px",
     cursor:       "pointer",
-  }),
-  saveBtn: (m) => ({
+  },
+  saveBtn: {
     background:   "var(--accent)",
     border:       "none",
     borderRadius: "9px",
     color:        "#fff",
     fontSize:     "13px",
     fontWeight:   700,
-    padding:      m ? "12px 16px" : "9px 18px",
+    padding:      "12px 16px",
     cursor:       "pointer",
-  }),
+  },
 };

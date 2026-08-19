@@ -176,12 +176,12 @@ Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & 
 
 ### Split Payments Module
 
-Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile bottom tab bar (Split Pay). **Responsive**: one card-list layout that adapts to both, replacing the old wide desktop-only table.
+Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile bottom tab bar (Split Pay). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too** — same widths, paddings and font sizes on every screen, mirroring the Home Overview layout. Replaces the old wide desktop-only table.
 
-**File**: `frontend/src/pages/SplitPayment.jsx` (self-contained; `useIsMobile` drives sizing/padding/sheet placement)
+**File**: `frontend/src/pages/SplitPayment.jsx` (self-contained; no `useIsMobile` — there is a single layout, width-capped by the `COL_WIDTH` constant)
 
 **Layout**:
-- Header: title, `N open · M settled` plus per-currency "left to cover" totals, and a `+ New` button (`+ New Split Payment` on desktop)
+- Header: title, `N open · M settled` plus per-currency "left to cover" totals, and a `+ New` button
 - Two groups: **In progress** (always listed) and **Settled** (collapsed behind a toggle)
 - Each entry is a card with a 3 px progress track showing `paid / occurrenceCount`
 
@@ -191,14 +191,14 @@ Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile 
 - Collapsed head shows title, coverage badge, date, total, and remaining amount
 
 **Coverage editing** (expanded body):
-- Occurrence tiles in a responsive `auto-fill` grid (2 columns on a phone); each tile has an index badge, an input, and one action button
-- Input is `number` (`occurrenceType === "amount"`) or `date` (`occurrenceType === "date"`); font-size is 16 px on mobile to stop iOS zoom-on-focus
+- Occurrence tiles in a fixed-column grid so it never reflows between devices — 2 columns for amount-tracked, 1 column for date-tracked; each tile has an index badge, an input, and one action button
+- Input is `number` (`occurrenceType === "amount"`) or `date` (`occurrenceType === "date"`); font-size is 16 px everywhere to stop iOS zoom-on-focus
 - Action button is `+` when empty (fills the suggested even split, or today's date) and `✕` when filled (clears it)
 - **Cover rest** button fills every empty occurrence at once — the last one absorbs the rounding remainder so the sum matches `totalAmount` exactly; **Clear all** empties them
 - All coverage edits save with a 600 ms debounce per entry (`PUT /split-payments/{id}` with `{ occurrences }`)
 
 **Entry CRUD**:
-- Add/Edit uses the same form — a **bottom sheet** on mobile (rounded top, grabber, `env(safe-area-inset-bottom)` padding) and a centered dialog on desktop
+- Add/Edit uses the same form — a **bottom sheet** (rounded top, grabber, `env(safe-area-inset-bottom)` padding) at column width, on desktop as well as mobile
 - Fields: title, date, total amount, currency (RON/EUR/USD), occurrences (1–36), track by (amount/date)
 - On edit, `occurrenceType` is locked once any occurrence is filled; changing the count preserves existing values by index
 - Delete is a two-step inline confirm ("Delete" → "Tap to confirm", auto-reverts after 4 s) — no separate dialog
@@ -432,7 +432,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
-| Split Payments | DynamoDB-backed, responsive card list (no table); open entries expanded, settled collapsed; debounced coverage auto-save |
+| Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
