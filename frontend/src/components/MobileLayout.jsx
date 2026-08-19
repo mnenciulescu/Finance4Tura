@@ -12,10 +12,15 @@ function IconIncome() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,11 5,6.5 8.5,9.5 14,3.5"/><polyline points="10.5,3.5 14,3.5 14,7"/></svg>;
 }
 
+function IconSplit() {
+  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="7.5" x2="5" y2="7.5"/><polyline points="5,4.5 8.5,7.5 5,10.5"/><line x1="8.5" y1="4" x2="14" y2="4"/><line x1="8.5" y1="11" x2="14" y2="11"/></svg>;
+}
+
 const tabs = [
   { to: "/",            label: "Home",        end: true, Icon: IconDashboard },
   { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
   { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
+  { to: "/split-payments", label: "Split Pay",          Icon: IconSplit     },
 ];
 
 export default function MobileLayout({ children }) {

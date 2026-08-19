@@ -65,9 +65,9 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Home · Expense · Income · AI · Practice · Settings
+- Mobile tab bar: Home · Add Expense · Add Income · Split Pay
 - Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
-- Split Payments module (`/split-payments`) is desktop-only; data stored in DynamoDB (`SplitPayments` table)
+- Split Payments module (`/split-payments`) is fully responsive (desktop Sidebar + mobile tab bar); data stored in DynamoDB (`SplitPayments` table). See below
 - Investments module (`/investments`) shows portfolio evolution (actual portfolio + per-platform lines), snapshots, and operation log
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
 - Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
@@ -173,6 +173,35 @@ Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & 
 - Sorted by `dateCompleted` descending, then title ascending
 
 **Seed script**: `backend/src/seed-books-local.mjs` — seeds 89 entries from original Excel import (Mihai books/audiobooks/trainings + Radu books)
+
+### Split Payments Module
+
+Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile bottom tab bar (Split Pay). **Responsive**: one card-list layout that adapts to both, replacing the old wide desktop-only table.
+
+**File**: `frontend/src/pages/SplitPayment.jsx` (self-contained; `useIsMobile` drives sizing/padding/sheet placement)
+
+**Layout**:
+- Header: title, `N open · M settled` plus per-currency "left to cover" totals, and a `+ New` button (`+ New Split Payment` on desktop)
+- Two groups: **In progress** (always listed) and **Settled** (collapsed behind a toggle)
+- Each entry is a card with a 3 px progress track showing `paid / occurrenceCount`
+
+**Card behaviour**:
+- Open (not fully covered) entries render **expanded** by default; settled ones render **collapsed**
+- Tapping the card head toggles either way; per-card overrides are held in `overrides` state keyed by `splitPaymentId`
+- Collapsed head shows title, coverage badge, date, total, and remaining amount
+
+**Coverage editing** (expanded body):
+- Occurrence tiles in a responsive `auto-fill` grid (2 columns on a phone); each tile has an index badge, an input, and one action button
+- Input is `number` (`occurrenceType === "amount"`) or `date` (`occurrenceType === "date"`); font-size is 16 px on mobile to stop iOS zoom-on-focus
+- Action button is `+` when empty (fills the suggested even split, or today's date) and `✕` when filled (clears it)
+- **Cover rest** button fills every empty occurrence at once — the last one absorbs the rounding remainder so the sum matches `totalAmount` exactly; **Clear all** empties them
+- All coverage edits save with a 600 ms debounce per entry (`PUT /split-payments/{id}` with `{ occurrences }`)
+
+**Entry CRUD**:
+- Add/Edit uses the same form — a **bottom sheet** on mobile (rounded top, grabber, `env(safe-area-inset-bottom)` padding) and a centered dialog on desktop
+- Fields: title, date, total amount, currency (RON/EUR/USD), occurrences (1–36), track by (amount/date)
+- On edit, `occurrenceType` is locked once any occurrence is filled; changing the count preserves existing values by index
+- Delete is a two-step inline confirm ("Delete" → "Tap to confirm", auto-reverts after 4 s) — no separate dialog
 
 ### Home Overview Module
 
@@ -403,7 +432,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
-| Split Payments | DynamoDB-backed, desktop-only; per-participant share breakdown |
+| Split Payments | DynamoDB-backed, responsive card list (no table); open entries expanded, settled collapsed; debounced coverage auto-save |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
