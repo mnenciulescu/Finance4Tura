@@ -140,12 +140,9 @@ export default function SplitPayment() {
     setOcc(entry.splitPaymentId, idx, value);
   }
 
-  /** Fill every still-empty occurrence; for amounts the last one absorbs the rounding rest. */
+  /** Fill every still-empty amount occurrence; the last one absorbs the rounding rest. */
   function fillRemaining(entry) {
     applyOccs(entry.splitPaymentId, (occs, e) => {
-      if (e.occurrenceType !== "amount") {
-        return occs.map(o => (isFilled(o) ? o : { ...o, value: todayStr() }));
-      }
       const covered  = occs.reduce((sum, o) => sum + num(o.value), 0);
       const emptyIdx = occs.map((o, i) => (isFilled(o) ? -1 : i)).filter(i => i >= 0);
       if (emptyIdx.length === 0) return occs;
@@ -425,9 +422,9 @@ function EntryCard({
           </div>
 
           <div style={s.actions}>
-            {!complete && (
+            {!complete && isAmount && (
               <button style={s.actionPrimary} onClick={() => onFillRest(entry)}>
-                {isAmount ? `Cover rest (${fmt(remaining)} ${entry.currency})` : "Set remaining to today"}
+                Cover rest ({fmt(remaining)} {entry.currency})
               </button>
             )}
             {paid > 0 && <button style={s.action} onClick={() => onClearAll(entry)}>Clear all</button>}

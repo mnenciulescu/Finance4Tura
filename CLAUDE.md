@@ -194,7 +194,7 @@ Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile 
 - Occurrence tiles in a fixed-column grid so it never reflows between devices — 2 columns for amount-tracked, 1 column for date-tracked; each tile has an index badge, an input, and one action button
 - Input is `number` (`occurrenceType === "amount"`) or `date` (`occurrenceType === "date"`); font-size is 16 px everywhere to stop iOS zoom-on-focus
 - Action button is `+` when empty (fills the suggested even split, or today's date) and `✕` when filled (clears it)
-- **Cover rest** button fills every empty occurrence at once — the last one absorbs the rounding remainder so the sum matches `totalAmount` exactly; **Clear all** empties them
+- **Cover rest** button (amount-tracked entries only) fills every empty occurrence at once — the last one absorbs the rounding remainder so the sum matches `totalAmount` exactly; **Clear all** empties them
 - All coverage edits save with a 600 ms debounce per entry (`PUT /split-payments/{id}` with `{ occurrences }`)
 
 **Entry CRUD**:
