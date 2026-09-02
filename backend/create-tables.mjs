@@ -7,7 +7,6 @@ const tables = [
   { name: "InvestmentOperations", pk: "operationId",    gsi: "date" },
   { name: "PortfolioSnapshots",   pk: "snapshotId",     gsi: "date" },
   { name: "SplitPayments",        pk: "splitPaymentId", gsi: null   },
-  { name: "SP500Monthly",         pk: "monthId",        gsi: null   },
 ];
 
 for (const t of tables) {

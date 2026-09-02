@@ -384,7 +384,7 @@ A desktop-only module for logging advance payments split across multiple occurre
 ## Phase 11 – Investments Module ✅
 
 ### Goal
-A desktop-only page (`/investments`) to track the user's investment portfolio across multiple platforms, with S&P 500 benchmark simulation and P&L comparison charts.
+A **PWA-first** page (`/investments`) to track the user's investment portfolio across multiple platforms. Renders as a single phone-width column, centered on desktop as well as mobile, built from four stacked blocks. See `Documentation/Investments_Requirement.md` for the full spec.
 
 ### Platforms
 Fixed list — no CRUD in the UI:
@@ -426,14 +426,6 @@ GSI: `date-index` on `date`.
 
 GSI: `date-index` on `date`. One record per platform per reading (not one wide row for all platforms).
 
-#### `SP500Monthly`
-| Attribute | Type | Notes |
-|---|---|---|
-| `monthId` | String (PK) | `YYYY-MM` (e.g. `2023-01`) |
-| `close` | Number | S&P 500 monthly closing price |
-
-No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (no `userId`).
-
 ### Endpoints
 
 | Method | Path | Description |
@@ -447,72 +439,54 @@ No GSI; all rows fetched in full for simulation calculations. Shared/unscoped (n
 | `POST` | `/investments/snapshots` | Record a new snapshot |
 | `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
 | `DELETE` | `/investments/snapshots/{snapshotId}` | Delete snapshot |
-| `GET` | `/sp500` | Returns all rows from SP500Monthly table sorted by monthId |
-| `POST` | `/sp500` with `{ sync: true }` | Fetches missing months from Yahoo Finance and stores them; returns `{ log, newRecords }` |
-| `POST` | `/sp500` with `{ monthId, close }` | Upserts a single SP500Monthly record |
 
-### Page Sections
-1. **Current Holdings** (top row, left 30%) — one card per platform (latest amount + date); powered by `GET /investments/snapshots/latest`.
-2. **Portfolio evolution** (top row, right 70%) — amber S&P simulation line vs grey portfolio total carry-forward; individual platform lines togglable; dots at operation months with detailed tooltip. Legend order: Portfolio total → platform lines → S&P simulation (last).
-3. **P&L Evolution (%)** — full-width section; indigo portfolio period-return line + green S&P 500 monthly % line; right panel bar chart showing average portfolio P&L % vs average S&P 500 %.
-4. **Portfolio Snapshots** — full-width table (newest first) with add/edit/delete; modal form with date, platform, amount, currency.
-5. **Operations Log** — full-width table (newest first) with add/edit/delete; modal form with date, type, platform, amount, currency, notes.
+### Page Blocks
+
+One phone-width column (`max-width: 430px`), centered on desktop as well as mobile, with four stacked blocks:
+
+1. **Total portfolio** — expandable. Collapsed: total value in EUR, platform count, FX-rate date. Expanded: one row per platform with EUR amount, share bar, share %, original currency amount, and last-snapshot date.
+2. **Portfolio evolution** — 210 px `recharts` LineChart of the actual portfolio value in EUR, **starting from 2023**. Grey **Total** line visible by default, platform lines hidden; legend toggle chips above the chart.
+3. **Portfolio snapshots** — readings grouped by date, newest first, **3 dates shown** with a *Show 3 more* / *Show less* control. Each date card expands to per-platform rows with ✎ / ✕ and an *Add platform to this date* button.
+4. **Operations log** — deposits and withdrawals, newest first, **3 shown** with the same reveal control. Each card expands to show notes and Edit / Delete.
+
+Add and edit both use **bottom sheets** at column width (rounded top, grabber, safe-area padding, 16 px inputs). Delete is a **two-step inline confirm** that auto-reverts after 4 s — no `window.confirm`.
 
 ### Portfolio Evolution Chart Logic
-- Starting value = closest portfolio total in EUR (carry-forward from snapshots) to January 2023.
-- For each subsequent month: `runningValue = runningValue × (sp500Close[thisMonth] / sp500Close[prevMonth])`.
-- At each operation month (except the first): `runningValue += netCashFlowInEUR` (deposits minus withdrawals, converted to EUR via `frankfurter.app` live rates).
-- S&P growth is applied only when `close != null` and `prevClose > 0`; otherwise the simulation line shows `null` (no dot rendered).
-- Grey portfolio total line shows carry-forward of real snapshot totals in EUR.
-- Chart X-axis auto-sizes to the last data point (`data.at(-1)?.x`); no empty space on the right.
-- Chart extends to `max(lastSnapshotMonth, lastOperationMonth)` even when SP500 data ends earlier — extra months are appended with `close: null`.
-- Tooltip at operation-month dots: ① Value at last op-point → ② S&P growth since then → ③ After S&P growth → ④ Each deposit/withdrawal → Net cash → = Simulated value.
-
-### SP500 Data Sync (Settings)
-- SP500 data is not auto-fetched on chart load. The chart renders with whatever data is in `SP500Monthly`.
-- To update SP500 data: **Settings → Data → "Get latest S&P 500 data" → Run**.
-- Calls `POST /sp500` with `{ sync: true }`. The Lambda fetches missing months from Yahoo Finance (`query1.finance.yahoo.com`) and stores them in `SP500Monthly`.
-- An animated terminal-style log panel shows progress line by line (green = stored/done, amber = fetching/checking, red = error, grey = info).
-- The SP500Function Lambda has a 30-second timeout to accommodate Yahoo Finance round-trips.
-
-### P&L Evolution Logic
-- Portfolio P&L% per period: `(currentPortfolio - prevPortfolio - netCash) / prevPortfolio × 100`.
-- S&P 500 monthly %: `(close[month] - close[prevMonth]) / close[prevMonth] × 100`.
-- Both rendered on same chart with `connectNulls`.
-- Right panel: bar chart of average portfolio P&L % vs average S&P 500 % with reference lines.
-
+- Plots the **actual** portfolio value in EUR month by month. No S&P 500 simulation and no P&L chart — both were removed from the product.
+- The plotted range starts at `CHART_START` (`2023-01`); earlier snapshots and operations still feed the carry-forward but are never plotted. If the earliest data is later than `CHART_START`, the chart starts there instead.
+- Per-month values carry forward the latest snapshot per platform (`platformAt` / `portfolioAt`); the month spine ends at the latest snapshot/operation month.
+- Lines: **Total** (grey `#94a3b8`, visible by default) plus one per active platform (colour-coded, hidden by default), all with `connectNulls`.
+- Platform chips list platforms with a snapshot > 0 in the last 12 months. The Total portfolio block instead lists every platform whose latest snapshot is > 0, so its shares add up to the displayed total.
+- Dots mark months containing operations; the dot renderer guards `isNaN(cy)` to avoid phantom half-dots.
+- Amounts converted to EUR with the shared rates from `GET /fx-rates` (stored in DynamoDB, refreshed from Admin → FX Rates) — no runtime third-party fetch.
 ### Seed Scripts
 | Script | Purpose |
 |---|---|
 | `backend/src/seed-investments.mjs` | Seeds 32 historical operations and ~68 snapshots (production or local) |
 | `backend/src/seed-investments-local.mjs` | Seeds operations and snapshots for `local-dev` userId |
-| `backend/src/seed-sp500.mjs` | Seeds `SP500Monthly` table from historical S&P 500 data |
 | `backend/src/seed-local.mjs` | Seeds incomes/expenses for `local-dev` userId |
-| `backend/src/sync-from-aws.mjs` | Syncs all 6 AWS DynamoDB tables to local, remapping real userId → `"local-dev"` |
+| `backend/src/sync-from-aws.mjs` | Syncs the AWS DynamoDB tables to local, remapping real userId → `"local-dev"` |
 | `backend/create-tables.mjs` | Creates all local DynamoDB tables programmatically |
 | `scripts/seed-local.mjs` | Convenience wrapper for `seed-local.mjs` |
-
-`docker/init-tables.sh` also creates the `SP500Monthly` table as part of local bootstrap.
 
 ### Tests – Phase 11
 | # | Test | Expected Result |
 |---|---|---|
-| 11.1 | Navigate to `/investments` on desktop | All sections visible: Holdings + Portfolio evolution chart (top row), P&L Evolution, Snapshots, Operations |
-| 11.2 | View on mobile | "Investments" absent from mobile tab bar |
-| 11.3 | Current Holdings after seed | Each platform shows its latest amount and snapshot date |
-| 11.4 | Portfolio evolution chart after seed | Amber S&P simulation line rendered last in legend; grey portfolio total line rendered; no empty space on the right of the chart |
-| 11.5 | Toggle a platform chip | Line hides/shows in Portfolio evolution chart |
-| 11.6 | Hover operation dot on Portfolio evolution chart | Tooltip shows numbered breakdown of simulation step |
-| 11.7 | P&L Evolution chart after seed | Indigo portfolio % line and green S&P % line rendered; bar chart shows averages |
-| 11.8 | Add operation | Row appears at top of Operations table; charts update |
-| 11.9 | Edit operation | Row updates |
-| 11.10 | Add snapshot | Holdings card updates; charts gain data point |
-| 11.11 | Edit snapshot | `PUT /investments/snapshots/{id}` called; row and charts update |
-| 11.12 | Delete snapshot | Holdings card reverts to previous value |
+| 11.1 | Open `/investments` on desktop and mobile | Same phone-width column with the four stacked blocks; centered on desktop |
+| 11.2 | Mobile bottom tab bar | **Investments** tab present, after **Split Pay** |
+| 11.3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
+| 11.4 | Portfolio evolution chart after seed | Grey Total line rendered; platform lines hidden but togglable; chart starts at 2023 |
+| 11.5 | Toggle a legend chip | Line hides/shows; chip dims when hidden |
+| 11.6 | Tap an operation dot | Tooltip shows the portfolio value, that month's operations, and net cash in EUR |
+| 11.7 | Snapshots block after seed | 3 date cards, collapsed, each with its carry-forward EUR total; **Show 3 more** reveals 3 more |
+| 11.8 | Add operation | New card appears at the top of the Operations log; chart updates |
+| 11.9 | Edit operation | `PUT /investments/operations/{id}` called; card updates |
+| 11.10 | Add snapshot | Total portfolio and chart update; the date card gains a platform row |
+| 11.11 | Edit snapshot | `PUT /investments/snapshots/{id}` called; record updates in place and keeps its id |
+| 11.12 | Delete a snapshot or an operation | First tap arms the inline confirm, second tap deletes |
 | 11.13 | Refresh | All data persists |
-| 11.14 | `seed-sp500.mjs` runs | SP500Monthly populated; Portfolio evolution chart renders correctly |
-| 11.15 | `sync-from-aws.mjs` runs | All 6 tables synced locally with userId remapped to `"local-dev"` |
-| 11.16 | Settings → Data → "Get latest S&P 500 data" → Run | Terminal log appears; missing SP500 months fetched from Yahoo Finance and stored; log shows green "Done" line on completion |
+| 11.14 | `sync-from-aws.mjs` runs | Tables synced locally with userId remapped to `"local-dev"` |
+| 11.15 | `npx vitest run src/pages/Investments.test.jsx` | 9 tests pass |
 
 ---
 
@@ -551,11 +525,9 @@ A page (`/ai-news`) that fetches and displays AI-curated financial news from mul
 | Vite polyfill | `define: { global: 'globalThis' }` | Required for `amazon-cognito-identity-js` to run in the browser |
 | Split Payments storage | DynamoDB (`SplitPayments` table) via API | Consistent with the rest of the app; data persists across devices and browsers |
 | Split Pay nav label | "Split Pay" (shortened) | Fits the compact topbar without wrapping |
-| Investments — desktop only | Not in mobile tab bar | Complex multi-section page not suited for mobile; portfolio data is a power-user feature |
+| Investments — one phone-width layout | Same 430 px column on desktop and mobile; Investments tab added to the mobile tab bar after Split Pay | The page is used mainly from the phone as an installed PWA; a single layout removes the desktop/mobile divergence, matching Split Pay and Home Overview |
 | Investments snapshots | One DynamoDB record per platform per reading | Allows recording a single platform without entering all six; matches real usage patterns |
 | Investments chart carry-forward | Fill gaps by using the last known value for each platform | Produces continuous lines even when platforms are not updated simultaneously |
 | Local DynamoDB credentials | No explicit credentials in `dynamo.mjs`; uses host AWS credentials via Docker | Matches the credential namespace used by `init-tables.sh` and the AWS CLI; seed script uses the same pattern |
 | Statistics — Special Expenses | Hidden on mobile | The special expenses panel is complex and not touch-friendly; removed from mobile Stats view |
-| S&P 500 benchmark simulation | Starting from closest snapshot total to Jan 2023; monthly compounding + net cash flow added at operation months | Provides a realistic "what if" comparison against a passive index strategy using actual deposit timing |
-| FX conversion | Live rates from `frankfurter.app` at fetch time | Avoids storing historical rates; EUR is the common denominator for multi-currency portfolio comparisons |
-| SP500Monthly table | Separate DynamoDB table with `monthId` PK, unscoped by userId | S&P 500 data is shared reference data; scoping by user would be wasteful and unnecessary |
+| FX conversion | Shared rates stored in the `FxRates` DynamoDB table, refreshed manually from Admin → FX Rates | EUR is the common denominator for a multi-currency portfolio; storing the rates avoids a third-party fetch on every page load |

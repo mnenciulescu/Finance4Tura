@@ -2,15 +2,20 @@
 
 ## Overview
 
-A **desktop-only** page (`/investments`) to track the user's investment portfolio across multiple platforms. Everything lives on a single scrollable page with four logical sections:
+A **PWA-first** page (`/investments`) to track the user's investment portfolio across multiple platforms. It renders as a **single phone-width column, centered on desktop as well as mobile** — same widths, paddings and font sizes on every screen — and is built as four stacked blocks:
 
-1. **Current Holdings** — latest known value per platform, shown as summary cards. Shares row with the Portfolio Evolution chart.
-2. **Portfolio Evolution Chart** — shows what the portfolio would look like had all historical deposits been invested in the S&P 500 (S&P simulation line), alongside the real portfolio total and individual platform lines.
-3. **P&L Evolution (%)** — combined chart showing portfolio period-return % and S&P 500 monthly % change, plus an average comparison bar chart.
-4. **Operations Log** — a table of all deposits and withdrawals, with the ability to add, edit, and delete entries.
-5. **Portfolio Snapshots** — a table of all portfolio value readings, with the ability to add, edit, and delete snapshot records.
+1. **Total portfolio** — expandable. Collapsed it shows the total value in EUR; expanded it breaks the total down per platform, using each platform's latest snapshot.
+2. **Portfolio evolution** — a line chart of the actual portfolio value in EUR, month by month, **starting from 2023**.
+3. **Portfolio snapshots** — snapshot readings grouped by date, showing the **3 most recent dates** with a *Show 3 more* control.
+4. **Operations log** — deposits and withdrawals, showing the **3 most recent entries** with the same *Show 3 more* control.
 
-The page is **not accessible on mobile** — it does not appear in the mobile tab bar and the route is not linked from any mobile navigation element.
+Snapshots and operations are created, edited, and deleted from **bottom sheets**; deletes use a two-step inline confirm.
+
+The page is reachable from the **mobile bottom tab bar** (Investments tab, after Split Pay) and from the **desktop Sidebar** (Finance → Investments).
+
+> There is no S&P 500 simulation and no P&L Evolution chart — both were removed from the product.
+
+**File**: `frontend/src/pages/Investments.jsx` (self-contained; no `useIsMobile`, no external CSS).
 
 ---
 
@@ -139,19 +144,6 @@ Tracks the total value held on a platform at a point in time. Each record is a *
 
 ---
 
-### Table 3: `SP500Monthly`
-
-Stores monthly S&P 500 closing prices used for benchmark simulation.
-
-| Attribute | Type | Notes |
-|---|---|---|
-| `monthId` | String (PK) | `YYYY-MM` format (e.g. `2023-01`) |
-| `close` | Number | S&P 500 closing price for that month |
-
-No GSI — all rows are fetched in full for simulation calculations.
-
----
-
 ## API Endpoints
 
 ### Operations
@@ -168,46 +160,58 @@ No GSI — all rows are fetched in full for simulation calculations.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/investments/snapshots` | List all; supports `?from=&to=&platform=` |
-| `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform (powers Current Holdings cards) |
+| `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform |
 | `POST` | `/investments/snapshots` | Record a new platform value reading |
 | `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
 | `DELETE` | `/investments/snapshots/{snapshotId}` | Delete a snapshot |
 
-### S&P 500 Data
+### FX Rates
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/sp500` | Returns all rows from the `SP500Monthly` table |
+| `GET` | `/fx-rates` | Public. Returns the stored `{ rates, updatedAt }` EUR/USD/RON matrix |
+
+The page never fetches rates from a third party at runtime — it reads the shared rates stored in the `FxRates` table, refreshed manually from **Admin → FX Rates**.
 
 ---
 
 ## Page Layout
 
-The `/investments` page is a single scrollable page with four vertical sections:
+`/investments` is a **single phone-width column (`max-width: 430px`), centered on desktop too** — same widths, paddings and font sizes on every screen, mirroring Split Pay and Home Overview. There is no separate desktop layout and no `useIsMobile` branch: one layout, width-capped by the `COL_WIDTH` constant.
+
+The column is a page header plus four stacked blocks:
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  CURRENT HOLDINGS (30%)  │  PORTFOLIO EVOLUTION CHART (70%)         │
-│  [ eToro ]  [ Binance ]  │  Legend: [Portfolio total] [eToro] ...   │
-│  [ Fidelity ] [Tradeville]│         [Binance] ... [S&P simulation]  │
-│  [ ING RON ] [ ING EUR ] │  Grey line: Portfolio total              │
-│  Latest value + date     │  Platform lines (togglable, hidden by    │
-│                          │    default)                              │
-│                          │  Amber line: S&P simulation (last)       │
-│                          │  Dots at operation months; rich tooltip  │
-├──────────────────────────────────────────────────────────────────────┤
-│  P&L EVOLUTION (%)                                           (full)  │
-│  Left: indigo portfolio period-return line + green S&P monthly %    │
-│  Right (30%): bar chart — avg portfolio P&L % vs avg S&P %         │
-│  Reference lines at averages                                        │
-├──────────────────────────────────────────────────────────────────────┤
-│  PORTFOLIO SNAPSHOTS                       [+ Add Snapshot]  (full)  │
-│  Table: Date · Platform · Amount · Currency · Edit · Delete         │
-├──────────────────────────────────────────────────────────────────────┤
-│  OPERATIONS LOG                         [+ Add Operation]   (full)  │
-│  Table: Date · Platform · Type · Amount · Currency · Notes          │
-│         Edit · Delete                                               │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────┐  ← max-width 430px, centered
+│ Investments                    │
+│ N snapshots · M operations     │
+├────────────────────────────────┤
+│ ▸ TOTAL PORTFOLIO              │  Block 1 — expandable
+│   7.168,4  EUR                 │  collapsed by default
+│   4 platforms · FX 30 Aug 2026 │
+│   ── expanded ──────────────── │
+│   ● eToro           2.315      │  per-platform breakdown:
+│   ▬▬▬▬▬▬▬░░░░░░░░░  32,3%      │  share bar, share %,
+│   32,3% · 2.500 USD · 1 Aug 26 │  original currency, date
+├────────────────────────────────┤
+│ PORTFOLIO EVOLUTION            │  Block 2
+│ Actual value in EUR since 2023 │
+│ [Total][eToro][Binance]…       │  legend toggle chips
+│ ╭────────────────────────────╮ │
+│ │      line chart, 210px     │ │
+│ ╰────────────────────────────╯ │
+├────────────────────────────────┤
+│ PORTFOLIO SNAPSHOTS    [+ Add] │  Block 3
+│ ▸ 1 Aug 2026    ●●  7.168,4 EUR│  3 dates shown,
+│ ▸ 1 Aug 2025    ●   6.335,0 EUR│  expandable per date
+│ ▸ 1 Aug 2024    ●   3.406,6 EUR│
+│   [ Show 3 more   3/5 ]        │
+├────────────────────────────────┤
+│ OPERATIONS LOG         [+ Add] │  Block 4
+│ ▸ ● Fidelity  DEPOSIT          │  3 entries shown,
+│   10 Jan 2026 · +700 USD       │  expandable per entry
+│   [ Show 3 more   3/5 ]        │
+└────────────────────────────────┘
 ```
 
 ---
@@ -215,255 +219,59 @@ The `/investments` page is a single scrollable page with four vertical sections:
 ## Functional Requirements
 
 ### FR-1 Navigation
-A **"Investments"** link appears in the **desktop Topbar only**. It must not appear in the mobile bottom tab bar, and the route must not be reachable from any mobile navigation element.
+- **Mobile**: an **Investments** tab in the bottom tab bar, placed **after Split Pay** (5th and last tab).
+- **Desktop**: the existing **Finance → Investments** entry in the Sidebar.
+- Route: `/investments`, registered in `App.jsx`.
 
-### FR-2 Current Holdings Section
-- Displays one card per platform showing: platform name, latest recorded amount, currency, and the date of the last snapshot.
-- If no snapshot exists for a platform yet, the card shows "No data".
-- Powered by `GET /investments/snapshots/latest`.
-- Occupies the left 30% of the top row; the Portfolio Evolution chart fills the remaining 70%.
+### FR-2 Block 1 — Total portfolio (expandable)
+- Collapsed head shows: `Total portfolio` label, the total value in EUR, and a meta line with the number of platforms still holding money and the FX-rate date (`FX <date>`, or `no FX rates set`).
+- Tapping the head expands the **holdings breakdown** — one row per platform, in the fixed platform order.
+- Each holding row shows: colour dot, platform name, amount in EUR, a share bar in the platform colour, the share %, the original amount + currency (only when not already EUR), and the date of that platform's latest snapshot.
+- The breakdown lists **every platform whose latest snapshot is > 0** (`heldPlatforms`) — exactly the platforms that make up the total, so the shares add up to 100 %. A platform that has gone quiet still appears here as long as it holds money.
+- All amounts are converted to EUR using the stored FX rates.
 
-### FR-3 Portfolio Evolution Chart
+### FR-3 Block 2 — Portfolio evolution chart
+- A `recharts` `LineChart` at 210 px height, plotting the **actual portfolio value in EUR** month by month. No S&P 500 simulation and no P&L chart — both were removed.
+- **The plotted range starts at `CHART_START` (`2023-01`)**. Snapshots and operations before that date still feed the carry-forward, but are never plotted. If the earliest data is later than `CHART_START`, the chart starts at the earliest data instead.
+- Lines: **Total** (grey `#94a3b8`, visible by default) plus one line per active platform (colour-coded, **hidden by default**), all with `connectNulls`.
+- Legend toggle chips above the chart control which lines are drawn; active = coloured border + tinted background, inactive = dimmed.
+- Platform chips list `activePlatforms` — platforms with a snapshot > 0 in the last 12 months — to keep the legend free of platforms that have gone quiet. (Block 1 deliberately uses the wider `heldPlatforms` set instead.)
+- Per-month values carry forward the latest snapshot per platform (`platformAt` / `portfolioAt`); the month spine runs from `CHART_START` (or the earliest data) to the latest snapshot/operation month.
+- Dots mark months that contain operations; the custom dot renderer guards `isNaN(cy)` to prevent phantom half-dots.
+- Tapping a point shows a tooltip with the actual portfolio value, each operation that month, and the net cash flow in EUR.
 
-A `recharts` `LineChart` displayed in the top row (right 70%). Section title: **"Portfolio evolution"**. Contains three categories of lines, all togglable via legend buttons above the chart.
+### FR-4 Block 3 — Portfolio snapshots
+- Snapshots are **grouped by date**, newest first. One card per date.
+- Collapsed card head shows: the date, a badge with how many platforms were recorded that day, a colour dot per recorded platform, and the **carry-forward portfolio total in EUR** as of that date.
+- Tapping the head expands the card to one row per platform: colour dot, platform name, amount + currency, the `≈ N EUR` equivalent when the currency is not EUR, and ✎ / ✕ buttons.
+- An **+ Add platform to this date** button inside the expanded card opens the sheet pre-filled with that date.
+- Only the **3 most recent dates** are listed. A **Show 3 more** button (with an `N/total` counter) reveals three more at a time; **Show less** collapses back to 3.
 
-#### Legend buttons (left → right order)
-1. **Portfolio total** (grey `#94a3b8`)
-2. Individual platform chips (one per active platform, colour-coded)
-3. **S&P simulation** (amber `#f59e0b`) — always last
+### FR-5 Block 4 — Operations log
+- One card per operation, newest first.
+- Collapsed card head shows: platform colour dot, platform name, a `DEPOSIT` / `WITHDRAWAL` badge (green / red), the date, and the signed amount + currency.
+- Tapping the head expands the card to show the notes (when present) and **Edit** / **Delete** actions.
+- Only the **3 most recent operations** are listed, with the same **Show 3 more** / **Show less** control as Block 3.
 
-Platform lines are **hidden by default** on first render; Portfolio total and S&P simulation are visible by default.
+### FR-6 Adding and editing
+Both forms are **bottom sheets** (rounded top, grabber, `env(safe-area-inset-bottom)` padding) at column width, on desktop as well as mobile.
 
-#### Lines rendered
+**Snapshot sheet** — Date (pre-filled today, or the card's date), Platform (dropdown), Amount (number ≥ 0), Currency (dropdown, pre-filled from the platform default and editable).
+**Operation sheet** — Date, Type (segmented **Deposit / Withdrawal** control, green / red when selected), Platform, Amount (number > 0), Currency, Notes (optional).
 
-| Line | `dataKey` | Colour | Dots | Default |
-|---|---|---|---|---|
-| Portfolio total | `portfolio` | `#94a3b8` | At operation months | Visible |
-| eToro | `eToro` | `#22c55e` | At operation months | Hidden |
-| Binance | `Binance` | `#f59e0b` | At operation months | Hidden |
-| Fidelity | `Fidelity` | `#3b82f6` | At operation months | Hidden |
-| Tradeville | `Tradeville` | `#a855f7` | At operation months | Hidden |
-| ING Funds RON | `ING Funds RON` | `#ef4444` | At operation months | Hidden |
-| ING Funds EUR | `ING Funds EUR` | `#f97316` | At operation months | Hidden |
-| S&P simulation | `adjusted` | `#f59e0b` | At operation months | Visible |
+- Create uses `POST`; edit uses `PUT` for both snapshots and operations — a snapshot edit updates in place and keeps its `snapshotId`.
+- All inputs use `font-size: 16px` to stop iOS zoom-on-focus.
 
-All lines use `connectNulls={true}`.
+### FR-7 Deleting
+Delete is a **two-step inline confirm** — the first tap arms it (`Delete` → `Tap to confirm` for operations, `✕` → `!` for snapshot rows) and it auto-reverts after 4 s. No `window.confirm`, no separate dialog.
 
----
+### FR-8 Platform list
+Fixed application constant — no CRUD in the UI. The same 6 platforms and their colours are used in every block.
 
-#### Data computation — `testingChartData` useMemo
-
-Inputs: `sp500` (all SP500Monthly records), `operations`, `snapshotsInEUR` (snapshots converted to EUR), `fxRates`.
-
-**Step 1 — Filter visible months**
-
-```js
-const allSorted = [...sp500].sort((a, b) => a.monthId.localeCompare(b.monthId));
-const visible = allSorted.filter(d => d.monthId.slice(0, 4) >= "2023");
-```
-
-Only months from 2023 onward are shown.
-
-**Step 2 — Find `startPortfolio`**
-
-The S&P simulation needs an anchor value. Find the snapshot date closest to the first visible month (`visible[0].monthId`):
-
-```js
-const chartStartMonth = visible[0]?.monthId ?? "2023-01";
-// Build totalByDate: { "YYYY-MM-DD": sumOfAllPlatformsInEUR }
-snapshotsInEUR.forEach(s => { totalByDate[s.date] = (totalByDate[s.date] ?? 0) + s.amount; });
-// Pick the snapshot date whose timestamp is closest to chartStartMonth
-const closestSnapDate = snapshotDates.reduce((best, d) =>
-  Math.abs(new Date(d) - new Date(chartStartMonth + "-01")) <
-  Math.abs(new Date(best) - new Date(chartStartMonth + "-01")) ? d : best
-);
-const startPortfolio = totalByDate[closestSnapDate]; // EUR total at that date
-```
-
-If no snapshots exist, the chart renders nothing.
-
-**Step 3 — Carry-forward helpers**
-
-```js
-// portfolioAt(monthId): sum of latest snapshot per platform up to end of that month
-function portfolioAt(monthId) {
-  const endOfMonth = monthId + "-31";
-  return PLATFORMS.reduce((sum, p) => {
-    const arr = snapshotsByPlatform[p] ?? [];
-    let latest = null;
-    for (const s of arr) { if (s.date <= endOfMonth) latest = s; else break; }
-    return sum + (latest?.amount ?? 0);
-  }, 0);
-}
-
-// platformAt(platform, monthId): latest snapshot for a single platform up to end of that month
-function platformAt(platform, monthId) { /* same logic, single platform */ }
-```
-
-Snapshots are pre-sorted ascending by date per platform. "End of month" is `monthId + "-31"` (intentionally beyond the last day so all dates in that month match).
-
-**Step 4 — Cash flows per month**
-
-```js
-const opCashByMonth = {}; // { "YYYY-MM": netEUR }
-operations.forEach(op => {
-  const month = op.date.slice(0, 7);
-  const eur = toEUR(op.amount, op.currency, fxRates);
-  opCashByMonth[month] = (opCashByMonth[month] ?? 0) + (op.type === "Withdrawal" ? -eur : eur);
-});
-const opMonths = new Set(operations.map(op => op.date.slice(0, 7)));
-```
-
-`toEUR(amount, currency, rates)` converts using live rates from `frankfurter.app` (USD→EUR, RON→EUR; EUR stays as-is).
-
-**Step 5 — Build data points (the core simulation loop)**
-
-State carried across iterations:
-- `runningValue` — starts at `startPortfolio`; the S&P simulation value
-- `lastOpValue` — `runningValue` at the most recent operation month (for tooltip ①)
-- `lastOpClose` — S&P 500 close at the most recent operation month (for tooltip ②)
-
-```js
-let runningValue = startPortfolio;
-let lastOpValue  = startPortfolio;
-let lastOpClose  = visible[0]?.close ?? 1;
-
-const data = visible.map((d, i) => {
-  let spPct = null, spGrowthSinceLastOp = null,
-      valueBeforeCash = null, cashFlow = null, prevOpValue = null;
-
-  if (i > 0) {
-    const prevClose = visible[i - 1].close;
-
-    // Apply S&P 500 monthly growth to runningValue
-    if (prevClose > 0) {
-      spPct = (d.close - prevClose) / prevClose * 100;
-      runningValue = runningValue * (d.close / prevClose);
-    }
-
-    // If this month has operations, add/subtract cash flows
-    if (opMonths.has(d.monthId)) {
-      prevOpValue         = lastOpValue;                          // tooltip ①
-      spGrowthSinceLastOp = (d.close - lastOpClose) / lastOpClose * 100; // tooltip ②
-      valueBeforeCash     = runningValue;                         // tooltip ③
-
-      cashFlow     = opCashByMonth[d.monthId] ?? 0;
-      runningValue += cashFlow;                                   // apply cash
-
-      lastOpValue = runningValue;   // advance anchors
-      lastOpClose = d.close;
-    }
-  } else {
-    lastOpClose = d.close; // first month: set anchor, no growth applied
-  }
-
-  return {
-    date: d.monthId, x: dateToX(d.monthId + "-01"), close: d.close,
-    adjusted:  runningValue,          // S&P simulation line
-    portfolio: portfolioAt(d.monthId), // Portfolio total line
-    ...platformValues,                 // one key per platform
-    // Tooltip context (only populated at operation months, i > 0):
-    spPct, spGrowthSinceLastOp, valueBeforeCash, prevOpValue, cashFlow,
-    hasOp: opMonths.has(d.monthId),
-    ops: operations.filter(op => op.date.slice(0, 7) === d.monthId),
-  };
-});
-```
-
-**Key invariant**: S&P growth is applied first (`runningValue *= ratio`), then cash is added/subtracted (`runningValue += cashFlow`). The first month is the anchor — no growth or cash is applied.
-
----
-
-#### Tooltip behaviour
-
-- **Non-operation months**: shows `adjusted` (S&P simulation value) and `spPct` (S&P % change this month).
-- **Operation months** (i > 0, `hasOp === true`): shows a numbered step-by-step breakdown:
-
-```
-① Value at last op-point:    12,345 EUR
-② S&P 500 growth since then: +4.23%
-③ After S&P growth:          12,867 EUR
-── ── ──
-④ Deposit · eToro            +636.65 USD
-④ Deposit · ING Funds RON    +530 RON
-   Net cash (EUR):            +1,100 EUR
-── ── ──
-= S&P simulation:            13,967 EUR
-```
-
-All EUR amounts formatted with `ro-RO` locale (dots as thousands separator, commas as decimal).
-
----
-
-#### X-axis
-
-Uses a numeric `x` value computed as fractional year position:
-
-```js
-function dateToX(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return (y - baseYear) + (new Date(y, m-1, d) - new Date(y, 0, 1)) /
-                          (new Date(y+1, 0, 1) - new Date(y, 0, 1));
-}
-```
-
-X-axis ticks are placed at integer year boundaries; tick labels show the 4-digit year.
-
----
-
-#### Data sources
-
-| Data | API call | Used for |
-|---|---|---|
-| S&P 500 monthly closes | `GET /sp500` | Growth multiplier each month; `lastOpClose` anchor |
-| Portfolio snapshots | `GET /investments/snapshots` | `portfolioAt`, `platformAt`, `startPortfolio` |
-| Investment operations | `GET /investments/operations` | `opMonths`, `opCashByMonth`, tooltip `ops` list |
-| FX rates | `GET https://api.frankfurter.app/latest?base=EUR` | `toEUR` conversion for cash flows |
-
-### FR-4 P&L Evolution Chart
-- A full-width `recharts` ComposedChart section below the top row.
-- **Left panel (70%)**: combined line chart with `connectNulls`:
-  - **Indigo line** — portfolio period-return %: `(currentPortfolio - prevPortfolio - netCash) / prevPortfolio × 100` per snapshot period.
-  - **Green line** — S&P 500 monthly % change: `(close[month] - close[prevMonth]) / close[prevMonth] × 100`.
-- **Right panel (30%)**: bar chart showing average portfolio P&L % vs average S&P 500 % over the same period.
-- Reference lines at the average values for each series.
-- All amounts converted to EUR for portfolio calculations.
-
-### FR-5 Operations Log Section
-- Table of all deposit/withdrawal records, newest first.
-- Columns: Date, Platform, Type, Amount, Currency, Notes, Edit (pencil), Delete (✕).
-- **+ Add Operation** button opens a modal form:
-  - Date (date picker, pre-filled today, editable)
-  - Type: `Deposit` / `Withdrawal` (toggle or dropdown)
-  - Platform (dropdown, 6 options)
-  - Amount (number > 0)
-  - Currency (dropdown, pre-filled from platform default, editable)
-  - Notes (optional text)
-- Clicking **Edit** on a row opens the same modal pre-filled with that row's data; saves via `PUT`.
-- Clicking **Delete** removes the row after confirmation.
-
-### FR-6 Portfolio Snapshots Section
-- Table of all snapshot records, newest first.
-- Columns: Date, Platform, Amount, Currency, Edit (pencil), Delete (✕).
-- **+ Add Snapshot** button opens a modal form:
-  - Date (date picker, pre-filled today, editable)
-  - Platform (dropdown, 6 options)
-  - Amount (number ≥ 0)
-  - Currency (dropdown, pre-filled from platform default, editable)
-- Clicking **Edit** on a row opens the same modal pre-filled with that row's data; saves via `PUT /investments/snapshots/{snapshotId}`.
-- Clicking **Delete** removes the row; Current Holdings cards and charts update accordingly.
-
-### FR-7 Platform List
-Fixed application constant — no CRUD in the UI. Same 6 platforms used in all sections.
-
-### FR-8 Currency / FX Conversion
-- All portfolio amounts are converted to EUR for chart calculations (S&P Simulation, P&L Evolution, portfolio total line).
-- Live exchange rates fetched from `https://api.frankfurter.app/latest?base=EUR`.
-- USD → EUR and RON → EUR conversions applied at fetch time using the live rate.
+### FR-9 Currency / FX conversion
+- Every amount displayed in EUR is converted with `toEUR()` using the shared rates from `GET /fx-rates`.
+- `toEUR` reads the matrix form `rates[FROM].EUR`, with a fallback to the legacy flat form.
 - Platform default currencies: eToro = USD, Binance = USD, Fidelity = USD, Tradeville = USD, ING Funds RON = RON, ING Funds EUR = EUR.
-
-### FR-9 Desktop Only
-The feature is desktop-only. It must not appear in mobile navigation and must not be accessible from any mobile navigation element.
 
 ---
 
@@ -471,13 +279,14 @@ The feature is desktop-only. It must not appear in mobile navigation and must no
 
 | # | Requirement |
 |---|---|
-| NFR-1 | Three DynamoDB tables: `InvestmentOperations`, `PortfolioSnapshots`, `SP500Monthly`, defined in `backend/template.yaml`. |
-| NFR-2 | Lambda handlers and routes for investments, snapshots, and SP500 registered in SAM template. |
-| NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership (SP500Monthly is shared/unscoped). |
+| NFR-1 | Two DynamoDB tables: `InvestmentOperations` and `PortfolioSnapshots`, defined in `backend/template.yaml`. |
+| NFR-2 | Lambda handlers and routes for operations and snapshots registered in the SAM template. |
+| NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership. |
 | NFR-4 | Historical data seeded via dedicated one-off scripts (see Seed Scripts section). |
-| NFR-5 | Follows the existing design system (CSS variables, modal and table patterns from other pages). |
-| NFR-6 | Desktop only — not present in mobile tab bar or any mobile navigation. |
+| NFR-5 | Follows the existing design system — CSS variables only, no hard-coded theme colours, works in both dark and light themes. |
+| NFR-6 | **PWA-first**: one phone-width layout for every screen; tap targets ≥ 38 px; bottom sheets; 16 px inputs; safe-area padding. |
 | NFR-7 | Charts use `recharts` (already a project dependency). |
+| NFR-8 | The page is self-contained in `frontend/src/pages/Investments.jsx` — no external CSS, no shared sub-components. |
 
 ---
 
@@ -487,35 +296,42 @@ All scripts live in `backend/src/` unless noted.
 
 | Script | Purpose |
 |---|---|
-| `backend/src/seed-investments.mjs` | Seeds 32 historical operations and ~68 portfolio snapshots. Production: uses real AWS credentials. Local: prefix with `DYNAMODB_ENDPOINT=http://localhost:8000`. |
-| `backend/src/seed-investments-local.mjs` | Seeds investment operations and snapshots specifically for `local-dev` userId. |
-| `backend/src/seed-sp500.mjs` | Seeds the `SP500Monthly` table from historical S&P 500 monthly close data. Run once per environment. |
+| `backend/src/seed-investments-local.mjs` | Seeds investment operations and snapshots for the `local-dev` userId. |
 | `backend/src/seed-local.mjs` | Seeds incomes and expenses for the `local-dev` userId. |
-| `backend/src/sync-from-aws.mjs` | Syncs all 6 AWS DynamoDB tables to local DynamoDB, remapping the real Cognito userId to `"local-dev"`. |
-| `backend/create-tables.mjs` | Creates all local DynamoDB tables programmatically (alternative to `docker/init-tables.sh`). |
-| `scripts/seed-local.mjs` | Convenience wrapper that calls `backend/src/seed-local.mjs`. |
-
-`docker/init-tables.sh` also creates the `SP500Monthly` table as part of local bootstrap.
+| `backend/src/sync-from-aws.mjs` | Syncs the AWS DynamoDB tables to local DynamoDB, remapping the real Cognito userId to `"local-dev"`. |
 
 ### Running seed scripts
 
 ```bash
-# Seed investments (production)
 cd backend
-node src/seed-investments.mjs
 
-# Seed investments (local DynamoDB)
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
-
-# Seed S&P 500 data (local)
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-sp500.mjs
+# Seed investments for local-dev
+node src/seed-investments-local.mjs
 
 # Seed incomes/expenses (local)
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-local.mjs
+node src/seed-local.mjs
 
 # Sync AWS data to local (remaps userId → "local-dev")
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
+node src/sync-from-aws.mjs
 ```
+
+---
+
+## Tests
+
+`frontend/src/pages/Investments.test.jsx` renders the page against mocked `investments` / `fxRates` APIs (9 tests):
+
+| Test | Covers |
+|---|---|
+| renders the four blocks with data | Block titles, counts, and that the plotted line spans exactly the months from `CHART_START` — a pre-2023 snapshot feeds carry-forward but is not plotted |
+| total block is collapsed and expands | FR-2 — collapsed by default; expanding lists every held platform, including stale ones |
+| shows only 3 snapshot dates then reveals more | FR-4 — Show 3 more / Show less |
+| expands a snapshot date | FR-4 — per-platform rows, EUR equivalent, add-to-this-date |
+| shows only 3 operations then reveals more | FR-5 |
+| expands an operation and deletes it | FR-5, FR-7 — two-step confirm; `DELETE` only fires on the second tap |
+| opens the snapshot sheet and the operation sheet | FR-6 |
+| saves a new operation through the sheet | FR-6 — `POST` payload |
+| toggles chart legend lines | FR-3 |
 
 ---
 
@@ -523,20 +339,21 @@ DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
 
 | # | Test | Expected Result |
 |---|---|---|
-| I-1 | Navigate to `/investments` on desktop | Single page loads with all four sections visible (Holdings + Portfolio Evolution chart top row, P&L Evolution, Snapshots, Operations) |
-| I-2 | View on mobile | "Investments" absent from bottom tab bar; route not accessible from mobile navigation |
-| I-3 | Current Holdings cards on first load (after seed) | Each active platform shows its latest amount and snapshot date |
-| I-4 | Portfolio Evolution chart on first load | Grey portfolio total line and amber S&P simulation line rendered; individual platform lines hidden but togglable via legend |
-| I-5 | Toggle a platform line in the chart legend | Line disappears / reappears; S&P simulation chip is the last button in the legend row |
-| I-6 | S&P simulation tooltip at an operation dot | Shows numbered breakdown: ① value at last op-point → ② S&P 500 growth since then → ③ value after S&P growth → ④ each deposit/withdrawal → net cash (EUR) → = S&P simulation value |
-| I-7 | P&L Evolution chart on first load | Indigo portfolio % line and green S&P 500 % line both rendered; right bar chart shows average comparison |
-| I-8 | Click **+ Add Operation**, fill form, save | `POST /investments/operations` called; new row appears at top of Operations table |
-| I-9 | Edit an existing operation | `PUT /investments/operations/{id}` called; row updates |
-| I-10 | Delete an operation | `DELETE` called; row removed |
-| I-11 | Click **+ Add Snapshot** for eToro | `POST /investments/snapshots` called; eToro Holdings card updates to new value; charts update |
-| I-12 | Edit an existing snapshot | `PUT /investments/snapshots/{id}` called; row updates in table and charts refresh |
-| I-13 | Delete a snapshot | Record removed; Holdings card reverts to previous snapshot value |
-| I-14 | Refresh page | All data persists (fetched from DynamoDB) |
-| I-15 | Seed script runs against local DynamoDB | All 32 operations and snapshot records imported without errors |
-| I-16 | `seed-sp500.mjs` runs against local DynamoDB | SP500Monthly table populated; S&P Simulation chart renders correctly |
-| I-17 | `sync-from-aws.mjs` runs | All 6 tables synced locally; userId remapped to `"local-dev"`; local app shows production data |
+| I-1 | Open `/investments` on mobile and on desktop | Identical phone-width column with four stacked blocks; on desktop it is centered |
+| I-2 | Mobile bottom tab bar | An **Investments** tab appears after **Split Pay** and routes to `/investments` |
+| I-3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
+| I-4 | Portfolio evolution chart on first load | Only the grey **Total** line is drawn; platform lines hidden but togglable; the x-axis starts at 2023 |
+| I-5 | Toggle a legend chip | The matching line appears / disappears; the chip dims when hidden |
+| I-6 | Tap a chart point at an operation month | Tooltip shows the portfolio value, each operation, and net cash in EUR |
+| I-7 | Portfolio snapshots block on first load | Exactly 3 date cards, collapsed, each showing the carry-forward EUR total |
+| I-8 | Tap **Show 3 more** | Three more date cards appear; the counter updates; **Show less** returns to 3 |
+| I-9 | Expand a snapshot date | Per-platform rows with amount, currency, EUR equivalent, and ✎ / ✕ |
+| I-10 | **+ Add** on Snapshots, fill the sheet, save | `POST /investments/snapshots` called; the new reading appears and the total updates |
+| I-11 | **+ Add platform to this date** inside a date card | Sheet opens pre-filled with that card's date |
+| I-12 | Edit a snapshot | `PUT /investments/snapshots/{id}` called; the record updates in place and keeps its id |
+| I-13 | Delete a snapshot (two taps) | First tap arms the confirm, second deletes; the total reverts to the previous reading |
+| I-14 | Operations log on first load | Exactly 3 operation cards, collapsed, newest first |
+| I-15 | **+ Add** on Operations, fill the sheet, save | `POST /investments/operations` called; the new operation appears at the top |
+| I-16 | Edit / delete an operation | `PUT` / `DELETE` called; the two-step confirm guards the delete |
+| I-17 | Refresh the page | All data persists (fetched from DynamoDB) |
+| I-18 | Switch between dark and light theme | Every block, chip, sheet, and badge stays legible — CSS variables only |

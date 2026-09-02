@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
   LineChart, Line,
@@ -7,9 +7,19 @@ import {
 } from "recharts";
 import {
   listOperations, createOperation, updateOperation, deleteOperation,
-  listSnapshots, createSnapshot, deleteSnapshot,
+  listSnapshots, createSnapshot, updateSnapshot, deleteSnapshot,
 } from "../api/investments";
 import { getFxRates } from "../api/fxRates";
+
+// The whole page is a single phone-width column, rendered the same way on
+// desktop and on mobile — same widths, paddings and font sizes everywhere.
+const COL_WIDTH = "430px";
+
+// Portfolio evolution chart never plots anything before this month.
+const CHART_START = "2023-01";
+
+// Snapshots / operations lists reveal this many entries at a time.
+const PAGE_STEP = 3;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -33,20 +43,16 @@ const PLATFORM_COLOR = {
   "ING Funds EUR": "#f97316",
 };
 
+const CURRENCIES = ["USD", "EUR", "RON"];
+
 const TOTAL_KEY   = "Total";
 const TOTAL_COLOR = "#94a3b8";
 
-function today() { return dayjs().format("YYYY-MM-DD"); }
-function fmtNum(n) { return (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function defaultOpForm() {
-  return { date: today(), type: "Deposit", platform: "eToro", amount: "", currency: "USD", notes: "" };
-}
-function defaultSnapForm() {
-  return { date: today(), platform: "eToro", amount: "", currency: "USD" };
-}
-
-// ── Chart helpers ─────────────────────────────────────────────────────────────
+const todayStr = () => dayjs().format("YYYY-MM-DD");
+const fmtNum   = (n) => (n ?? 0).toLocaleString("ro-RO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const fmtDate  = (d) => (d ? dayjs(d).format("D MMM YYYY") : "—");
 
 function toEUR(amount, currency, rates) {
   if (!rates || currency === "EUR") return amount;
@@ -58,36 +64,55 @@ function toEUR(amount, currency, rates) {
   return amount;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+function defaultOpForm() {
+  return { date: todayStr(), type: "Deposit", platform: "eToro", amount: "", currency: "USD", notes: "" };
+}
+function defaultSnapForm() {
+  return { date: todayStr(), platform: "eToro", amount: "", currency: "USD" };
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Investments() {
   const [operations, setOperations] = useState([]);
   const [snapshots,  setSnapshots]  = useState([]);
-  const [fxRates,    setFxRates]    = useState(null); // rates from EUR base, e.g. { USD: 1.08, RON: 4.97 }
-  const [fxUpdatedAt, setFxUpdatedAt] = useState(null); // ISO date the shared rates were last updated by admin
-  const [loading,    setLoading]    = useState(true);
-  const [hiddenLines, setHiddenLines] = useState(new Set(PLATFORMS)); // evolution chart: platforms hidden; Total visible
+  const [fxRates,     setFxRates]     = useState(null);
+  const [fxUpdatedAt, setFxUpdatedAt] = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState("");
 
+  // Block 1 — holdings breakdown is collapsed until tapped
+  const [showHoldings, setShowHoldings] = useState(false);
 
-  // Operations modal
-  const [showOpModal,  setShowOpModal]  = useState(false);
-  const [editingOpId,  setEditingOpId]  = useState(null);
-  const [opForm,       setOpForm]       = useState(defaultOpForm);
-  const [opErrors,     setOpErrors]     = useState({});
+  // Block 2 — evolution chart: platforms hidden, portfolio total visible
+  const [hiddenLines, setHiddenLines] = useState(new Set(PLATFORMS));
 
-  // Snapshot modal
-  const [showSnapModal, setShowSnapModal] = useState(false);
-  const [editingSnapId, setEditingSnapId] = useState(null);
-  const [snapForm,      setSnapForm]      = useState(defaultSnapForm);
-  const [snapErrors,    setSnapErrors]    = useState({});
+  // Blocks 3 & 4 — how many entries are revealed, and which are expanded
+  const [snapLimit, setSnapLimit] = useState(PAGE_STEP);
+  const [opLimit,   setOpLimit]   = useState(PAGE_STEP);
+  const [openSnapDates, setOpenSnapDates] = useState({});
+  const [openOps,       setOpenOps]       = useState({});
+
+  // Bottom sheets
+  const [opSheet,   setOpSheet]   = useState(null); // { mode, id }
+  const [opForm,    setOpForm]    = useState(defaultOpForm);
+  const [opErrors,  setOpErrors]  = useState({});
+  const [snapSheet, setSnapSheet] = useState(null); // { mode, id }
+  const [snapForm,  setSnapForm]  = useState(defaultSnapForm);
+  const [snapErrors, setSnapErrors] = useState({});
+  const [saving,    setSaving]    = useState(false);
+
+  // Two-step inline delete confirmation
+  const [confirmId, setConfirmId] = useState(null);
+  const confirmTimer = useRef(null);
 
   useEffect(() => {
     Promise.all([listOperations(), listSnapshots()])
       .then(([ops, snaps]) => { setOperations(ops); setSnapshots(snaps); })
-      .catch(console.error)
+      .catch(e => { console.error(e); setError("Could not load investments data."); })
       .finally(() => setLoading(false));
 
-    // Load the shared FX rates stored in the database (updated by admin only)
+    // Shared FX rates stored in the database (refreshed by admin only)
     getFxRates()
       .then(({ rates, updatedAt }) => {
         if (rates) setFxRates(rates);
@@ -96,9 +121,10 @@ export default function Investments() {
       .catch(() => {});
   }, []);
 
-  // ── Derived data ─────────────────────────────────────────────────────────────
+  useEffect(() => () => clearTimeout(confirmTimer.current), []);
 
-  // Convert all snapshot amounts to EUR using today's rates
+  // ── Derived data ────────────────────────────────────────────────────────────
+
   const snapshotsInEUR = useMemo(() =>
     snapshots.map(s => ({ ...s, amount: toEUR(s.amount, s.currency, fxRates), currency: "EUR" })),
     [snapshots, fxRates]
@@ -112,7 +138,7 @@ export default function Investments() {
     return result;
   }, [snapshotsInEUR]);
 
-  // Raw (unconverted) latest snapshot per platform — used to show original currency/amount
+  // Raw (unconverted) latest snapshot per platform — used to show the original currency
   const rawLatestByPlatform = useMemo(() => {
     const result = {};
     for (const s of snapshots) {
@@ -121,18 +147,41 @@ export default function Investments() {
     return result;
   }, [snapshots]);
 
-  // Portfolio evolution chart: actual portfolio total + per-platform values,
-  // carried forward month by month across the full snapshot/operation date range.
-  const { data: testingChartData, years: testingChartYears, xMax: testingChartXMax } = useMemo(() => {
-    // Month range spans every snapshot and operation
+  const totalPortfolioEUR = useMemo(() =>
+    Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
+    [latestByPlatform]
+  );
+
+  // Platforms that still hold money — these make up the total, so the holdings
+  // breakdown lists exactly these and their shares add up to 100 %.
+  const heldPlatforms = useMemo(
+    () => PLATFORMS.filter(p => (latestByPlatform[p]?.amount ?? 0) > 0),
+    [latestByPlatform]
+  );
+
+  // Platforms with at least one snapshot > 0 in the last 12 months — used to
+  // keep the chart legend free of platforms that have gone quiet.
+  const activePlatforms = useMemo(() => {
+    const cutoff = dayjs().subtract(12, "month").format("YYYY-MM-DD");
+    return PLATFORMS.filter(p =>
+      snapshots.some(s => s.platform === p && s.date >= cutoff && s.amount > 0)
+    );
+  }, [snapshots]);
+
+  // Portfolio evolution: actual portfolio total + per-platform values, carried
+  // forward month by month. Snapshots before CHART_START still feed the
+  // carry-forward, but the plotted range starts at CHART_START.
+  const { data: chartData, years: chartYears, xMax: chartXMax } = useMemo(() => {
     const allMonths = [
       ...snapshotsInEUR.map(s => s.date.slice(0, 7)),
       ...operations.map(op => op.date.slice(0, 7)),
     ];
-    if (allMonths.length === 0) return { data: [], years: [] };
+    if (allMonths.length === 0) return { data: [], years: [], xMax: 0 };
 
-    const startMonth = allMonths.reduce((min, m) => m < min ? m : min);
-    const endMonth   = allMonths.reduce((max, m) => m > max ? m : max);
+    const earliest   = allMonths.reduce((min, m) => (m < min ? m : min));
+    const startMonth = earliest < CHART_START ? CHART_START : earliest;
+    const endMonth   = allMonths.reduce((max, m) => (m > max ? m : max));
+    if (endMonth < startMonth) return { data: [], years: [], xMax: 0 };
 
     const months = [];
     let cur = dayjs(startMonth + "-01");
@@ -153,13 +202,13 @@ export default function Investments() {
       return (y - baseYear) + (t - yearStart) / (yearEnd - yearStart);
     }
 
-    // Carry-forward snapshots per platform (for the actual portfolio lines)
     const snapshotsByPlatform = {};
     snapshotsInEUR.forEach(s => {
       if (!snapshotsByPlatform[s.platform]) snapshotsByPlatform[s.platform] = [];
       snapshotsByPlatform[s.platform].push(s);
     });
     Object.values(snapshotsByPlatform).forEach(arr => arr.sort((a, b) => a.date.localeCompare(b.date)));
+
     function platformAt(platform, monthId) {
       const endOfMonth = monthId + "-31";
       const arr = snapshotsByPlatform[platform] ?? [];
@@ -181,151 +230,176 @@ export default function Investments() {
     });
     const opMonths = new Set(operations.map(op => op.date.slice(0, 7)));
 
-    const data = months.map(monthId => {
-      const platformValues = Object.fromEntries(PLATFORMS.map(p => [p, platformAt(p, monthId)]));
-      return {
-        date: monthId,
-        x: dateToX(monthId + "-01"),
-        portfolio: portfolioAt(monthId),
-        ...platformValues,
-        cashFlow: opMonths.has(monthId) ? (opCashByMonth[monthId] ?? 0) : null,
-        hasOp: opMonths.has(monthId),
-        ops: operations.filter(op => op.date.slice(0, 7) === monthId),
-      };
-    });
+    const data = months.map(monthId => ({
+      date:      monthId,
+      x:         dateToX(monthId + "-01"),
+      portfolio: portfolioAt(monthId),
+      ...Object.fromEntries(PLATFORMS.map(p => [p, platformAt(p, monthId)])),
+      cashFlow:  opMonths.has(monthId) ? (opCashByMonth[monthId] ?? 0) : null,
+      hasOp:     opMonths.has(monthId),
+      ops:       operations.filter(op => op.date.slice(0, 7) === monthId),
+    }));
 
     return { data, years, xMax: data.at(-1)?.x ?? years.length };
   }, [operations, snapshotsInEUR, fxRates]);
 
-  const totalPortfolioEUR = useMemo(() =>
-    Object.values(latestByPlatform).reduce((sum, s) => sum + (s?.amount ?? 0), 0),
-    [latestByPlatform]
+  // Snapshots grouped by date, newest first
+  const snapDates = useMemo(() => {
+    const byDate = {};
+    snapshots.forEach(s => {
+      if (!byDate[s.date]) byDate[s.date] = [];
+      byDate[s.date].push(s);
+    });
+    Object.values(byDate).forEach(arr =>
+      arr.sort((a, b) => PLATFORMS.indexOf(a.platform) - PLATFORMS.indexOf(b.platform))
+    );
+
+    // Carry-forward total in EUR across every platform as of that date
+    const totalEURAt = (date) => PLATFORMS.reduce((sum, p) => {
+      const latest = snapshotsInEUR
+        .filter(s => s.platform === p && s.date <= date)
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      return sum + (latest?.amount ?? 0);
+    }, 0);
+
+    return Object.keys(byDate)
+      .sort()
+      .reverse()
+      .map(date => ({ date, rows: byDate[date], totalEUR: totalEURAt(date) }));
+  }, [snapshots, snapshotsInEUR]);
+
+  const sortedOps = useMemo(
+    () => [...operations].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
+    [operations]
   );
 
-  // Platforms that have at least one snapshot with amount > 0 in the last 12 months
-  const activePlatforms = useMemo(() => {
-    const cutoff = dayjs().subtract(12, "month").format("YYYY-MM-DD");
-    return PLATFORMS.filter(p =>
-      snapshots.some(s => s.platform === p && s.date >= cutoff && s.amount > 0)
-    );
-  }, [snapshots]);
+  // ── Delete confirmation ─────────────────────────────────────────────────────
 
-  // ── Op form helpers ───────────────────────────────────────────────────────────
-
-  function opField(key) {
-    return {
-      value: opForm[key],
-      onChange: e => {
-        const val = e.target.value;
-        setOpForm(f => {
-          const next = { ...f, [key]: val };
-          if (key === "platform") next.currency = PLATFORM_CURRENCY[val] ?? "USD";
-          return next;
-        });
-      },
-    };
+  function askDelete(id) {
+    clearTimeout(confirmTimer.current);
+    setConfirmId(id);
+    confirmTimer.current = setTimeout(() => setConfirmId(null), 4000);
   }
 
+  // ── Operations CRUD ─────────────────────────────────────────────────────────
+
   function openAddOp() {
-    setEditingOpId(null);
     setOpForm(defaultOpForm());
     setOpErrors({});
-    setShowOpModal(true);
+    setOpSheet({ mode: "create" });
   }
 
   function openEditOp(op) {
-    setEditingOpId(op.operationId);
-    setOpForm({ date: op.date, type: op.type, platform: op.platform, amount: op.amount, currency: op.currency, notes: op.notes || "" });
+    setOpForm({
+      date:     op.date,
+      type:     op.type,
+      platform: op.platform,
+      amount:   String(op.amount ?? ""),
+      currency: op.currency,
+      notes:    op.notes || "",
+    });
     setOpErrors({});
-    setShowOpModal(true);
+    setOpSheet({ mode: "edit", id: op.operationId });
   }
 
   async function handleOpSave() {
     const errs = {};
-    if (!opForm.date)                          errs.date     = "Required";
-    if (!opForm.amount || +opForm.amount <= 0) errs.amount   = "Must be > 0";
+    if (!opForm.date)                          errs.date   = "Required";
+    if (!opForm.amount || +opForm.amount <= 0) errs.amount = "Must be greater than 0";
     setOpErrors(errs);
     if (Object.keys(errs).length) return;
 
     const body = { ...opForm, amount: parseFloat(opForm.amount) };
+    setSaving(true);
+    setError("");
     try {
-      if (editingOpId) {
-        const updated = await updateOperation(editingOpId, body);
-        setOperations(prev => prev.map(o => o.operationId === editingOpId ? updated : o));
+      if (opSheet.mode === "edit") {
+        const updated = await updateOperation(opSheet.id, body);
+        setOperations(prev => prev.map(o => (o.operationId === opSheet.id ? updated : o)));
       } else {
         const created = await createOperation(body);
         setOperations(prev => [created, ...prev]);
       }
-      setShowOpModal(false);
-    } catch (e) { console.error(e); }
+      setOpSheet(null);
+    } catch (e) {
+      console.error(e);
+      setError("Could not save the operation.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleOpDelete(id) {
-    if (!window.confirm("Delete this operation?")) return;
+    clearTimeout(confirmTimer.current);
+    setConfirmId(null);
     try {
       await deleteOperation(id);
       setOperations(prev => prev.filter(o => o.operationId !== id));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setError("Could not delete the operation.");
+    }
   }
 
-  // ── Snap form helpers ─────────────────────────────────────────────────────────
+  // ── Snapshots CRUD ──────────────────────────────────────────────────────────
 
-  function snapField(key) {
-    return {
-      value: snapForm[key],
-      onChange: e => {
-        const val = e.target.value;
-        setSnapForm(f => {
-          const next = { ...f, [key]: val };
-          if (key === "platform") next.currency = PLATFORM_CURRENCY[val] ?? "USD";
-          return next;
-        });
-      },
-    };
-  }
-
-  function openAddSnap() {
-    setEditingSnapId(null);
-    setSnapForm(defaultSnapForm());
+  function openAddSnap(date) {
+    setSnapForm({ ...defaultSnapForm(), ...(date ? { date } : {}) });
     setSnapErrors({});
-    setShowSnapModal(true);
+    setSnapSheet({ mode: "create" });
   }
 
   function openEditSnap(snap) {
-    setEditingSnapId(snap.snapshotId);
-    setSnapForm({ date: snap.date, platform: snap.platform, amount: snap.amount, currency: snap.currency });
+    setSnapForm({
+      date:     snap.date,
+      platform: snap.platform,
+      amount:   String(snap.amount ?? ""),
+      currency: snap.currency,
+    });
     setSnapErrors({});
-    setShowSnapModal(true);
+    setSnapSheet({ mode: "edit", id: snap.snapshotId });
   }
 
   async function handleSnapSave() {
     const errs = {};
-    if (!snapForm.date)                                errs.date   = "Required";
-    if (snapForm.amount === "" || snapForm.amount < 0) errs.amount = "Must be ≥ 0";
+    if (!snapForm.date)                                   errs.date   = "Required";
+    if (snapForm.amount === "" || +snapForm.amount < 0)   errs.amount = "Must be 0 or more";
     setSnapErrors(errs);
     if (Object.keys(errs).length) return;
 
     const body = { ...snapForm, amount: parseFloat(snapForm.amount) };
+    setSaving(true);
+    setError("");
     try {
-      if (editingSnapId) {
-        await deleteSnapshot(editingSnapId);
-        const created = await createSnapshot(body);
-        setSnapshots(prev => prev.map(s => s.snapshotId === editingSnapId ? created : s));
+      if (snapSheet.mode === "edit") {
+        const updated = await updateSnapshot(snapSheet.id, body);
+        setSnapshots(prev => prev.map(s => (s.snapshotId === snapSheet.id ? updated : s)));
       } else {
         const created = await createSnapshot(body);
         setSnapshots(prev => [created, ...prev]);
       }
-      setShowSnapModal(false);
-    } catch (e) { console.error(e); }
+      setSnapSheet(null);
+    } catch (e) {
+      console.error(e);
+      setError("Could not save the snapshot.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSnapDelete(id) {
-    if (!window.confirm("Delete this snapshot?")) return;
+    clearTimeout(confirmTimer.current);
+    setConfirmId(null);
     try {
       await deleteSnapshot(id);
       setSnapshots(prev => prev.filter(s => s.snapshotId !== id));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setError("Could not delete the snapshot.");
+    }
   }
+
+  // ── Chart legend ────────────────────────────────────────────────────────────
 
   function toggleLine(key) {
     setHiddenLines(prev => {
@@ -335,403 +409,482 @@ export default function Investments() {
     });
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (loading) return <div style={s.page}><p style={s.muted}>Loading…</p></div>;
+  const visibleSnapDates = snapDates.slice(0, snapLimit);
+  const visibleOps       = sortedOps.slice(0, opLimit);
 
   return (
     <div style={s.page}>
+      <div style={s.column}>
 
-      {/* ── Top row: Current Holdings (30%) + Portfolio evolution (70%) ─────── */}
-      <div style={s.topRow}>
-        <div style={s.holdingsCol}>
-          <Section title="Current Holdings">
-            {/* Total */}
-            <div style={s.totalCard}>
-              <div style={s.totalLabel}>Total Portfolio</div>
-              <div style={s.totalAmount}>{fmtNum(totalPortfolioEUR)}</div>
-              <div style={s.totalCurrency}>
-                EUR
-                <span style={s.fxStatus}>
-                  {fxUpdatedAt
-                    ? ` · FX rates as of ${dayjs(fxUpdatedAt).format("YYYY-MM-DD")}`
-                    : " · No FX rates set"}
-                </span>
-              </div>
-            </div>
-            {/* Platform table */}
-            <table style={s.holdingTable}>
-              <thead>
-                <tr>
-                  <th style={s.holdingTh}>Platform</th>
-                  <th style={{ ...s.holdingTh, textAlign: "right" }}>Amount (EUR)</th>
-                  <th style={{ ...s.holdingTh, textAlign: "right" }}>Last Update</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activePlatforms.map(p => {
-                  const snap    = latestByPlatform[p];
-                  const rawSnap = rawLatestByPlatform[p];
-                  const showOrig = rawSnap && rawSnap.currency !== "EUR";
-                  return (
-                    <tr key={p} style={s.holdingTr}>
-                      <td style={s.holdingTd}>
-                        <span style={{ ...s.holdingDot, background: PLATFORM_COLOR[p] }} />
-                        <span style={{ fontWeight: 600, color: "var(--text)" }}>{p}</span>
-                      </td>
-                      <td style={{ ...s.holdingTd, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)" }}>
-                        {snap ? fmtNum(snap.amount) : "—"}
-                        {showOrig && (
-                          <div style={{ fontSize: "10px", fontWeight: 400, color: "var(--text-muted)", marginTop: "1px" }}>
-                            {fmtNum(rawSnap.amount)} {rawSnap.currency}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ ...s.holdingTd, textAlign: "right", color: "var(--text-muted)", fontSize: "11px" }}>
-                        {snap ? snap.date : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Section>
-        </div>
-
-        <div style={s.chartCol}>
-        <Section title="Portfolio evolution">
-        {testingChartData.length < 2 ? (
-          <p style={s.muted}>Not enough snapshot data to plot yet.</p>
-        ) : (
-          <>
-          {/* Legend toggles */}
-          <div style={s.legendRow}>
-            {/* Portfolio total chip */}
-            <button
-              onClick={() => toggleLine(TOTAL_KEY)}
-              style={{
-                ...s.legendChip,
-                opacity:         hiddenLines.has(TOTAL_KEY) ? 0.35 : 1,
-                borderColor:     TOTAL_COLOR,
-                color:           hiddenLines.has(TOTAL_KEY) ? "var(--text-muted)" : TOTAL_COLOR,
-                backgroundColor: hiddenLines.has(TOTAL_KEY) ? "transparent" : `${TOTAL_COLOR}22`,
-              }}
-            >
-              Portfolio total
-            </button>
-            {/* Individual platform chips */}
-            {activePlatforms.map(p => (
-              <button
-                key={p}
-                onClick={() => toggleLine(p)}
-                style={{
-                  ...s.legendChip,
-                  opacity:         hiddenLines.has(p) ? 0.35 : 1,
-                  borderColor:     PLATFORM_COLOR[p],
-                  color:           hiddenLines.has(p) ? "var(--text-muted)" : PLATFORM_COLOR[p],
-                  backgroundColor: hiddenLines.has(p) ? "transparent" : `${PLATFORM_COLOR[p]}18`,
-                }}
-              >
-                {p}
-              </button>
-            ))}
+        <div style={s.header}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={s.title}>Investments</h2>
+            <p style={s.subtitle}>
+              {snapDates.length} snapshot{snapDates.length === 1 ? "" : "s"} · {operations.length} operation{operations.length === 1 ? "" : "s"}
+            </p>
           </div>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={testingChartData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis
-                dataKey="x"
-                type="number"
-                domain={[0, testingChartXMax]}
-                ticks={testingChartYears.map((_, i) => i)}
-                tickFormatter={i => testingChartYears[i] ?? ""}
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                tickLine={false}
-                axisLine={{ stroke: "var(--border)" }}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                domain={["auto", "auto"]}
-                tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : fmtNum(v)}
-              />
-              <Tooltip content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const { date, portfolio, cashFlow, ops, hasOp } = payload[0].payload;
-                const cfColor = cashFlow == null ? "var(--text-muted)" : cashFlow >= 0 ? "#22c55e" : "#ef4444";
-                const divider = <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />;
-                const row = (label, value, color, bold) => (
-                  <div style={{ ...st.tooltipRow, color: color ?? "var(--text-muted)", fontWeight: bold ? 700 : 400, marginBottom: "2px" }}>
-                    <span>{label}</span>
-                    <span style={st.tooltipVal}>{value}</span>
-                  </div>
-                );
-                return (
-                  <div style={{ ...st.tooltip, minWidth: "220px" }}>
-                    <div style={st.tooltipDate}>{date}</div>
-
-                    {portfolio != null && row("Portfolio (actual)", `${fmtNum(portfolio)} EUR`, TOTAL_COLOR, true)}
-
-                    {hasOp && ops?.length > 0 && (
-                      <>
-                        {divider}
-                        {ops.map((op, i) => (
-                          <div key={i} style={{ ...st.tooltipRow, color: op.type === "Deposit" ? "#22c55e" : "#ef4444", marginBottom: "2px" }}>
-                            <span>{op.type} · {op.platform}</span>
-                            <span style={st.tooltipVal}>
-                              {op.type === "Deposit" ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
-                            </span>
-                          </div>
-                        ))}
-                        {cashFlow != null && row(
-                          "Net cash (EUR)",
-                          `${cashFlow >= 0 ? "+" : ""}${fmtNum(cashFlow)} EUR`,
-                          cfColor,
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              }} />
-              {/* Individual platform lines */}
-              {activePlatforms.map(p => (
-                <Line
-                  key={p}
-                  type="monotone"
-                  dataKey={p}
-                  stroke={PLATFORM_COLOR[p]}
-                  strokeWidth={1.5}
-                  dot={(props) => {
-                    const { cx, cy, payload } = props;
-                    if (!payload.hasOp || payload[p] == null) return null;
-                    return <circle key={`${p}-dot-${payload.date}`} cx={cx} cy={cy} r={4} fill={PLATFORM_COLOR[p]} stroke="var(--card)" strokeWidth={2} />;
-                  }}
-                  activeDot={{ r: 3, fill: PLATFORM_COLOR[p] }}
-                  hide={hiddenLines.has(p)}
-                  connectNulls={true}
-                />
-              ))}
-              {/* Portfolio total line */}
-              <Line
-                type="monotone"
-                dataKey="portfolio"
-                name="Portfolio total"
-                stroke={TOTAL_COLOR}
-                strokeWidth={2.5}
-                dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  if (!payload.hasOp || payload.portfolio == null) return null;
-                  return <circle key={`pdot-${payload.date}`} cx={cx} cy={cy} r={5} fill={TOTAL_COLOR} stroke="var(--card)" strokeWidth={2} />;
-                }}
-                activeDot={{ r: 4, fill: TOTAL_COLOR }}
-                hide={hiddenLines.has(TOTAL_KEY)}
-                connectNulls={true}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-          </>
-        )}
-        <p style={{ ...s.muted, marginTop: "6px", fontSize: "10px" }}>
-          <span style={{ color: TOTAL_COLOR, fontWeight: 600 }}>■</span> Actual portfolio (EUR). Dots mark operation months.
-        </p>
-      </Section>
         </div>
-      </div>
 
-      {/* ── Portfolio Snapshots + Operations Log (side by side) ─────────────── */}
-      <div style={s.bottomRow}>
+        {error && (
+          <div style={s.errorBox} onClick={() => setError("")}>
+            {error} <span style={{ opacity: 0.6 }}>(tap to dismiss)</span>
+          </div>
+        )}
 
-        {/* Left: Portfolio Snapshots */}
-        <div style={s.bottomColLeft}>
-          <Section title="Portfolio Snapshots" action={<button style={s.addBtn} onClick={openAddSnap}>+ Add Snapshot</button>}>
-            {snapshots.length === 0 ? (
-              <p style={s.muted}>No snapshots yet.</p>
-            ) : (() => {
-              // Group by date: { [date]: { [platform]: snapshot } }
-              const byDate = {};
-              snapshots.forEach(s => {
-                if (!byDate[s.date]) byDate[s.date] = {};
-                byDate[s.date][s.platform] = s;
-              });
-              const dates = Object.keys(byDate).sort().reverse();
+        <div style={s.scroll}>
+          {loading ? (
+            <div style={s.empty}>Loading…</div>
+          ) : (
+            <>
+              {/* ── Block 1 · Total portfolio ─────────────────────────────── */}
+              <section style={s.block}>
+                <div
+                  style={s.totalHead}
+                  onClick={() => setShowHoldings(v => !v)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.totalLabel}>Total portfolio</div>
+                    <div style={s.totalRow}>
+                      <span style={s.totalAmount}>{fmtNum(totalPortfolioEUR)}</span>
+                      <span style={s.totalCur}>EUR</span>
+                    </div>
+                    <div style={s.totalMeta}>
+                      {heldPlatforms.length} platform{heldPlatforms.length === 1 ? "" : "s"}
+                      <span style={s.dot}>·</span>
+                      {fxUpdatedAt ? `FX ${fmtDate(fxUpdatedAt)}` : "no FX rates set"}
+                    </div>
+                  </div>
+                  <Chevron open={showHoldings} />
+                </div>
 
-              // Carry-forward total EUR per date (all platforms, not just recorded that day)
-              function totalEURAt(date) {
-                return PLATFORMS.reduce((sum, p) => {
-                  const latest = snapshotsInEUR
-                    .filter(s => s.platform === p && s.date <= date)
-                    .sort((a, b) => b.date.localeCompare(a.date))[0];
-                  return sum + (latest?.amount ?? 0);
-                }, 0);
-              }
+                {showHoldings && (
+                  <div style={s.blockBody}>
+                    {heldPlatforms.length === 0 ? (
+                      <div style={s.emptyLine}>No platform holdings yet.</div>
+                    ) : heldPlatforms.map(p => {
+                      const snap    = latestByPlatform[p];
+                      const raw     = rawLatestByPlatform[p];
+                      const eur     = snap?.amount ?? 0;
+                      const share   = totalPortfolioEUR > 0 ? (eur / totalPortfolioEUR) * 100 : 0;
+                      const showRaw = raw && raw.currency !== "EUR";
+                      return (
+                        <div key={p} style={s.holding}>
+                          <div style={s.holdingTop}>
+                            <span style={{ ...s.holdingDot, background: PLATFORM_COLOR[p] }} />
+                            <span style={s.holdingName}>{p}</span>
+                            <span style={s.holdingAmount}>{fmtNum(eur)}</span>
+                          </div>
+                          <div style={s.holdingTrack}>
+                            <div style={{ ...s.holdingFill, width: `${share}%`, background: PLATFORM_COLOR[p] }} />
+                          </div>
+                          <div style={s.holdingMeta}>
+                            <span>{share.toFixed(1)}%</span>
+                            {showRaw && (
+                              <>
+                                <span style={s.dot}>·</span>
+                                <span>{fmtNum(raw.amount)} {raw.currency}</span>
+                              </>
+                            )}
+                            <span style={{ flex: 1 }} />
+                            <span>{snap ? fmtDate(snap.date) : "—"}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
 
-              return (
-                <div style={s.tableWrap}>
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...s.th, textAlign: "left" }}>Date</th>
-                        {PLATFORMS.map(p => (
-                          <th key={p} style={{ ...s.th, textAlign: "right", color: PLATFORM_COLOR[p] }}>
+              {/* ── Block 2 · Portfolio evolution ─────────────────────────── */}
+              <section style={s.block}>
+                <div style={s.blockHead}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.blockTitle}>Portfolio evolution</div>
+                    <div style={s.blockSub}>Actual value in EUR since {CHART_START.slice(0, 4)}</div>
+                  </div>
+                </div>
+
+                <div style={s.blockBody}>
+                  {chartData.length < 2 ? (
+                    <div style={s.emptyLine}>Not enough snapshot data to plot yet.</div>
+                  ) : (
+                    <>
+                      <div style={s.legendRow}>
+                        <button
+                          onClick={() => toggleLine(TOTAL_KEY)}
+                          style={s.legendChip(TOTAL_COLOR, hiddenLines.has(TOTAL_KEY))}
+                        >
+                          Total
+                        </button>
+                        {activePlatforms.map(p => (
+                          <button
+                            key={p}
+                            onClick={() => toggleLine(p)}
+                            style={s.legendChip(PLATFORM_COLOR[p], hiddenLines.has(p))}
+                          >
                             {p}
-                          </th>
+                          </button>
                         ))}
-                        <th style={{ ...s.th, textAlign: "right" }}>Total (EUR)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dates.map(date => {
-                        const row = byDate[date];
+                      </div>
+
+                      <ResponsiveContainer width="100%" height={210}>
+                        <LineChart data={chartData} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis
+                            dataKey="x"
+                            type="number"
+                            domain={[0, chartXMax]}
+                            ticks={chartYears.map((_, i) => i)}
+                            tickFormatter={i => chartYears[i] ?? ""}
+                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                            tickLine={false}
+                            axisLine={{ stroke: "var(--border)" }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                            tickLine={false}
+                            axisLine={false}
+                            width={40}
+                            domain={["auto", "auto"]}
+                            tickFormatter={v => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : fmtNum(v))}
+                          />
+                          <Tooltip content={<ChartTooltip />} />
+                          {activePlatforms.map(p => (
+                            <Line
+                              key={p}
+                              type="monotone"
+                              dataKey={p}
+                              stroke={PLATFORM_COLOR[p]}
+                              strokeWidth={1.5}
+                              dot={({ cx, cy, payload }) => {
+                                if (!payload.hasOp || payload[p] == null || isNaN(cy)) return null;
+                                return <circle key={`${p}-${payload.date}`} cx={cx} cy={cy} r={3.5} fill={PLATFORM_COLOR[p]} stroke="var(--surface)" strokeWidth={1.5} />;
+                              }}
+                              activeDot={{ r: 3, fill: PLATFORM_COLOR[p] }}
+                              hide={hiddenLines.has(p)}
+                              connectNulls
+                            />
+                          ))}
+                          <Line
+                            type="monotone"
+                            dataKey="portfolio"
+                            name="Portfolio total"
+                            stroke={TOTAL_COLOR}
+                            strokeWidth={2.5}
+                            dot={({ cx, cy, payload }) => {
+                              if (!payload.hasOp || payload.portfolio == null || isNaN(cy)) return null;
+                              return <circle key={`total-${payload.date}`} cx={cx} cy={cy} r={4.5} fill={TOTAL_COLOR} stroke="var(--surface)" strokeWidth={1.5} />;
+                            }}
+                            activeDot={{ r: 4, fill: TOTAL_COLOR }}
+                            hide={hiddenLines.has(TOTAL_KEY)}
+                            connectNulls
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+
+                      <div style={s.chartNote}>Dots mark months with operations. Tap a point for details.</div>
+                    </>
+                  )}
+                </div>
+              </section>
+
+              {/* ── Block 3 · Portfolio snapshots ─────────────────────────── */}
+              <section style={s.block}>
+                <div style={s.blockHead}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.blockTitle}>Portfolio snapshots</div>
+                    <div style={s.blockSub}>{snapDates.length} recorded date{snapDates.length === 1 ? "" : "s"}</div>
+                  </div>
+                  <button style={s.addBtn} onClick={() => openAddSnap()}>
+                    <span style={s.plus}>+</span>Add
+                  </button>
+                </div>
+
+                <div style={s.blockBody}>
+                  {snapDates.length === 0 ? (
+                    <div style={s.emptyLine}>No snapshots yet.</div>
+                  ) : (
+                    <>
+                      {visibleSnapDates.map(group => {
+                        const open = !!openSnapDates[group.date];
                         return (
-                          <tr key={date} style={s.tr}>
-                            <td style={s.td}>{date}</td>
-                            {PLATFORMS.map(p => {
-                              const snap = row[p];
-                              return (
-                                <td key={p} style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: snap ? "var(--text)" : "var(--text-muted)" }}>
-                                  {snap ? (
-                                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                                      <span>
-                                        {fmtNum(snap.amount)}
-                                        <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: "3px" }}>{snap.currency}</span>
+                          <div key={group.date} style={s.entry}>
+                            <div
+                              style={s.entryHead}
+                              onClick={() => setOpenSnapDates(prev => ({ ...prev, [group.date]: !prev[group.date] }))}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={s.entryTitleRow}>
+                                  <span style={s.entryTitle}>{fmtDate(group.date)}</span>
+                                  <span style={s.countBadge}>{group.rows.length}</span>
+                                </div>
+                                <div style={s.entryMeta}>
+                                  {group.rows.map(r => (
+                                    <span key={r.snapshotId} style={{ ...s.pfDot, background: PLATFORM_COLOR[r.platform] }} />
+                                  ))}
+                                  <span style={s.dot}>·</span>
+                                  <span style={s.entryStrong}>{fmtNum(group.totalEUR)} EUR</span>
+                                </div>
+                              </div>
+                              <Chevron open={open} />
+                            </div>
+
+                            {open && (
+                              <div style={s.entryBody}>
+                                {group.rows.map(snap => {
+                                  const confirming = confirmId === snap.snapshotId;
+                                  const eur = toEUR(snap.amount, snap.currency, fxRates);
+                                  return (
+                                    <div key={snap.snapshotId} style={s.subRow}>
+                                      <span style={{ ...s.pfDot, background: PLATFORM_COLOR[snap.platform] }} />
+                                      <span style={s.subName}>{snap.platform}</span>
+                                      <span style={s.subValue}>
+                                        {fmtNum(snap.amount)} <span style={s.subCur}>{snap.currency}</span>
+                                        {snap.currency !== "EUR" && (
+                                          <span style={s.subEur}>≈ {fmtNum(eur)} EUR</span>
+                                        )}
                                       </span>
-                                      <button style={s.editBtn} title="Edit" onClick={() => openEditSnap(snap)}>✎</button>
-                                    </span>
-                                  ) : "—"}
-                                </td>
-                              );
-                            })}
-                            <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
-                              {fmtNum(totalEURAt(date))}
-                            </td>
-                          </tr>
+                                      <button style={s.iconBtn} title="Edit" onClick={() => openEditSnap(snap)}>✎</button>
+                                      <button
+                                        style={confirming ? s.iconBtnDanger : s.iconBtn}
+                                        title="Delete"
+                                        onClick={() => (confirming ? handleSnapDelete(snap.snapshotId) : askDelete(snap.snapshotId))}
+                                      >
+                                        {confirming ? "!" : "✕"}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                                <button style={s.ghostBtn} onClick={() => openAddSnap(group.date)}>
+                                  + Add platform to this date
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
+
+                      <MoreLess
+                        shown={visibleSnapDates.length}
+                        total={snapDates.length}
+                        onMore={() => setSnapLimit(n => n + PAGE_STEP)}
+                        onLess={() => setSnapLimit(PAGE_STEP)}
+                      />
+                    </>
+                  )}
                 </div>
-              );
-            })()}
-          </Section>
-        </div>
+              </section>
 
-        {/* Right: Operations Log */}
-        <div style={s.bottomColRight}>
-          <Section title="Operations Log" action={<button style={s.addBtn} onClick={openAddOp}>+ Add Operation</button>}>
-            {operations.length === 0 ? (
-              <p style={s.muted}>No operations yet.</p>
-            ) : (
-              <div style={s.tableWrap}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      {["Date","Platform","Type","Amount","Currency","",""].map((h, i) => (
-                        <th key={i} style={{ ...s.th, textAlign: i >= 5 ? "center" : "left" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {operations.map(op => (
-                      <tr key={op.operationId} style={s.tr}>
-                        <td style={s.td}>{op.date}</td>
-                        <td style={{ ...s.td }}>
-                          <span style={{ color: PLATFORM_COLOR[op.platform], fontWeight: 600 }}>{op.platform}</span>
-                        </td>
-                        <td style={s.td}>
-                          <span style={{ ...s.typeBadge, ...(op.type === "Deposit" ? s.typeDeposit : s.typeWithdraw) }}>
-                            {op.type}
-                          </span>
-                        </td>
-                        <td style={{ ...s.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtNum(op.amount)}</td>
-                        <td style={s.td}>{op.currency}</td>
-                        <td style={{ ...s.td, textAlign: "center" }}>
-                          <button style={s.editBtn} title="Edit" onClick={() => openEditOp(op)}>✎</button>
-                        </td>
-                        <td style={{ ...s.td, textAlign: "center" }}>
-                          <button style={s.deleteBtn} title="Delete" onClick={() => handleOpDelete(op.operationId)}>✕</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
-        </div>
+              {/* ── Block 4 · Operations log ──────────────────────────────── */}
+              <section style={s.block}>
+                <div style={s.blockHead}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.blockTitle}>Operations log</div>
+                    <div style={s.blockSub}>Deposits &amp; withdrawals · {operations.length} total</div>
+                  </div>
+                  <button style={s.addBtn} onClick={openAddOp}>
+                    <span style={s.plus}>+</span>Add
+                  </button>
+                </div>
 
+                <div style={s.blockBody}>
+                  {operations.length === 0 ? (
+                    <div style={s.emptyLine}>No operations yet.</div>
+                  ) : (
+                    <>
+                      {visibleOps.map(op => {
+                        const open       = !!openOps[op.operationId];
+                        const confirming = confirmId === op.operationId;
+                        const deposit    = op.type === "Deposit";
+                        return (
+                          <div key={op.operationId} style={s.entry}>
+                            <div
+                              style={s.entryHead}
+                              onClick={() => setOpenOps(prev => ({ ...prev, [op.operationId]: !prev[op.operationId] }))}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={s.entryTitleRow}>
+                                  <span style={{ ...s.pfDot, background: PLATFORM_COLOR[op.platform] }} />
+                                  <span style={s.entryTitle}>{op.platform}</span>
+                                  <span style={s.typeBadge(deposit)}>{op.type}</span>
+                                </div>
+                                <div style={s.entryMeta}>
+                                  <span>{fmtDate(op.date)}</span>
+                                  <span style={s.dot}>·</span>
+                                  <span style={{ ...s.entryStrong, color: deposit ? "var(--success-text)" : "#ef4444" }}>
+                                    {deposit ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
+                                  </span>
+                                </div>
+                              </div>
+                              <Chevron open={open} />
+                            </div>
+
+                            {open && (
+                              <div style={s.entryBody}>
+                                {op.notes && <div style={s.notes}>{op.notes}</div>}
+                                <div style={s.actions}>
+                                  <button style={s.action} onClick={() => openEditOp(op)}>Edit</button>
+                                  <span style={{ flex: 1 }} />
+                                  <button
+                                    style={confirming ? s.actionDangerActive : s.action}
+                                    onClick={() => (confirming ? handleOpDelete(op.operationId) : askDelete(op.operationId))}
+                                  >
+                                    {confirming ? "Tap to confirm" : "Delete"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      <MoreLess
+                        shown={visibleOps.length}
+                        total={sortedOps.length}
+                        onMore={() => setOpLimit(n => n + PAGE_STEP)}
+                        onLess={() => setOpLimit(PAGE_STEP)}
+                      />
+                    </>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* ── Operations Modal ─────────────────────────────────────────────────── */}
-      {showOpModal && (
-        <Modal title={editingOpId ? "Edit Operation" : "New Operation"} onClose={() => setShowOpModal(false)}>
-          <FormField label="Date *" error={opErrors.date}>
-            <input style={{ ...s.input, ...(opErrors.date ? s.inputErr : {}) }} type="date" {...opField("date")} />
-          </FormField>
-          <div style={s.row2}>
-            <FormField label="Type">
-              <select style={s.input} {...opField("type")}>
-                <option>Deposit</option>
-                <option>Withdrawal</option>
-              </select>
-            </FormField>
-            <FormField label="Platform">
-              <select style={s.input} {...opField("platform")}>
-                {PLATFORMS.map(p => <option key={p}>{p}</option>)}
-              </select>
-            </FormField>
-          </div>
-          <div style={s.row2}>
-            <FormField label="Amount *" error={opErrors.amount}>
-              <input style={{ ...s.input, ...(opErrors.amount ? s.inputErr : {}) }} type="number" min="0" step="any" placeholder="0" {...opField("amount")} />
-            </FormField>
-            <FormField label="Currency">
-              <select style={s.input} {...opField("currency")}>
-                <option>USD</option>
-                <option>EUR</option>
-                <option>RON</option>
-              </select>
-            </FormField>
-          </div>
-          <FormField label="Notes">
-            <input style={s.input} type="text" placeholder="Optional" {...opField("notes")} />
-          </FormField>
-          <div style={s.modalFooter}>
-            <button style={s.cancelBtn} onClick={() => setShowOpModal(false)}>Cancel</button>
-            <button style={s.saveBtn} onClick={handleOpSave}>Save</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── Snapshot Modal ───────────────────────────────────────────────────── */}
-      {showSnapModal && (
-        <Modal title={editingSnapId ? "Edit Snapshot" : "New Portfolio Snapshot"} onClose={() => setShowSnapModal(false)}>
-          <FormField label="Date *" error={snapErrors.date}>
-            <input style={{ ...s.input, ...(snapErrors.date ? s.inputErr : {}) }} type="date" {...snapField("date")} />
-          </FormField>
-          <FormField label="Platform">
-            <select style={s.input} {...snapField("platform")}>
+      {/* ── Snapshot sheet ───────────────────────────────────────────────── */}
+      {snapSheet && (
+        <Sheet
+          title={snapSheet.mode === "edit" ? "Edit snapshot" : "New snapshot"}
+          saving={saving}
+          submitLabel={snapSheet.mode === "edit" ? "Save" : "Create"}
+          onClose={() => setSnapSheet(null)}
+          onSubmit={handleSnapSave}
+        >
+          <Field label="Date" error={snapErrors.date}>
+            <input
+              style={s.input(snapErrors.date)}
+              type="date"
+              value={snapForm.date}
+              onChange={e => setSnapForm(f => ({ ...f, date: e.target.value }))}
+            />
+          </Field>
+          <Field label="Platform">
+            <select
+              style={s.input()}
+              value={snapForm.platform}
+              onChange={e => setSnapForm(f => ({ ...f, platform: e.target.value, currency: PLATFORM_CURRENCY[e.target.value] ?? "USD" }))}
+            >
               {PLATFORMS.map(p => <option key={p}>{p}</option>)}
             </select>
-          </FormField>
+          </Field>
           <div style={s.row2}>
-            <FormField label="Amount *" error={snapErrors.amount}>
-              <input style={{ ...s.input, ...(snapErrors.amount ? s.inputErr : {}) }} type="number" min="0" step="any" placeholder="0" {...snapField("amount")} />
-            </FormField>
-            <FormField label="Currency">
-              <select style={s.input} {...snapField("currency")}>
-                <option>USD</option>
-                <option>EUR</option>
-                <option>RON</option>
+            <Field label="Amount" error={snapErrors.amount}>
+              <input
+                style={s.input(snapErrors.amount)}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                placeholder="0"
+                value={snapForm.amount}
+                onChange={e => setSnapForm(f => ({ ...f, amount: e.target.value }))}
+              />
+            </Field>
+            <Field label="Currency">
+              <select
+                style={s.input()}
+                value={snapForm.currency}
+                onChange={e => setSnapForm(f => ({ ...f, currency: e.target.value }))}
+              >
+                {CURRENCIES.map(c => <option key={c}>{c}</option>)}
               </select>
-            </FormField>
+            </Field>
           </div>
-          <div style={s.modalFooter}>
-            <button style={s.cancelBtn} onClick={() => setShowSnapModal(false)}>Cancel</button>
-            <button style={s.saveBtn} onClick={handleSnapSave}>Save</button>
+        </Sheet>
+      )}
+
+      {/* ── Operation sheet ──────────────────────────────────────────────── */}
+      {opSheet && (
+        <Sheet
+          title={opSheet.mode === "edit" ? "Edit operation" : "New operation"}
+          saving={saving}
+          submitLabel={opSheet.mode === "edit" ? "Save" : "Create"}
+          onClose={() => setOpSheet(null)}
+          onSubmit={handleOpSave}
+        >
+          <Field label="Date" error={opErrors.date}>
+            <input
+              style={s.input(opErrors.date)}
+              type="date"
+              value={opForm.date}
+              onChange={e => setOpForm(f => ({ ...f, date: e.target.value }))}
+            />
+          </Field>
+          <Field label="Type">
+            <div style={s.segment}>
+              {["Deposit", "Withdrawal"].map(t => (
+                <button
+                  key={t}
+                  style={s.segmentBtn(opForm.type === t, t === "Deposit")}
+                  onClick={() => setOpForm(f => ({ ...f, type: t }))}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Platform">
+            <select
+              style={s.input()}
+              value={opForm.platform}
+              onChange={e => setOpForm(f => ({ ...f, platform: e.target.value, currency: PLATFORM_CURRENCY[e.target.value] ?? "USD" }))}
+            >
+              {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </Field>
+          <div style={s.row2}>
+            <Field label="Amount" error={opErrors.amount}>
+              <input
+                style={s.input(opErrors.amount)}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                placeholder="0"
+                value={opForm.amount}
+                onChange={e => setOpForm(f => ({ ...f, amount: e.target.value }))}
+              />
+            </Field>
+            <Field label="Currency">
+              <select
+                style={s.input()}
+                value={opForm.currency}
+                onChange={e => setOpForm(f => ({ ...f, currency: e.target.value }))}
+              >
+                {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </Field>
           </div>
-        </Modal>
+          <Field label="Notes">
+            <input
+              style={s.input()}
+              type="text"
+              placeholder="Optional"
+              value={opForm.notes}
+              onChange={e => setOpForm(f => ({ ...f, notes: e.target.value }))}
+            />
+          </Field>
+        </Sheet>
       )}
     </div>
   );
@@ -739,276 +892,726 @@ export default function Investments() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({ title, action, children }) {
+function ChartTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const { date, portfolio, cashFlow, ops, hasOp } = payload[0].payload;
+  const cfColor = cashFlow == null ? "var(--text-muted)" : cashFlow >= 0 ? "#22c55e" : "#ef4444";
   return (
-    <div style={s.section}>
-      <div style={s.sectionHeader}>
-        <h3 style={s.sectionTitle}>{title}</h3>
-        {action}
-      </div>
-      {children}
+    <div style={s.tooltip}>
+      <div style={s.tooltipDate}>{date}</div>
+      {portfolio != null && (
+        <div style={{ ...s.tooltipRow, color: TOTAL_COLOR, fontWeight: 700 }}>
+          <span>Portfolio</span>
+          <span style={s.tooltipVal}>{fmtNum(portfolio)} EUR</span>
+        </div>
+      )}
+      {hasOp && ops?.length > 0 && (
+        <>
+          <div style={s.tooltipDivider} />
+          {ops.map((op, i) => (
+            <div key={i} style={{ ...s.tooltipRow, color: op.type === "Deposit" ? "#22c55e" : "#ef4444" }}>
+              <span>{op.type} · {op.platform}</span>
+              <span style={s.tooltipVal}>
+                {op.type === "Deposit" ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
+              </span>
+            </div>
+          ))}
+          {cashFlow != null && (
+            <div style={{ ...s.tooltipRow, color: cfColor }}>
+              <span>Net cash</span>
+              <span style={s.tooltipVal}>{cashFlow >= 0 ? "+" : ""}{fmtNum(cashFlow)} EUR</span>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function Modal({ title, onClose, children }) {
+function MoreLess({ shown, total, onMore, onLess }) {
+  if (total <= PAGE_STEP) return null;
+  return (
+    <div style={s.moreRow}>
+      {shown < total && (
+        <button style={s.moreBtn} onClick={onMore}>
+          Show {Math.min(PAGE_STEP, total - shown)} more
+          <span style={s.moreCount}>{shown}/{total}</span>
+        </button>
+      )}
+      {shown > PAGE_STEP && (
+        <button style={s.moreBtn} onClick={onLess}>Show less</button>
+      )}
+    </div>
+  );
+}
+
+function Chevron({ open }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+         style={{ color: "var(--text-muted)", flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+      <polyline points="4,6 8,10 12,6" />
+    </svg>
+  );
+}
+
+function Sheet({ title, saving, submitLabel, onClose, onSubmit, children }) {
   return (
     <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={e => e.stopPropagation()}>
-        <div style={s.modalHeader}>
-          <span style={s.modalTitle}>{title}</span>
+      <div style={s.sheet} onClick={e => e.stopPropagation()}>
+        <div style={s.grabber} />
+        <div style={s.sheetHead}>
+          <span style={s.sheetTitle}>{title}</span>
           <button style={s.closeBtn} onClick={onClose}>✕</button>
         </div>
-        <div style={s.modalBody}>{children}</div>
+        <div style={s.sheetBody}>{children}</div>
+        <div style={s.sheetFoot}>
+          <button style={s.cancelBtn} onClick={onClose}>Cancel</button>
+          <button style={s.saveBtn} onClick={onSubmit} disabled={saving}>
+            {saving ? "Saving…" : submitLabel}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function FormField({ label, error, children }) {
+function Field({ label, error, children }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
       <label style={s.label}>{label}</label>
       {children}
-      {error && <span style={s.errText}>{error}</span>}
+      {error && <span style={s.fieldErr}>{error}</span>}
     </div>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
+const GREEN_BG     = "rgba(34,197,94,0.10)";
+const GREEN_BORDER = "rgba(34,197,94,0.35)";
+const RED_BG       = "rgba(239,68,68,0.10)";
+const RED_BORDER   = "rgba(239,68,68,0.35)";
+
 const s = {
+  // Centered phone-width column — identical on desktop and mobile
   page: {
     display:       "flex",
     flexDirection: "column",
+    alignItems:    "center",
     flex:          1,
-    gap:           "20px",
+    minHeight:     0,
+  },
+  column: {
+    display:       "flex",
+    flexDirection: "column",
+    width:         "100%",
+    maxWidth:      COL_WIDTH,
+    flex:          1,
+    minHeight:     0,
+  },
+
+  header: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    gap:            "12px",
+    flexShrink:     0,
+    padding:        "12px 14px",
+    borderBottom:   "1px solid var(--border)",
+  },
+  title: {
+    margin:     0,
+    fontSize:   "17px",
+    fontWeight: 700,
+    color:      "var(--text)",
+  },
+  subtitle: {
+    margin:   "3px 0 0",
+    fontSize: "12px",
+    color:    "var(--text-muted)",
+  },
+
+  errorBox: {
+    flexShrink:   0,
+    margin:       "10px 12px 0",
+    background:   "var(--error-bg)",
+    color:        "var(--error-text)",
+    border:       "1px solid var(--danger)",
+    borderRadius: "8px",
+    padding:      "9px 12px",
+    fontSize:     "12px",
+    cursor:       "pointer",
+  },
+
+  scroll: {
+    flex:          1,
+    minHeight:     0,
     overflowY:     "auto",
-    padding:       "0 2px 24px",
-  },
-  pageHeader: {
-    flexShrink: 0,
-  },
-  pageTitle: {
-    margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--text)",
-  },
-  pageSub: {
-    margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)",
-  },
-  muted: {
-    color: "var(--text-muted)", fontSize: "13px", margin: 0,
-  },
-
-  // Top row layout
-  topRow: {
-    display: "flex",
-    gap: "20px",
-    alignItems: "stretch",
-  },
-  holdingsCol: {
-    flex: "0 0 30%",
-    minWidth: 0,
-    display: "flex",
+    WebkitOverflowScrolling: "touch",
+    display:       "flex",
     flexDirection: "column",
+    gap:           "12px",
+    padding:       "12px 12px 24px",
   },
-  chartCol: {
-    flex: "0 0 calc(70% - 20px)",
-    minWidth: 0,
-    display: "flex",
+
+  empty: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "12px",
+    padding:      "34px 20px",
+    color:        "var(--text-muted)",
+    fontSize:     "13px",
+    textAlign:    "center",
+  },
+  emptyLine: {
+    color:     "var(--text-muted)",
+    fontSize:  "13px",
+    padding:   "6px 2px",
+  },
+
+  // ── Block shell
+  block: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "14px",
+    overflow:     "hidden",
+    flexShrink:   0,
+  },
+  blockHead: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "10px",
+    padding:    "13px 14px",
+  },
+  blockTitle: {
+    fontSize:   "14px",
+    fontWeight: 700,
+    color:      "var(--text)",
+  },
+  blockSub: {
+    marginTop: "3px",
+    fontSize:  "12px",
+    color:     "var(--text-muted)",
+  },
+  blockBody: {
+    display:       "flex",
     flexDirection: "column",
-  },
-  bottomRow: {
-    display: "flex",
-    gap: "20px",
-    alignItems: "flex-start",
-  },
-  bottomColLeft: {
-    flex: "0 0 calc(70% - 10px)",
-    minWidth: 0,
-  },
-  bottomColRight: {
-    flex: "0 0 calc(30% - 10px)",
-    minWidth: 0,
-  },
-
-  // Holdings table
-  holdingTable: {
-    width: "100%", borderCollapse: "collapse", fontSize: "13px",
-  },
-  holdingTh: {
-    fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
-    color: "var(--text-muted)", padding: "6px 8px", borderBottom: "1px solid var(--border)",
-    textAlign: "left",
-  },
-  holdingTr: {
-    borderBottom: "1px solid var(--border)",
-  },
-  holdingTd: {
-    padding: "9px 8px", verticalAlign: "middle", fontSize: "13px", color: "var(--text-muted)",
-  },
-  holdingDot: {
-    display: "inline-block", width: "8px", height: "8px",
-    borderRadius: "50%", marginRight: "8px", flexShrink: 0,
-    verticalAlign: "middle",
-  },
-  totalCard: {
-    marginTop: "4px",
-    padding: "14px 16px",
-    background: "var(--surface-2)",
-    border: "1px solid var(--border)",
-    borderRadius: "10px",
-    textAlign: "center",
-  },
-  totalLabel: {
-    fontSize: "11px", fontWeight: 700, textTransform: "uppercase",
-    letterSpacing: "0.05em", color: "var(--text-muted)",
-  },
-  totalAmount: {
-    fontSize: "28px", fontWeight: 700, color: "var(--badge-text)",
-    fontVariantNumeric: "tabular-nums", marginTop: "6px",
-  },
-  totalCurrency: {
-    fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginTop: "2px",
-  },
-  noRates: {
-    fontSize: "10px", color: "var(--text-muted)", opacity: 0.6,
-  },
-  fxStatus: {
-    fontSize: "10px", color: "var(--text-muted)", opacity: 0.7, fontWeight: 400,
-  },
-
-  // Chart
-  legendRow: {
-    display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px",
-  },
-  legendChip: {
-    fontSize: "11px", fontWeight: 600, padding: "3px 10px",
-    borderRadius: "20px", border: "1.5px solid", cursor: "pointer",
-    background: "transparent", transition: "opacity 0.15s",
-  },
-  tooltip: {
-    background: "var(--surface)", border: "1px solid var(--border)",
-    borderRadius: "8px", padding: "10px 14px", fontSize: "12px",
-  },
-  tooltipDate: {
-    fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px", fontWeight: 600,
-  },
-  tooltipRow: {
-    display: "flex", justifyContent: "space-between", gap: "16px",
-  },
-  tooltipVal: {
-    fontWeight: 700, fontVariantNumeric: "tabular-nums",
-  },
-
-  // Section
-  section: {
-    display: "flex", flexDirection: "column", gap: "12px", flex: 1,
-    background: "var(--surface)", border: "1px solid var(--border)",
-    borderRadius: "10px", padding: "18px 20px",
-  },
-  sectionHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-  },
-  sectionTitle: {
-    margin: 0, fontSize: "14px", fontWeight: 700, color: "var(--text)",
+    gap:           "9px",
+    padding:       "12px 12px 13px",
+    borderTop:     "1px solid var(--border)",
   },
   addBtn: {
-    background: "var(--accent)", border: "none", borderRadius: "8px",
-    color: "#fff", fontSize: "12px", fontWeight: 600,
-    padding: "7px 14px", cursor: "pointer", whiteSpace: "nowrap",
+    display:      "inline-flex",
+    alignItems:   "center",
+    gap:          "5px",
+    flexShrink:   0,
+    background:   "var(--accent)",
+    border:       "none",
+    borderRadius: "9px",
+    color:        "#fff",
+    fontSize:     "13px",
+    fontWeight:   600,
+    padding:      "9px 14px",
+    minHeight:    "38px",
+    cursor:       "pointer",
+    whiteSpace:   "nowrap",
+  },
+  plus: { fontSize: "16px", lineHeight: 1 },
+  dot:  { opacity: 0.5, margin: "0 4px" },
+
+  // ── Block 1 · total
+  totalHead: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "10px",
+    padding:    "16px 14px",
+    cursor:     "pointer",
+    userSelect: "none",
+  },
+  totalLabel: {
+    fontSize:      "11px",
+    fontWeight:    700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    color:         "var(--text-muted)",
+  },
+  totalRow: {
+    display:    "flex",
+    alignItems: "baseline",
+    gap:        "7px",
+    marginTop:  "5px",
+  },
+  totalAmount: {
+    fontSize:   "30px",
+    fontWeight: 700,
+    color:      "var(--badge-text)",
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: 1.1,
+  },
+  totalCur: {
+    fontSize:   "13px",
+    fontWeight: 700,
+    color:      "var(--text-muted)",
+  },
+  totalMeta: {
+    display:    "flex",
+    alignItems: "center",
+    flexWrap:   "wrap",
+    marginTop:  "6px",
+    fontSize:   "12px",
+    color:      "var(--text-muted)",
   },
 
-  // Table
-  tableWrap: {
+  holding: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "6px",
+    background:    "var(--surface-2)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "10px",
+    padding:       "10px 11px",
+  },
+  holdingTop: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "8px",
+  },
+  holdingDot: {
+    width:        "9px",
+    height:       "9px",
+    borderRadius: "50%",
+    flexShrink:   0,
+  },
+  holdingName: {
+    flex:         1,
+    minWidth:     0,
+    fontSize:     "13px",
+    fontWeight:   600,
+    color:        "var(--text)",
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+  },
+  holdingAmount: {
+    flexShrink: 0,
+    fontSize:   "14px",
+    fontWeight: 700,
+    color:      "var(--text)",
+    fontVariantNumeric: "tabular-nums",
+  },
+  holdingTrack: {
+    height:       "3px",
+    borderRadius: "2px",
+    background:   "var(--border)",
+    overflow:     "hidden",
+  },
+  holdingFill: {
+    height:       "100%",
+    borderRadius: "2px",
+    transition:   "width 0.25s",
+  },
+  holdingMeta: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "2px",
+    fontSize:   "11px",
+    color:      "var(--text-muted)",
+    fontVariantNumeric: "tabular-nums",
+  },
+
+  // ── Block 2 · chart
+  legendRow: {
+    display:  "flex",
+    flexWrap: "wrap",
+    gap:      "6px",
+  },
+  legendChip: (color, hidden) => ({
+    fontSize:        "11px",
+    fontWeight:      600,
+    padding:         "5px 10px",
+    borderRadius:    "20px",
+    border:          `1.5px solid ${hidden ? "var(--border)" : color}`,
+    cursor:          "pointer",
+    color:           hidden ? "var(--text-muted)" : color,
+    backgroundColor: hidden ? "transparent" : `${color}22`,
+    opacity:         hidden ? 0.55 : 1,
+    transition:      "opacity 0.15s",
+  }),
+  chartNote: {
+    fontSize: "11px",
+    color:    "var(--text-muted)",
+  },
+  tooltip: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    padding:      "9px 12px",
+    fontSize:     "12px",
+    minWidth:     "190px",
+    boxShadow:    "0 4px 18px rgba(0,0,0,0.28)",
+  },
+  tooltipDate: {
+    fontSize:     "11px",
+    color:        "var(--text-muted)",
+    marginBottom: "5px",
+    fontWeight:   600,
+  },
+  tooltipRow: {
+    display:        "flex",
+    justifyContent: "space-between",
+    gap:            "14px",
+    marginBottom:   "2px",
+  },
+  tooltipVal: {
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  tooltipDivider: {
+    borderTop: "1px solid var(--border)",
+    margin:    "6px 0",
+  },
+
+  // ── Blocks 3 & 4 · entries
+  entry: {
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "11px",
+    overflow:     "hidden",
+  },
+  entryHead: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "10px",
+    padding:    "11px 12px",
+    cursor:     "pointer",
+    userSelect: "none",
+  },
+  entryTitleRow: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "7px",
+    minWidth:   0,
+  },
+  entryTitle: {
+    fontSize:     "13px",
+    fontWeight:   600,
+    color:        "var(--text)",
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+    minWidth:     0,
+  },
+  entryMeta: {
+    display:    "flex",
+    alignItems: "center",
+    flexWrap:   "wrap",
+    gap:        "3px",
+    marginTop:  "4px",
+    fontSize:   "12px",
+    color:      "var(--text-muted)",
+  },
+  entryStrong: {
+    fontWeight: 700,
+    color:      "var(--text)",
+    fontVariantNumeric: "tabular-nums",
+  },
+  entryBody: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "7px",
+    padding:       "10px 12px 11px",
+    borderTop:     "1px solid var(--border)",
+  },
+  countBadge: {
+    flexShrink:   0,
+    padding:      "1px 7px",
+    borderRadius: "9px",
+    fontSize:     "11px",
+    fontWeight:   700,
+    background:   "var(--surface)",
+    color:        "var(--text-muted)",
+    border:       "1px solid var(--border)",
+  },
+  pfDot: {
+    width:        "7px",
+    height:       "7px",
+    borderRadius: "50%",
+    flexShrink:   0,
+    display:      "inline-block",
+  },
+  typeBadge: (deposit) => ({
+    flexShrink:   0,
+    padding:      "1px 8px",
+    borderRadius: "9px",
+    fontSize:     "10px",
+    fontWeight:   700,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    background:   deposit ? GREEN_BG : RED_BG,
+    color:        deposit ? "var(--success-text)" : "#ef4444",
+    border:       `1px solid ${deposit ? GREEN_BORDER : RED_BORDER}`,
+  }),
+
+  subRow: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "8px",
+  },
+  subName: {
+    flex:         1,
+    minWidth:     0,
+    fontSize:     "12px",
+    fontWeight:   600,
+    color:        "var(--text)",
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+  },
+  subValue: {
+    flexShrink: 0,
+    fontSize:   "13px",
+    fontWeight: 700,
+    color:      "var(--text)",
+    fontVariantNumeric: "tabular-nums",
+    textAlign:  "right",
+  },
+  subCur: {
+    fontSize:   "10px",
+    fontWeight: 600,
+    color:      "var(--text-muted)",
+  },
+  subEur: {
+    display:    "block",
+    fontSize:   "10px",
+    fontWeight: 500,
+    color:      "var(--text-muted)",
+  },
+  iconBtn: {
+    flexShrink:     0,
+    width:          "30px",
+    height:         "30px",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     "transparent",
+    border:         "1px solid var(--border)",
+    borderRadius:   "8px",
+    color:          "var(--text-muted)",
+    fontSize:       "12px",
+    lineHeight:     1,
+    cursor:         "pointer",
+  },
+  iconBtnDanger: {
+    flexShrink:     0,
+    width:          "30px",
+    height:         "30px",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     "var(--error-bg)",
+    border:         "1px solid var(--danger)",
+    borderRadius:   "8px",
+    color:          "var(--error-text)",
+    fontSize:       "13px",
+    fontWeight:     700,
+    lineHeight:     1,
+    cursor:         "pointer",
+  },
+  ghostBtn: {
+    marginTop:    "2px",
+    background:   "transparent",
+    border:       "1px dashed var(--border)",
     borderRadius: "8px",
-    border: "1px solid var(--border)",
-    overflowX: "hidden",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "9px 12px",
+    cursor:       "pointer",
   },
-  table: {
-    width: "100%", borderCollapse: "collapse",
+  notes: {
+    fontSize:   "12px",
+    color:      "var(--text-muted)",
+    lineHeight: 1.5,
   },
-  th: {
-    fontSize: "10px", fontWeight: 600, color: "var(--text-muted)",
-    textTransform: "uppercase", letterSpacing: "0.05em",
-    padding: "8px 12px", borderBottom: "1px solid var(--border)",
-    background: "var(--surface)", position: "sticky", top: 0, whiteSpace: "nowrap",
+  actions: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "8px",
   },
-  tr: { borderBottom: "1px solid var(--border)" },
-  td: {
-    padding: "9px 12px", fontSize: "13px", color: "var(--text)", whiteSpace: "nowrap",
+  action: {
+    background:   "transparent",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "8px 12px",
+    cursor:       "pointer",
   },
-  typeBadge: {
-    display: "inline-block", padding: "2px 8px", borderRadius: "10px",
-    fontSize: "11px", fontWeight: 600, border: "1px solid",
-  },
-  typeDeposit: {
-    background: "rgba(34,197,94,0.1)", color: "var(--success-text)",
-    borderColor: "rgba(34,197,94,0.3)",
-  },
-  typeWithdraw: {
-    background: "rgba(239,68,68,0.1)", color: "#ef4444",
-    borderColor: "rgba(239,68,68,0.3)",
-  },
-  editBtn: {
-    background: "transparent", border: "none", color: "var(--text-muted)",
-    fontSize: "14px", cursor: "pointer", padding: "2px 6px", borderRadius: "4px",
-  },
-  deleteBtn: {
-    background: "transparent", border: "none", color: "var(--text-muted)",
-    fontSize: "12px", cursor: "pointer", padding: "2px 6px", borderRadius: "4px",
+  actionDangerActive: {
+    background:   "var(--error-bg)",
+    border:       "1px solid var(--danger)",
+    borderRadius: "8px",
+    color:        "var(--error-text)",
+    fontSize:     "12px",
+    fontWeight:   700,
+    padding:      "8px 12px",
+    cursor:       "pointer",
   },
 
-  // Modal
+  moreRow: {
+    display: "flex",
+    gap:     "8px",
+    marginTop: "2px",
+  },
+  moreBtn: {
+    flex:         1,
+    display:      "inline-flex",
+    alignItems:   "center",
+    justifyContent: "center",
+    gap:          "7px",
+    background:   "transparent",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "10px 12px",
+    cursor:       "pointer",
+  },
+  moreCount: {
+    fontSize:   "11px",
+    opacity:    0.7,
+    fontVariantNumeric: "tabular-nums",
+  },
+
+  // ── Bottom sheet
   overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500,
+    position:       "fixed",
+    inset:          0,
+    background:     "rgba(0,0,0,0.55)",
+    display:        "flex",
+    alignItems:     "flex-end",
+    justifyContent: "center",
+    zIndex:         500,
   },
-  modal: {
-    background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px",
-    width: "460px", maxWidth: "95vw", display: "flex", flexDirection: "column",
-    boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
+  sheet: {
+    background:    "var(--surface)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "16px 16px 0 0",
+    width:         "100%",
+    maxWidth:      COL_WIDTH,
+    maxHeight:     "92dvh",
+    display:       "flex",
+    flexDirection: "column",
+    overflow:      "hidden",
+    boxShadow:     "0 -6px 40px rgba(0,0,0,0.45)",
   },
-  modalHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 20px 0",
+  grabber: {
+    width:        "38px",
+    height:       "4px",
+    borderRadius: "2px",
+    background:   "var(--border)",
+    margin:       "8px auto 0",
+    flexShrink:   0,
   },
-  modalTitle: { fontSize: "15px", fontWeight: 700, color: "var(--text)" },
+  sheetHead: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    padding:        "14px 18px 0",
+    flexShrink:     0,
+  },
+  sheetTitle: {
+    fontSize:   "15px",
+    fontWeight: 700,
+    color:      "var(--text)",
+  },
   closeBtn: {
-    background: "transparent", border: "none", color: "var(--text-muted)",
-    fontSize: "14px", cursor: "pointer", padding: "4px 6px", borderRadius: "4px",
+    background: "transparent",
+    border:     "none",
+    color:      "var(--text-muted)",
+    fontSize:   "15px",
+    cursor:     "pointer",
+    padding:    "6px 8px",
   },
-  modalBody: {
-    display: "flex", flexDirection: "column", gap: "14px", padding: "16px 20px 20px",
+  sheetBody: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "13px",
+    padding:       "14px 18px 18px",
+    overflowY:     "auto",
+    minHeight:     0,
   },
-  modalFooter: {
-    display: "flex", justifyContent: "flex-end", gap: "10px",
-    paddingTop: "8px",
+  sheetFoot: {
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "10px",
+    padding:             "12px 18px calc(16px + env(safe-area-inset-bottom))",
+    borderTop:           "1px solid var(--border)",
+    flexShrink:          0,
   },
   row2: {
-    display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px",
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "12px",
   },
   label: {
-    fontSize: "11px", fontWeight: 600, color: "var(--text-muted)",
-    textTransform: "uppercase", letterSpacing: "0.04em",
+    fontSize:      "11px",
+    fontWeight:    600,
+    color:         "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
   },
-  input: {
-    background: "var(--surface-2, rgba(255,255,255,0.05))", border: "1px solid var(--border)",
-    borderRadius: "7px", color: "var(--text)", fontSize: "13px",
-    padding: "8px 10px", width: "100%", boxSizing: "border-box", outline: "none",
+  input: (err) => ({
+    background:   "var(--surface-2)",
+    border:       `1px solid ${err ? "var(--danger)" : "var(--border)"}`,
+    borderRadius: "9px",
+    color:        "var(--text)",
+    fontSize:     "16px",   // 16px keeps iOS from zooming on focus
+    padding:      "11px 12px",
+    width:        "100%",
+    boxSizing:    "border-box",
+    outline:      "none",
+  }),
+  fieldErr: {
+    fontSize: "11px",
+    color:    "var(--danger)",
   },
-  inputErr: { borderColor: "var(--danger, #ef4444)" },
-  errText: { fontSize: "11px", color: "var(--danger, #ef4444)" },
+  segment: {
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "8px",
+  },
+  segmentBtn: (active, deposit) => ({
+    borderRadius: "9px",
+    fontSize:     "13px",
+    fontWeight:   700,
+    padding:      "11px 12px",
+    cursor:       "pointer",
+    background:   active ? (deposit ? GREEN_BG : RED_BG) : "var(--surface-2)",
+    border:       `1px solid ${active ? (deposit ? GREEN_BORDER : RED_BORDER) : "var(--border)"}`,
+    color:        active ? (deposit ? "var(--success-text)" : "#ef4444") : "var(--text-muted)",
+  }),
   cancelBtn: {
-    background: "transparent", border: "1px solid var(--border)", borderRadius: "7px",
-    color: "var(--text-muted)", fontSize: "13px", padding: "7px 18px", cursor: "pointer",
+    background:   "transparent",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    color:        "var(--text-muted)",
+    fontSize:     "13px",
+    fontWeight:   600,
+    padding:      "12px 16px",
+    cursor:       "pointer",
   },
   saveBtn: {
-    background: "var(--accent)", border: "none", borderRadius: "7px",
-    color: "#fff", fontSize: "13px", fontWeight: 600, padding: "7px 18px", cursor: "pointer",
+    background:   "var(--accent)",
+    border:       "none",
+    borderRadius: "9px",
+    color:        "#fff",
+    fontSize:     "13px",
+    fontWeight:   700,
+    padding:      "12px 16px",
+    cursor:       "pointer",
   },
-
-  // Chart tooltip
-  st: {},
 };
-
-const st = s; // alias for tooltip styles reuse

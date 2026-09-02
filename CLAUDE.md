@@ -65,10 +65,10 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Home · Add Expense · Add Income · Split Pay
+- Mobile tab bar: Home · Add Expense · Add Income · Split Pay · Investments
 - Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
 - Split Payments module (`/split-payments`) is fully responsive (desktop Sidebar + mobile tab bar); data stored in DynamoDB (`SplitPayments` table). See below
-- Investments module (`/investments`) shows portfolio evolution (actual portfolio + per-platform lines), snapshots, and operation log
+- Investments module (`/investments`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Investments) and mobile tab bar (Investments, after Split Pay). See below
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
 - Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
 - Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
@@ -203,6 +203,44 @@ Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile 
 - On edit, `occurrenceType` is locked once any occurrence is filled; changing the count preserves existing values by index
 - Delete is a two-step inline confirm ("Delete" → "Tap to confirm", auto-reverts after 4 s) — no separate dialog
 
+### Investments Module
+
+Route: `/investments` — desktop Sidebar (Finance → Investments) and mobile bottom tab bar (**Investments**, the 5th tab, after Split Pay). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too** — same widths, paddings and font sizes on every screen, mirroring Split Pay and Home Overview. Replaces the old wide desktop-only multi-section layout.
+
+**File**: `frontend/src/pages/Investments.jsx` (self-contained; no `useIsMobile` — a single layout width-capped by the `COL_WIDTH` constant)
+
+**Layout**: a header (`N snapshots · M operations`) plus four stacked blocks.
+
+**Block 1 — Total portfolio** (expandable, collapsed by default):
+- Collapsed head: total value in EUR, platform count, and the FX-rate date (`FX <date>` or `no FX rates set`)
+- Expanded: one row per platform with colour dot, EUR amount, share bar in the platform colour, share %, original amount + currency (when not EUR), and last-snapshot date
+- Lists `heldPlatforms` — every platform whose **latest snapshot is > 0**, i.e. exactly what makes up the total, so the shares add up to 100 %
+
+**Block 2 — Portfolio evolution**:
+- 210 px `recharts` LineChart of the actual portfolio value in EUR, month by month
+- **Plotted range starts at `CHART_START` (`2023-01`)** — earlier snapshots/operations still feed the carry-forward but are never plotted; if the earliest data is later, the chart starts there instead
+- Lines: **Total** (grey `#94a3b8`, visible by default) + one per active platform (hidden by default), all `connectNulls`; legend toggle chips above the chart
+- Platform chips use `activePlatforms` (snapshot > 0 in the last 12 months) to keep the legend clear — deliberately a narrower set than Block 1's `heldPlatforms`
+- Dots mark operation months (`isNaN(cy)` guard prevents phantom half-dots); tooltip shows the portfolio value, that month's operations, and net cash in EUR
+
+**Block 3 — Portfolio snapshots**:
+- Readings **grouped by date**, newest first; collapsed card head shows the date, a count badge, a colour dot per recorded platform, and the carry-forward EUR total as of that date
+- Expanded: one row per platform with amount + currency, the `≈ N EUR` equivalent, ✎ / ✕ buttons, and an **+ Add platform to this date** button that pre-fills the sheet with that date
+- Shows the **3 most recent dates**; **Show 3 more** (with an `N/total` counter) reveals three more at a time, **Show less** collapses back
+
+**Block 4 — Operations log**:
+- One card per operation, newest first; collapsed head shows platform dot + name, a Deposit/Withdrawal badge (green/red), the date, and the signed amount
+- Expanded: notes (when present) plus Edit / Delete
+- Same 3-at-a-time reveal control as Block 3
+
+**Add / edit**: both forms are **bottom sheets** at column width (rounded top, grabber, `env(safe-area-inset-bottom)` padding, 16 px inputs to stop iOS zoom). Operation type is a segmented Deposit/Withdrawal control. Currency pre-fills from the platform default and stays editable. Snapshot edits use `PUT /investments/snapshots/{id}` and keep the record's id.
+
+**Delete**: two-step inline confirm that auto-reverts after 4 s (`Delete` → `Tap to confirm`; `✕` → `!` on snapshot rows) — no `window.confirm`.
+
+**API** (`frontend/src/api/investments.js`): `listOperations` / `createOperation` / `updateOperation` / `deleteOperation`, `listSnapshots` / `createSnapshot` / `updateSnapshot` / `deleteSnapshot`. FX rates come from `getFxRates()`.
+
+**Tests**: `frontend/src/pages/Investments.test.jsx` — 9 render tests against mocked APIs, covering the four blocks, the 2023 chart start, the 3-at-a-time reveals, the sheets, and the two-step delete.
+
 ### Home Overview Module
 
 Route: `/` — the main landing page after login. Finance Dashboard moved to `/finance`.
@@ -302,7 +340,7 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 
 **Google Sign-In flow**: Google ID token → `verifyGoogleToken` (tokeninfo API) → `AdminGetUser` / `AdminCreateUser` + `AdminSetUserPassword` → `AdminInitiateAuth` → Cognito JWT returned.
 
-**Portfolio Evolution chart** (Investments page): Plots the actual portfolio value in EUR month by month across the full snapshot/operation date range. Per-month totals carry forward the latest snapshot per platform (`portfolioAt`/`platformAt`); the month spine runs from the earliest to the latest snapshot/operation month. Lines: Portfolio total + one per active platform, toggled via legend chips; dots mark operation months, and the tooltip shows the actual portfolio value plus that month's deposits/withdrawals and net cash. No S&P 500 simulation.
+**Portfolio Evolution chart** (Investments page): Plots the actual portfolio value in EUR month by month. Per-month totals carry forward the latest snapshot per platform (`portfolioAt`/`platformAt`); the month spine runs from `CHART_START` (`2023-01`), or the earliest data if that is later, to the latest snapshot/operation month — pre-2023 records still feed the carry-forward but are never plotted. Lines: Portfolio total + one per active platform, toggled via legend chips; dots mark operation months, and the tooltip shows the actual portfolio value plus that month's deposits/withdrawals and net cash. No S&P 500 simulation.
 
 ## API Endpoints
 
@@ -384,10 +422,11 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
+| Frontend pages | `Investments` (render tests against mocked APIs) | 9 |
 | Backend handlers | `validation` (year range), `amountValidation` | 27 |
 | Backend lib | `expandDates`, `resolveIncome` | 21 |
 
-All tests are pure-function or context tests — no DynamoDB or network calls needed.
+Backend and frontend-utils tests are pure-function or context tests. `Investments.test.jsx` renders the page with `@testing-library/react` against mocked API modules — still no DynamoDB or network calls.
 
 ## Local Dev Seed Scripts
 
@@ -432,6 +471,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
+| Investments | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Investments added to the mobile tab bar after Split Pay; expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
 | Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
