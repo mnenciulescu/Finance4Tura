@@ -5,13 +5,6 @@ import { useState } from "react";
 function IconDashboard() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.5" height="5.5" rx="1.5"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1.5"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1.5"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.5"/></svg>;
 }
-function IconExpense() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,4 5,8.5 8.5,5.5 14,11.5"/><polyline points="10.5,11.5 14,11.5 14,8"/></svg>;
-}
-function IconIncome() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,11 5,6.5 8.5,9.5 14,3.5"/><polyline points="10.5,3.5 14,3.5 14,7"/></svg>;
-}
-
 function IconSplit() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="7.5" x2="5" y2="7.5"/><polyline points="5,4.5 8.5,7.5 5,10.5"/><line x1="8.5" y1="4" x2="14" y2="4"/><line x1="8.5" y1="11" x2="14" y2="11"/></svg>;
 }
@@ -24,13 +17,13 @@ function IconStats() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="9" width="3" height="5" rx="1"/><rect x="6" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>;
 }
 
+// Add Expense / Add Income are not tabs — they belong to the Finance page and
+// live as actions inside it (see Dashboard's mobile action row).
 const tabs = [
-  { to: "/",            label: "Home",        end: true, Icon: IconDashboard },
-  { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
-  { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
-  { to: "/split-payments", label: "Split Pay",          Icon: IconSplit     },
-  { to: "/investments", label: "Investments",            Icon: IconInvestments },
-  { to: "/statistics",  label: "Stats",                  Icon: IconStats     },
+  { to: "/",               label: "Finance",     end: true, Icon: IconDashboard   },
+  { to: "/split-payments", label: "Split Pay",              Icon: IconSplit       },
+  { to: "/investments",    label: "Investments",            Icon: IconInvestments },
+  { to: "/statistics",     label: "Stats",                  Icon: IconStats       },
 ];
 
 export default function MobileLayout({ children }) {

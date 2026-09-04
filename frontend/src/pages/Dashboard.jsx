@@ -8,6 +8,13 @@ import { useYear } from "../context/YearContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
 import useIsMobile from "../hooks/useIsMobile";
 
+function IconExpense() {
+  return <svg width="16" height="16" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,4 5,8.5 8.5,5.5 14,11.5"/><polyline points="10.5,11.5 14,11.5 14,8"/></svg>;
+}
+function IconIncome() {
+  return <svg width="16" height="16" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,11 5,6.5 8.5,9.5 14,3.5"/><polyline points="10.5,3.5 14,3.5 14,7"/></svg>;
+}
+
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
   const { selectedYear, setAvailableYears } = useYear();
@@ -239,6 +246,26 @@ export default function Dashboard() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Add Expense / Add Income live here rather than in the tab bar —
+              they are Finance actions, not top-level destinations. */}
+          <div style={s.mobileActions}>
+            <Link
+              to="/add-expense"
+              state={{ from: "/", returnStartIdx: safeStart }}
+              style={s.mobileAction}
+            >
+              <IconExpense />
+              Add Expense
+            </Link>
+            <Link
+              to="/add-income"
+              state={{ from: "/" }}
+              style={s.mobileAction}
+            >
+              <IconIncome />
+              Add Income
+            </Link>
+          </div>
           {incomes.map((income, i) => (
             <IncomeCard
               key={income.incomeId}
@@ -393,6 +420,29 @@ const s = {
     fontWeight:     600,
     fontSize:       "13px",
     textDecoration: "none",
+  },
+  mobileActions: {
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "8px",
+    flexShrink:          0,
+    marginBottom:        "10px",
+  },
+  mobileAction: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    gap:            "7px",
+    background:     "var(--accent-tint-bg)",
+    border:         "1px solid var(--accent-tint-border)",
+    borderRadius:   "10px",
+    color:          "var(--badge-text)",
+    fontSize:       "13px",
+    fontWeight:     600,
+    minHeight:      "42px",
+    padding:        "0 10px",
+    textDecoration: "none",
+    whiteSpace:     "nowrap",
   },
   mobileRoot: {
     display:       "flex",

@@ -198,7 +198,7 @@ Build the core application shell.
 
 ### Layout
 - **Desktop Topbar** (horizontal, sticky): Logo/Dashboard · Add Income · Add Expense · Split Pay · Investments · Statistics · AI · Settings · Backstage · Admin (admin users only). Year selector, avatar, and Sign out button on the right.
-- **Mobile bottom tab bar**: Home · Add Expense · Add Income · Split Pay · Investments · Stats.
+- **Mobile bottom tab bar**: Finance · Split Pay · Investments · Stats. Add Expense and Add Income are not tabs — they are actions inside the Finance page (mobile `/`).
 - **Main area**: page content below the Topbar.
 - **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/settings`, `/backstage`, `/split-payments`, `/investments`, `/ai-news`, `/admin`.
 
@@ -209,7 +209,8 @@ Build the core application shell.
 | 4.2 | Click `Add Income` | Navigates to `/add-income` |
 | 4.3 | Click `Add Expense` | Navigates to `/add-expense` |
 | 4.4 | Unauthenticated access | Login page shown instead of app |
-| 4.5 | Open app on mobile | Bottom tab bar shown with 6 tabs: Home · Add Expense · Add Income · Split Pay · Investments · Stats |
+| 4.5 | Open app on mobile | Bottom tab bar shown with 4 tabs: Finance · Split Pay · Investments · Stats |
+| 4.6 | Finance page on mobile | An **Add Expense** / **Add Income** action row sits above the income card; saving returns to `/` with the same income column and the Finance tab still highlighted |
 
 ---
 

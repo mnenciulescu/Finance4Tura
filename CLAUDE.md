@@ -65,7 +65,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Home · Add Expense · Add Income · Split Pay · Investments · Stats
+- Mobile tab bar: Finance · Split Pay · Investments · Stats — Add Expense / Add Income are **not** tabs; they are actions inside the Finance page (mobile `/` → `Dashboard`)
 - Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
 - Split Payments module (`/split-payments`) is fully responsive (desktop Sidebar + mobile tab bar); data stored in DynamoDB (`SplitPayments` table). See below
 - Investments module (`/investments`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Investments) and mobile tab bar (Investments, after Split Pay). See below
@@ -241,6 +241,14 @@ Route: `/investments` — desktop Sidebar (Finance → Investments) and mobile b
 **API** (`frontend/src/api/investments.js`): `listOperations` / `createOperation` / `updateOperation` / `deleteOperation`, `listSnapshots` / `createSnapshot` / `updateSnapshot` / `deleteSnapshot`. FX rates come from `getFxRates()`.
 
 **Tests**: `frontend/src/pages/Investments.test.jsx` — 9 render tests against mocked APIs, covering the four blocks, the 2023 chart start, the 3-at-a-time reveals, the sheets, and the two-step delete.
+
+### Finance Page (mobile)
+
+On mobile, `/` renders `Dashboard` — the Finance page — and the tab is labelled **Finance** (renamed from Home).
+
+- **Add Expense / Add Income are not tab-bar destinations.** They are Finance actions and live in a two-up action row at the top of the mobile Dashboard, above the swipeable income card (`s.mobileActions` / `s.mobileAction` in `Dashboard.jsx`). Desktop keeps them in the Sidebar and does not render the row.
+- Each `IncomeCard` also keeps its own per-income `+ Add` expense button and edit-income link.
+- `IncomeCard` computes `financeHome = isMobile ? "/" : "/finance"` and passes it as the `from` route state, so saving an add/edit returns to the right Finance page — on mobile that is `/`, which keeps the Finance tab highlighted. `returnStartIdx` still restores the income column.
 
 ### Statistics Module
 
@@ -452,7 +460,8 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
-| Frontend pages | `Investments`, `Statistics` (render tests against mocked APIs) | 16 |
+| Frontend pages | `Investments`, `Statistics`, `Dashboard` (render tests against mocked APIs) | 18 |
+| Frontend components | `MobileLayout` (tab bar contents) | 3 |
 | Backend handlers | `validation` (year range), `amountValidation` | 27 |
 | Backend lib | `expandDates`, `resolveIncome` | 21 |
 
@@ -501,6 +510,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
+| Mobile tab bar scope | Only top-level destinations are tabs: Finance · Split Pay · Investments · Stats. Add Expense / Add Income moved into the Finance page as an action row | They are actions on Finance data, not destinations; four tabs also leaves the bar readable on small phones |
 | Statistics | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Stats added as the 6th mobile tab; own year stepper (no global picker on mobile); Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block, now visible on mobile |
 | Investments | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Investments added to the mobile tab bar after Split Pay; expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
 | Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
