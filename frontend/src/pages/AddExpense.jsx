@@ -153,7 +153,7 @@ export default function AddExpense() {
 
       {error && <div style={s.errorBox}>{error}</div>}
 
-      <form onSubmit={handleSubmit} style={s.form}>
+      <form onSubmit={handleSubmit} style={s.form} className="zoom-safe-form">
 
         {/* Summary */}
         <Field label="Summary *">

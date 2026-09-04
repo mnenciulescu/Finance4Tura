@@ -249,6 +249,7 @@ On mobile, `/` renders `Dashboard` — the Finance page — and the tab is label
 - **Add Expense / Add Income are not tab-bar destinations.** They are Finance actions and live in a two-up action row at the top of the mobile Dashboard, above the swipeable income card (`s.mobileActions` / `s.mobileAction` in `Dashboard.jsx`). Desktop keeps them in the Sidebar and does not render the row.
 - Each `IncomeCard` also keeps its own per-income `+ Add` expense button and edit-income link.
 - `IncomeCard` computes `financeHome = isMobile ? "/" : "/finance"` and passes it as the `from` route state, so saving an add/edit returns to the right Finance page — on mobile that is `/`, which keeps the Finance tab highlighted. `returnStartIdx` still restores the income column.
+- **Expense row icons**: edit (✎) and delete (🗑) share `s.rowIcon(isMobile)` — a 26 px box on mobile, 18 px on desktop — so they align and are equally tappable. They need *different* font sizes to look the same size: the emoji fills its em box while ✎ inks about 70 % of it, so the pencil runs at 20 px mobile / 15 px desktop against the emoji's 14 px / 11 px.
 
 ### Statistics Module
 
@@ -461,7 +462,8 @@ cd backend && node --test src/**/*.test.mjs
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
 | Frontend pages | `Investments`, `Statistics`, `Dashboard` (render tests against mocked APIs) | 18 |
-| Frontend components | `MobileLayout` (tab bar contents) | 3 |
+| Frontend components | `MobileLayout` (tab bar), `IncomeCard` (row icon sizing) | 7 |
+| Frontend regression | `noZoom` (16px form controls on mobile) | 3 |
 | Backend handlers | `validation` (year range), `amountValidation` | 27 |
 | Backend lib | `expandDates`, `resolveIncome` | 21 |
 
@@ -522,6 +524,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
 | Error boundary | `ErrorBoundary` class component wraps all routes; catches render errors, logs to console, shows retry UI |
+| iOS zoom on focus | `.zoom-safe-form` class on the Add Expense / Add Income `<form>`, with a `@media (max-width: 767px)` rule forcing `font-size: 16px !important` on inputs/selects/textareas (`index.css`) | iOS Safari zooms the viewport for controls under 16px and never zooms back; the pages set 13px inline, so the override needs `!important`. Suppressing zoom via the viewport meta was rejected — it breaks pinch-zoom accessibility |
 | Amount validation | Backend rejects `amount <= 0` with HTTP 400; frontend validates before submit |
 
 ## Known Limitations

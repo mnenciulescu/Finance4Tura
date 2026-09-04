@@ -125,8 +125,8 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                   </div>
                   <div style={s.expenseRight}>
                     <span style={{ ...s.expenseAmount, fontSize: isMobile ? "15px" : "12px" }}>{fmt(exp.amount ?? 0)}</span>
-                    <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.editLink, fontSize: isMobile ? "16px" : "13px" }} title="Edit expense">✎</Link>
-                    <button style={{ ...s.deleteBtn, fontSize: isMobile ? "14px" : "11px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
+                    <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.rowIcon(isMobile), ...s.editLink, fontSize: isMobile ? "20px" : "15px" }} title="Edit expense">✎</Link>
+                    <button style={{ ...s.rowIcon(isMobile), ...s.deleteBtn, fontSize: isMobile ? "14px" : "11px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
                 </li>
               ))}
@@ -457,13 +457,32 @@ const s = {
     color:      "transparent",
     border:     "1px solid var(--border)",
   },
+  // Shared box so the edit and delete icons line up and are equally tappable.
+  // The glyphs need different font sizes to render at the same visual size:
+  // the 🗑 emoji fills its em box, while ✎ only inks about 70% of it.
+  rowIcon: (isMobile) => ({
+    display:        "inline-flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    width:          isMobile ? "26px" : "18px",
+    height:         isMobile ? "26px" : "18px",
+    flexShrink:     0,
+    lineHeight:     1,
+  }),
+  editLink: {
+    background:     "none",
+    border:         "none",
+    padding:        0,
+    cursor:         "pointer",
+    opacity:        0.45,
+    color:          "var(--text)",
+    textDecoration: "none",
+  },
   deleteBtn: {
     background: "none",
     border:     "none",
     padding:    0,
     cursor:     "pointer",
-    fontSize:   "11px",
-    lineHeight: 1,
     opacity:    0.45,
     color:      "var(--danger)",
   },
