@@ -20,12 +20,17 @@ function IconInvestments() {
   return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,12 4,8.5 7,10 11,5 14,3"/><polyline points="11,3 14,3 14,6"/><line x1="1" y1="14" x2="14" y2="14"/></svg>;
 }
 
+function IconStats() {
+  return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="9" width="3" height="5" rx="1"/><rect x="6" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>;
+}
+
 const tabs = [
   { to: "/",            label: "Home",        end: true, Icon: IconDashboard },
   { to: "/add-expense", label: "Add Expense",            Icon: IconExpense   },
   { to: "/add-income",  label: "Add Income",             Icon: IconIncome    },
   { to: "/split-payments", label: "Split Pay",          Icon: IconSplit     },
   { to: "/investments", label: "Investments",            Icon: IconInvestments },
+  { to: "/statistics",  label: "Stats",                  Icon: IconStats     },
 ];
 
 export default function MobileLayout({ children }) {
@@ -173,13 +178,15 @@ const s = {
     alignItems:     "center",
     justifyContent: "center",
     gap:            "3px",
-    padding:        "8px 0",
+    padding:        "8px 2px",
+    minWidth:       0,
     textDecoration: "none",
     transition:     "color 0.15s",
   },
   tabLabel: {
-    fontSize:   "9px",
-    fontWeight: 500,
-    whiteSpace: "nowrap",
+    fontSize:      "9px",
+    fontWeight:    500,
+    whiteSpace:    "nowrap",
+    letterSpacing: "-0.01em",
   },
 };

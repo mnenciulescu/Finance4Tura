@@ -65,10 +65,11 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
 - Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Home · Add Expense · Add Income · Split Pay · Investments
+- Mobile tab bar: Home · Add Expense · Add Income · Split Pay · Investments · Stats
 - Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
 - Split Payments module (`/split-payments`) is fully responsive (desktop Sidebar + mobile tab bar); data stored in DynamoDB (`SplitPayments` table). See below
 - Investments module (`/investments`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Investments) and mobile tab bar (Investments, after Split Pay). See below
+- Statistics module (`/statistics`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Statistics) and mobile tab bar (Stats, last). See below
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
 - Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
 - Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
@@ -240,6 +241,35 @@ Route: `/investments` — desktop Sidebar (Finance → Investments) and mobile b
 **API** (`frontend/src/api/investments.js`): `listOperations` / `createOperation` / `updateOperation` / `deleteOperation`, `listSnapshots` / `createSnapshot` / `updateSnapshot` / `deleteSnapshot`. FX rates come from `getFxRates()`.
 
 **Tests**: `frontend/src/pages/Investments.test.jsx` — 9 render tests against mocked APIs, covering the four blocks, the 2023 chart start, the 3-at-a-time reveals, the sheets, and the two-step delete.
+
+### Statistics Module
+
+Route: `/statistics` — desktop Sidebar (Finance → Statistics) and mobile bottom tab bar (**Stats**, the 6th and last tab). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too**, same as Split Pay, Home Overview, and Investments. The old two-chart desktop layout is gone, along with the `useIsMobile` branch.
+
+**File**: `frontend/src/pages/Statistics.jsx` (self-contained, no external CSS)
+
+**Header**: title, `N months with data · now <Month>`, and a **year stepper** (`‹ 2026 ›`). Mobile has no global year picker, so the page carries its own; it reads/writes the same `YearContext` as the desktop Sidebar selector, so the two stay in sync. Stepping forward is disabled at the current year.
+
+**Block 1 — Monthly averages**:
+- Two-up stat row: **Avg free / month** (indigo when ≥ 0, red when negative) and **Survival / month** (`avg.high + avg.medium × 0.8 + 7000`, purple)
+- Below the divider: High / Medium / Low average rows with colour dots
+- All averages are over `monthsWithData` — months with at least one income or expense
+
+**Block 2 — Free amount per month**:
+- `recharts` BarChart (220 px) for the selected year; bar fill is `C.Free` when free ≥ 0 and `C.High` when negative; the current month renders at full opacity, other months at 0.7
+- Dashed **now** `ReferenceLine` on the current month; zero baseline `ReferenceLine`
+- Y-axis uses a compact `fmtAxis` formatter (`12500` → `12,5k`) and a 44 px width to fit the column
+- Custom `MonthTooltip` shows the **full month breakdown**: Income, High, Medium, Low, Free — this is where the priority split lives now
+- Future months with no data are `null` so they render blank rather than as zero
+
+**Block 3 — ★ Special expenses** (expandable, collapsed by default):
+- Collapsed head: `N in <year>` plus the year total in purple
+- Expanded: one row per special expense (summary, date, amount) and a Total footer
+- Previously desktop-only; now visible on mobile as well
+
+**Removed**: the `{year} — Expenses by Priority` line chart. Its per-month High/Medium/Low data is surfaced through the Free-amount bar tooltip instead.
+
+**Tests**: `frontend/src/pages/Statistics.test.jsx` — 7 render tests against mocked `incomes` / `expenses` APIs, with `vi.setSystemTime` pinning "today".
 
 ### Home Overview Module
 
@@ -422,7 +452,7 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
-| Frontend pages | `Investments` (render tests against mocked APIs) | 9 |
+| Frontend pages | `Investments`, `Statistics` (render tests against mocked APIs) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 27 |
 | Backend lib | `expandDates`, `resolveIncome` | 21 |
 
@@ -471,6 +501,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
+| Statistics | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Stats added as the 6th mobile tab; own year stepper (no global picker on mobile); Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block, now visible on mobile |
 | Investments | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Investments added to the mobile tab bar after Split Pay; expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
 | Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
 | Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
@@ -488,4 +519,4 @@ node src/seed-demo-from-nenciulescu.mjs
 - `resolveIncome()` in `expenses.mjs` uses `ScanCommand` (full table scan). For small user datasets this is acceptable; a userId GSI would improve it at scale.
 - No JWT refresh mechanism — token expiry requires re-login.
 - No server-side pagination — all records returned per request.
-- Statistics "Survival / Month" hardcodes RON 7,000 as a fixed living cost baseline.
+- Statistics "Survival / month" hardcodes RON 7,000 as a fixed living cost baseline (`SURVIVAL_BASELINE`).

@@ -198,7 +198,7 @@ Build the core application shell.
 
 ### Layout
 - **Desktop Topbar** (horizontal, sticky): Logo/Dashboard · Add Income · Add Expense · Split Pay · Investments · Statistics · AI · Settings · Backstage · Admin (admin users only). Year selector, avatar, and Sign out button on the right.
-- **Mobile bottom tab bar**: Dashboard · Add Income · Add Expense · Statistics · Settings. Split Pay and Investments are excluded from mobile navigation.
+- **Mobile bottom tab bar**: Home · Add Expense · Add Income · Split Pay · Investments · Stats.
 - **Main area**: page content below the Topbar.
 - **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/settings`, `/backstage`, `/split-payments`, `/investments`, `/ai-news`, `/admin`.
 
@@ -209,7 +209,7 @@ Build the core application shell.
 | 4.2 | Click `Add Income` | Navigates to `/add-income` |
 | 4.3 | Click `Add Expense` | Navigates to `/add-expense` |
 | 4.4 | Unauthenticated access | Login page shown instead of app |
-| 4.5 | Open app on mobile | Bottom tab bar shown; Split Pay and Investments tabs absent |
+| 4.5 | Open app on mobile | Bottom tab bar shown with 6 tabs: Home · Add Expense · Add Income · Split Pay · Investments · Stats |
 
 ---
 
@@ -285,11 +285,18 @@ Replace placeholder column data with real data from the backend.
 ### Goal
 Implement a statistics page summarizing loaded income and expense data.
 
-### Statistics Displayed
-- Total income, total expenses, net balance
-- Expenses by priority (chart)
-- Completion rate (Completed vs Pending)
-- Computed from already-loaded data — no extra API calls.
+### Layout
+One phone-width column (`max-width: 430px`), centered on desktop as well as mobile — the same shape as Split Pay, Home Overview, and Investments. Header carries the page title, the months-with-data count, and a **year stepper** (`‹ 2026 ›`, capped at the current year) that writes to the same `YearContext` the desktop Sidebar selector uses.
+
+Three stacked blocks:
+
+1. **Monthly averages** — *Avg free / month* and *Survival / month* as a two-up stat row, then High / Medium / Low average rows. Averages are taken over the months that actually have data.
+2. **Free amount per month** — a `recharts` BarChart for the selected year; bars are indigo when positive and red when negative, the current month is drawn at full opacity, and a dashed `now` reference line marks it. Tapping a bar opens a tooltip with the **full month breakdown** — Income, High, Medium, Low, Free.
+3. **★ Special expenses** — an **expandable** block, collapsed by default. The collapsed head shows the count and the year total; expanded it lists each special expense with summary, date, and amount, plus a total footer.
+
+> The separate **Expenses by Priority** line chart was removed. The per-month priority split it carried now lives in the Free-amount bar tooltip.
+
+Data is fetched per selected year via `listIncomes` / `listExpenses`; everything else is computed client-side.
 
 ---
 
@@ -529,5 +536,5 @@ A page (`/ai-news`) that fetches and displays AI-curated financial news from mul
 | Investments snapshots | One DynamoDB record per platform per reading | Allows recording a single platform without entering all six; matches real usage patterns |
 | Investments chart carry-forward | Fill gaps by using the last known value for each platform | Produces continuous lines even when platforms are not updated simultaneously |
 | Local DynamoDB credentials | No explicit credentials in `dynamo.mjs`; uses host AWS credentials via Docker | Matches the credential namespace used by `init-tables.sh` and the AWS CLI; seed script uses the same pattern |
-| Statistics — Special Expenses | Hidden on mobile | The special expenses panel is complex and not touch-friendly; removed from mobile Stats view |
+| Statistics — one phone-width layout | Same 430 px column on desktop and mobile; Stats tab added to the mobile tab bar; Expenses-by-Priority chart dropped and its data moved into the Free-amount tooltip; Special Expenses turned into an expandable block (now visible on mobile too) | Consistent with Split Pay, Home Overview, and Investments; two 12-month charts did not fit a phone, and the priority split reads better on demand than as a second chart |
 | FX conversion | Shared rates stored in the `FxRates` DynamoDB table, refreshed manually from Admin → FX Rates | EUR is the common denominator for a multi-currency portfolio; storing the rates avoids a third-party fetch on every page load |
