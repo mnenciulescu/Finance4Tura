@@ -425,7 +425,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
-| Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only. `USER_PASSWORD_AUTH` is deliberately **off**: the client has no secret, so leaving it on lets anyone call `InitiateAuth` with just the public client ID — and `googleAuth` derives federated users' passwords deterministically from `GOOGLE_SECRET`. The frontend uses SRP (`authenticateUser`) and `googleAuth` uses the admin flow, so nothing needs it |
+| Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only; `USER_PASSWORD_AUTH` is off. Note this narrows the surface but is **not** a defence against a known password — SRP authenticates with the password too. The real protection is that no password is derivable (see Google Sign-In below) |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
 | Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
@@ -433,17 +433,21 @@ node src/seed-demo-from-nenciulescu.mjs
 | iOS zoom on focus | `.zoom-safe-form` class on the Add Expense / Add Income `<form>`, with a `@media (max-width: 767px)` rule forcing `font-size: 16px !important` on inputs/selects/textareas (`index.css`) | iOS Safari zooms the viewport for controls under 16px and never zooms back; the pages set 13px inline, so the override needs `!important`. Suppressing zoom via the viewport meta was rejected — it breaks pinch-zoom accessibility |
 | Amount validation | Backend rejects `amount <= 0` with HTTP 400; frontend validates before submit |
 
-## Security Debt
+## Google Sign-In credential design
 
-- **`GOOGLE_SECRET` is committed in `backend/template.yaml` and this repository is
-  public**, so the value must be treated as compromised. It is the HMAC key
-  `googleAuth` uses to derive each Google-federated user's Cognito password, and
-  a Google `sub` is not secret. `USER_PASSWORD_AUTH` has been disabled on the app
-  client, which closes the unauthenticated path, but the correct fix is still to
-  rotate the secret out of the template (SAM parameter or Secrets Manager),
-  reset the password of every existing `google_*` user so it matches the new
-  derivation, and keep the value out of version control. TYG's copy already
-  lives in a gitignored `samconfig.toml`; this repository has not been changed.
+`googleAuth` generates a **fresh random Cognito password on every sign-in**,
+sets it, and uses it immediately. No secret is involved and nothing is stored.
+
+This replaced a scheme that derived the password as
+`HMAC-SHA256(GOOGLE_SECRET, googleSub)`, with `GOOGLE_SECRET` hardcoded in
+`backend/template.yaml` — in a public repository. A Google `sub` is an
+identifier, not a credential, so the pair was enough to authenticate as any
+federated user. The secret has been removed from the template and both
+federated accounts had their passwords reset.
+
+The old value is still in this repository's git history and must be treated as
+permanently compromised, but it is now inert: nothing derives from it and it is
+set nowhere. Do not reintroduce a derived-credential scheme.
 
 ## Known Limitations
 

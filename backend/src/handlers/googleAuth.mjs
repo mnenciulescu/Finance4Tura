@@ -5,7 +5,7 @@ import {
   AdminSetUserPasswordCommand,
   AdminInitiateAuthCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { createHmac } from "crypto";
+import { randomBytes } from "crypto";
 
 const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || "eu-central-1" });
 
@@ -26,9 +26,15 @@ async function verifyGoogleToken(idToken) {
   return data; // { sub, email, name, picture, ... }
 }
 
-// Derive a stable strong password from the Google sub so we never store it
-function derivePassword(sub) {
-  return "Gp#" + createHmac("sha256", process.env.GOOGLE_SECRET).update(sub).digest("base64url");
+// A fresh random password for every sign-in, set immediately before it is used
+// and never stored anywhere.
+//
+// This replaces a scheme that derived the password from a shared secret and the
+// Google sub. That made every federated user's password reproducible by anyone
+// holding the secret, and a Google sub is an identifier, not a credential —
+// so the pair was enough to sign in as that user. Nothing here is derivable.
+function freshPassword() {
+  return "Gp#" + randomBytes(32).toString("base64url");
 }
 
 export const handler = async (event) => {
@@ -40,7 +46,6 @@ export const handler = async (event) => {
 
     const { sub, email, name } = await verifyGoogleToken(idToken);
     const username = `google_${sub}`;
-    const password = derivePassword(sub);
 
     // Create Cognito user on first sign-in
     let userExists = true;
@@ -65,21 +70,36 @@ export const handler = async (event) => {
         ],
         MessageAction: "SUPPRESS",
       }));
+    }
+
+    // Rotate the password on every sign-in, for new and existing users alike.
+    // For an existing user this overwrites whatever was there — including a
+    // password derived under the old shared-secret scheme.
+    const authenticate = async () => {
+      const password = freshPassword();
       await cognito.send(new AdminSetUserPasswordCommand({
         UserPoolId: process.env.USER_POOL_ID,
         Username:   username,
         Password:   password,
         Permanent:  true,
       }));
-    }
+      return cognito.send(new AdminInitiateAuthCommand({
+        UserPoolId:     process.env.USER_POOL_ID,
+        ClientId:       process.env.CLIENT_ID,
+        AuthFlow:       "ADMIN_USER_PASSWORD_AUTH",
+        AuthParameters: { USERNAME: username, PASSWORD: password },
+      }));
+    };
 
-    // Authenticate and get Cognito tokens
-    const auth = await cognito.send(new AdminInitiateAuthCommand({
-      UserPoolId:       process.env.USER_POOL_ID,
-      ClientId:         process.env.CLIENT_ID,
-      AuthFlow:         "ADMIN_USER_PASSWORD_AUTH",
-      AuthParameters:   { USERNAME: username, PASSWORD: password },
-    }));
+    // Two sign-ins racing for the same user can interleave so that one sets a
+    // password the other immediately replaces. Retrying once resolves it.
+    let auth;
+    try {
+      auth = await authenticate();
+    } catch (e) {
+      if (e.name !== "NotAuthorizedException") throw e;
+      auth = await authenticate();
+    }
 
     const { IdToken, AccessToken, RefreshToken } = auth.AuthenticationResult;
     return {

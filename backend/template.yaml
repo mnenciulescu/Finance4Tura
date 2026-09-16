@@ -260,7 +260,6 @@ Resources:
         Variables:
           USER_POOL_ID: eu-central-1_CD7AdBFwQ
           CLIENT_ID: 2nh5dljhrg9mq7nsmdg7cef21v
-          GOOGLE_SECRET: c29f528e3852d9dc22c574996f7cfdf39093fbbc7054fabacb5797f8ef06f083
           GOOGLE_CLIENT_ID: !Ref GoogleClientId
       Policies:
         - Statement:
