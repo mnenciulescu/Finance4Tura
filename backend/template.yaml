@@ -159,6 +159,10 @@ Resources:
 
   TestTemplatesTable:
     Type: AWS::DynamoDB::Table
+    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
+    # these resources must not take the data with them.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: TestTemplates
       BillingMode: PAY_PER_REQUEST
@@ -184,6 +188,10 @@ Resources:
 
   TestResultsTable:
     Type: AWS::DynamoDB::Table
+    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
+    # these resources must not take the data with them.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: TestResults
       BillingMode: PAY_PER_REQUEST
@@ -209,6 +217,10 @@ Resources:
 
   KidConfigTable:
     Type: AWS::DynamoDB::Table
+    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
+    # these resources must not take the data with them.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: KidConfig
       BillingMode: PAY_PER_REQUEST
