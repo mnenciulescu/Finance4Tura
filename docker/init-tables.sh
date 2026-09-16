@@ -83,43 +83,6 @@ create_table_if_missing "SplitPayments" \
    --key-schema AttributeName=splitPaymentId,KeyType=HASH \
    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
 
-# TestTemplates table
-create_table_if_missing "TestTemplates" \
-  "--table-name TestTemplates \
-   --attribute-definitions AttributeName=templateId,AttributeType=S AttributeName=userId,AttributeType=S AttributeName=createdAt,AttributeType=S \
-   --key-schema AttributeName=templateId,KeyType=HASH \
-   --global-secondary-indexes '[
-     {
-       \"IndexName\": \"userId-createdAt-index\",
-       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"createdAt\", \"KeyType\": \"RANGE\"}],
-       \"Projection\": {\"ProjectionType\": \"ALL\"},
-       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
-     }
-   ]' \
-   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
-
-# TestResults table
-create_table_if_missing "TestResults" \
-  "--table-name TestResults \
-   --attribute-definitions AttributeName=resultId,AttributeType=S AttributeName=userId,AttributeType=S AttributeName=date,AttributeType=S \
-   --key-schema AttributeName=resultId,KeyType=HASH \
-   --global-secondary-indexes '[
-     {
-       \"IndexName\": \"userId-date-index\",
-       \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},{\"AttributeName\": \"date\", \"KeyType\": \"RANGE\"}],
-       \"Projection\": {\"ProjectionType\": \"ALL\"},
-       \"ProvisionedThroughput\": {\"ReadCapacityUnits\": 5, \"WriteCapacityUnits\": 5}
-     }
-   ]' \
-   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
-
-# KidConfig table
-create_table_if_missing "KidConfig" \
-  "--table-name KidConfig \
-   --attribute-definitions AttributeName=userId,AttributeType=S \
-   --key-schema AttributeName=userId,KeyType=HASH \
-   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5"
-
 # Books_and_Dev table
 create_table_if_missing "Books_and_Dev" \
   "--table-name Books_and_Dev \

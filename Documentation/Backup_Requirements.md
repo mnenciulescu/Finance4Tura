@@ -67,9 +67,6 @@ All DynamoDB tables in the `finance4tura-backend` stack:
 | `PortfolioSnapshots` | `snapshotId` |
 | `SP500Monthly` | `monthId` |
 | `SplitPayments` | `splitPaymentId` |
-| `TestTemplates` | `templateId` |
-| `TestResults` | `resultId` |
-| `KidConfig` | `userId` |
 | `AppSettings` | `settingKey` |
 | `Books_and_Dev` | `bookId` |
 | `HQ_Locations` | `hqId` |

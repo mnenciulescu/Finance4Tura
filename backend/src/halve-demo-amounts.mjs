@@ -8,7 +8,7 @@
  *  - PortfolioSnapshots:   amount / 2
  *  - SplitPayments:        totalAmount / 2, each participant share / 2
  *
- * Tables NOT touched: TestTemplates, TestResults, KidConfig, Books_and_Dev
+ * Tables NOT touched: Books_and_Dev
  * User NOT touched:   nenciulescu
  *
  * Usage: node src/halve-demo-amounts.mjs
