@@ -425,12 +425,25 @@ node src/seed-demo-from-nenciulescu.mjs
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
+| Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only. `USER_PASSWORD_AUTH` is deliberately **off**: the client has no secret, so leaving it on lets anyone call `InitiateAuth` with just the public client ID — and `googleAuth` derives federated users' passwords deterministically from `GOOGLE_SECRET`. The frontend uses SRP (`authenticateUser`) and `googleAuth` uses the admin flow, so nothing needs it |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
 | Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
 | Error boundary | `ErrorBoundary` class component wraps all routes; catches render errors, logs to console, shows retry UI |
 | iOS zoom on focus | `.zoom-safe-form` class on the Add Expense / Add Income `<form>`, with a `@media (max-width: 767px)` rule forcing `font-size: 16px !important` on inputs/selects/textareas (`index.css`) | iOS Safari zooms the viewport for controls under 16px and never zooms back; the pages set 13px inline, so the override needs `!important`. Suppressing zoom via the viewport meta was rejected — it breaks pinch-zoom accessibility |
 | Amount validation | Backend rejects `amount <= 0` with HTTP 400; frontend validates before submit |
+
+## Security Debt
+
+- **`GOOGLE_SECRET` is committed in `backend/template.yaml` and this repository is
+  public**, so the value must be treated as compromised. It is the HMAC key
+  `googleAuth` uses to derive each Google-federated user's Cognito password, and
+  a Google `sub` is not secret. `USER_PASSWORD_AUTH` has been disabled on the app
+  client, which closes the unauthenticated path, but the correct fix is still to
+  rotate the secret out of the template (SAM parameter or Secrets Manager),
+  reset the password of every existing `google_*` user so it matches the new
+  derivation, and keep the value out of version control. TYG's copy already
+  lives in a gitignored `samconfig.toml`; this repository has not been changed.
 
 ## Known Limitations
 
