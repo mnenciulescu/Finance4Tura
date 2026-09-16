@@ -23,9 +23,6 @@ const TABLES = {
   InvestmentOperations:  "operationId",
   PortfolioSnapshots:    "snapshotId",
   SplitPayments:         "splitPaymentId",
-  TestTemplates:         "templateId",
-  TestResults:           "resultId",
-  KidConfig:             "userId",
   AppSettings:           "settingKey",
   Books_and_Dev:         "bookId",
 };

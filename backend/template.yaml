@@ -14,9 +14,6 @@ Globals:
         SPLIT_PAYMENTS_TABLE: SplitPayments
         INV_OPERATIONS_TABLE: InvestmentOperations
         INV_SNAPSHOTS_TABLE: PortfolioSnapshots
-        TEST_TEMPLATES_TABLE: TestTemplates
-        TEST_RESULTS_TABLE: TestResults
-        KID_CONFIG_TABLE: KidConfig
         APP_SETTINGS_TABLE: AppSettings
         FX_RATES_TABLE: FxRates
         BOOKS_TABLE: Books_and_Dev
@@ -155,80 +152,6 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: splitPaymentId
-          KeyType: HASH
-
-  TestTemplatesTable:
-    Type: AWS::DynamoDB::Table
-    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
-    # these resources must not take the data with them.
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      TableName: TestTemplates
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: templateId
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: createdAt
-          AttributeType: S
-      KeySchema:
-        - AttributeName: templateId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: userId-createdAt-index
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-            - AttributeName: createdAt
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-
-  TestResultsTable:
-    Type: AWS::DynamoDB::Table
-    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
-    # these resources must not take the data with them.
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      TableName: TestResults
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: resultId
-          AttributeType: S
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: date
-          AttributeType: S
-      KeySchema:
-        - AttributeName: resultId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: userId-date-index
-          KeySchema:
-            - AttributeName: userId
-              KeyType: HASH
-            - AttributeName: date
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-
-  KidConfigTable:
-    Type: AWS::DynamoDB::Table
-    # Retained on purpose: Practice Tests moved to the TYG stack, and removing
-    # these resources must not take the data with them.
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      TableName: KidConfig
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: userId
           KeyType: HASH
 
   BooksAndDevTable:
@@ -683,95 +606,6 @@ Resources:
               Authorizer: NONE
 
   # ──────────────────────────────────────────
-  # Practice Tests
-  # ──────────────────────────────────────────
-  PracticeTestsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: src/handlers/practiceTests.handler
-      CodeUri: .
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TestTemplatesTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TestResultsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref KidConfigTable
-      Events:
-        PTTemplatesGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/templates
-            Method: GET
-        PTTemplatesPost:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/templates
-            Method: POST
-        PTTemplateGetById:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/templates/{templateId}
-            Method: GET
-        PTTemplatePut:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/templates/{templateId}
-            Method: PUT
-        PTTemplateDelete:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/templates/{templateId}
-            Method: DELETE
-        PTResultsGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/results
-            Method: GET
-        PTResultsPost:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/results
-            Method: POST
-        PTResultGetById:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/results/{resultId}
-            Method: GET
-        PTResultPut:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/results/{resultId}
-            Method: PUT
-        PTResultDelete:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/results/{resultId}
-            Method: DELETE
-        PTKidsGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/kids
-            Method: GET
-        PTKidsPut:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /practice-tests/kids
-            Method: PUT
-
-  # ──────────────────────────────────────────
   # Books & Development
   # ──────────────────────────────────────────
   BooksAndDevFunction:
@@ -974,9 +808,6 @@ Resources:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/InvestmentOperations"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioSnapshots"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SplitPayments"
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestTemplates"
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TestResults"
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/KidConfig"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/AppSettings"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FxRates"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Books_and_Dev"

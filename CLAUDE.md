@@ -8,6 +8,14 @@ Finance4Tura is a personal budgeting web app. Incomes are received periodically,
 
 **Current status**: All phases complete and deployed to AWS.
 
+**Moved out**: the Practice Tests module was decoupled into its own app, **TYG**
+(Test Your Growth), living in a sibling repo at `../TYG` with its own SAM stack
+(`tyg-backend`), CloudFront distribution and `TYG_*` DynamoDB tables. It shares
+this project's Cognito user pool, so `GoogleSecret` must stay in sync between
+the two templates and the pool's pre-sign-up trigger (owned by this stack) must
+keep working. The old `TestTemplates` / `TestResults` / `KidConfig` tables are
+retained but orphaned — no longer in this stack, kept only as a rollback path.
+
 ## Monorepo Structure
 
 ```
@@ -72,86 +80,11 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Statistics module (`/statistics`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Statistics) and mobile tab bar (Stats, last). See below
 - AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
 - Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
-- Practice Tests module (`/practice-tests`) — available on desktop (Evolve dropdown in Sidebar) and mobile (Practice tab); see below
 - Books & Development module (`/books-and-dev`) — available on desktop (Evolve dropdown in Sidebar); see below
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 - `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
 - Shared color constants in `frontend/src/utils/colors.js` (PRIORITY_COLORS, HTTP_METHOD_COLORS, CHART_COLORS, BAR_COLORS)
-
-### Practice Tests Module
-
-Route: `/practice-tests` — accessible from desktop Sidebar (Evolve → Practice Tests) and mobile bottom tab bar (Practice).
-
-**Tabs** (in order): Statistics · Tests · Templates · Kids — **Statistics is the default tab on load**
-
-**File structure** (modular folder, replaces the old single `PracticeTests.jsx`):
-```
-frontend/src/pages/PracticeTests/
-├── index.jsx          # Main entry: tab routing + shared state (templates/results/kids)
-├── constants.js       # CHART_COLORS, GROUP_PALETTE, topicBg(), calcTotal(), today()
-├── styles.js          # Entire `s` styles object (default export)
-├── ResultsTab.jsx     # Results tab — all inline-edit + auto-save logic
-├── StatisticsTab.jsx  # Statistics tab — chart, calendar, topic pass-rate blocks
-├── TemplatesTab.jsx   # Templates tab — card grid + delete
-├── KidsTab.jsx        # Kids tab — inline list management
-├── TemplateModal.jsx  # Add/Edit template modal (extracted from TemplatesTab)
-├── Modal.jsx          # Generic Modal wrapper component
-└── helpers.js         # computeTopicPassRate() pure function
-```
-
-`App.jsx` imports `PracticeTests` from `"./pages/PracticeTests"` — Vite resolves this to `index.jsx` automatically, no import change needed.
-
-**Tests tab** (formerly "Results tab"):
-- Auto-selects first template and first kid on load, showing the inline table immediately
-- "New Test" button adds an editable row at the top of the table (requires template + kid selected)
-- **Auto-save**: any field change (topic scores, date, source, total, free points, verified) triggers a debounced save (600 ms); pressing "New Test" also schedules an immediate auto-save with default scores; Save button flushes any pending save and closes the row
-- For a new row the first auto-save creates the record (stores resultId); subsequent saves update it — implemented with `useRef` to avoid stale-closure issues across debounce timers
-- Clicking ✎ on any past result row converts it to inline-editable inputs in place (no modal); same auto-save pattern applies
-- Topic score cells are color-coded: red = 0, yellow = partial, no highlight = full marks
-- Total updates live as scores are entered; inputs clamp to topic `defaultPoints`
-- Source input width: 160 px
-- Results sorted by date descending (most recent first)
-- Total column displays `(totalScore / 10).toFixed(2)` (two decimal places)
-- Generic table (no template+kid filter): shows Kid, Date, Source, Template, Total, ✓, Actions
-
-**Templates tab**:
-- Card grid; Add/Edit modal (`TemplateModal.jsx`) with up to 30 topics and optional free-points field
-- Each topic has a title and `defaultPoints`; topics can be reordered/removed
-
-**Statistics tab**:
-- **Summary bar** (top card): kid filter dropdown + two sections separated by vertical dividers:
-  - **Last 5** — overall avg (mean of per-template avgs, `var(--text)` color, 22px) + per-template avgs for each template's last 5 results (template color, 16px)
-  - **All tests** — same structure using all results; trailing vertical divider closes the bar
-  - All stats respect the kid filter; template toggles do NOT affect the summary bar
-- **Template toggle buttons** (below summary bar, above chart): pill buttons per template — click to show/hide that template's chart line and pass-rate block; active = colored bg + border, inactive = dimmed
-- Left (70%): Grade Evolution line chart — `totalScore / 10` displayed with `.toFixed(2)` (two decimals), straight lines, per-template colors, labels above each point
-  - Template toggle buttons live inside the chart card header (replacing the "Grade Evolution" title)
-  - Chart labels rendered as SVG: `<rect>` pill background (`var(--surface)` fill, `var(--border)` stroke) behind `<text>` (fontSize 13, fontWeight 600, offset 14px above dot); `top` margin 36px prevents label clipping
-  - Custom dot renderer guards `isNaN(cy)` to prevent phantom half-dots when a date has data for only some templates
-  - Verified test dots shown with a **red outer ring** around the filled dot
-  - Dashed **average reference line** per template (same color, 60 % opacity), labelled `avg X.XX`
-- Right (30%): Monthly calendar with test-day color markers per template; nav arrows to change month
-- Custom tooltip on hover: Final grade, source title, verified status
-- Y-axis fixed to 8–10 range; chart and calendar cards stretch to equal height
-- **Topic Pass Rate blocks** below chart/calendar — one block per visible (non-hidden) template:
-  - Kid filter applies to all blocks; template toggle buttons control which blocks are shown
-  - Each block header shows template name in its chart color
-  - Columns match the template's topics with same group-border coloring as Tests tab
-  - Cells show pass-rate % (red = 0, yellow = partial, none = 100 %); `—` when no data
-  - Excluded from calculation: results where `calcTotal(topicScores) ≠ totalScore` (i.e. manual total override differs from topic sum)
-  - `calcTotal` on frontend: `Math.round(sum * 10) / 10` (raw sum rounded to 1 decimal); `totalScore` stored at this scale
-  - `computeTopicPassRate()` is a pure function in `helpers.js`
-
-**Kids tab**:
-- Inline list management (add/remove/rename); Save button with "Saved ✓" feedback
-
-**API** (`frontend/src/api/practiceTests.js`):
-- All calls go to `/practice-tests/templates`, `/practice-tests/results`, `/practice-tests/kids`
-
-**Backend handler**: `backend/src/handlers/practiceTests.mjs`
-- Max 30 topics per template (validated on create and update)
-- `calcTotalScore(freePoints, topicScores)` — `Math.round(sum / 10 * 10) / 10` (rounds to 1 decimal)
 
 ### Books & Development Module
 
@@ -298,11 +231,10 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 - Sorts by `createdDate` descending, shows the most recent entry
 - Displays: title, date, total amount, coverage badge, occurrence status chips
 
-**Section 3 — Practice Tests (bottom-left)**:
-- Calls `listTemplates()`, `listResults()`, `getKids()`
-- Grade Evolution line chart — same logic as StatisticsTab, all templates + kids, no filters; height fills card (ResponsiveContainer height="100%" with flex-grow wrapper); legend rendered inline with the section title (not inside the chart); `isNaN(cy)` guard on dot renderer prevents phantom half-dots
-- Monthly calendar widget (same logic as StatisticsTab) — shows test-day color dots
-- Chart 70% / Calendar 30% side by side
+**Section 3 — Current Holdings (bottom-left)**:
+- Calls `listSnapshots()` and `getFxRates()`
+- Latest snapshot per platform, converted to EUR via `toEUR()`
+- Amounts hidden behind a reveal toggle; shows the FX rate date
 
 **Section 4 — Books & Development latest per person (bottom-right)**:
 - Calls `listBooks()`
@@ -344,17 +276,6 @@ Route: `/` — the main landing page after login. Finance Dashboard moved to `/f
 
 **SplitPayments** table (PK: `splitPaymentId`):
 - `userId`, `date`, `description`, `totalAmount`, `currency`, `participants` (array with name + share)
-
-**TestTemplates** table (PK: `templateId`):
-- `userId`, `name`, `subject`, `freePoints`, `topics` (array: `topicId`, `title`, `defaultPoints`), `createdAt`, `updatedAt`
-- Max 30 topics per template
-
-**TestResults** table (PK: `resultId`):
-- `userId`, `templateId`, `templateName`, `kidName`, `date` (YYYY-MM-DD), `sourceTitle`
-- `freePoints`, `topicScores` (array: `topicId`, `title`, `points`), `totalScore`, `verified`, `createdAt`, `updatedAt`
-
-**KidConfig** table (PK: `userId`):
-- `kids` (array: `kidId`, `name`, `order`); max 20 kids per user
 
 **AppSettings** table (PK: `settingKey`):
 - Single global item `settingKey = "global"` with `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled`
@@ -418,21 +339,6 @@ GET    /split-payments
 POST   /split-payments
 PUT    /split-payments/{splitPaymentId}
 DELETE /split-payments/{splitPaymentId}
-
-GET    /practice-tests/templates
-POST   /practice-tests/templates
-GET    /practice-tests/templates/{templateId}
-PUT    /practice-tests/templates/{templateId}
-DELETE /practice-tests/templates/{templateId}
-
-GET    /practice-tests/results              # supports ?templateId=&kidName=&from=&to=
-POST   /practice-tests/results
-GET    /practice-tests/results/{resultId}
-PUT    /practice-tests/results/{resultId}
-DELETE /practice-tests/results/{resultId}
-
-GET    /practice-tests/kids
-PUT    /practice-tests/kids
 
 GET    /books-and-dev
 POST   /books-and-dev
@@ -516,7 +422,6 @@ node src/seed-demo-from-nenciulescu.mjs
 | Statistics | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Stats added as the 6th mobile tab; own year stepper (no global picker on mobile); Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block, now visible on mobile |
 | Investments | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Investments added to the mobile tab bar after Split Pay; expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
 | Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
-| Practice Tests | Available on both desktop (Evolve sidebar dropdown) and mobile; auto-save on field change (debounced 600 ms, useRef pattern); inline row editing; color-coded topic cells; Statistics is default tab; "Results" tab renamed "Tests"; Statistics tab has summary bar (kid filter + Last 5 / All tests per-template avgs), template toggle pill buttons controlling chart lines and pass-rate blocks, average reference line, and per-template Topic Pass Rate blocks |
 | Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |

@@ -94,18 +94,6 @@ function IconInvestments() {
 }
 
 
-function IconTests() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
-         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="1" width="11" height="13" rx="1.5"/>
-      <line x1="5" y1="5" x2="10" y2="5"/>
-      <line x1="5" y1="7.5" x2="10" y2="7.5"/>
-      <line x1="5" y1="10" x2="8" y2="10"/>
-    </svg>
-  );
-}
-
 function IconBooks() {
   return (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"
@@ -190,7 +178,6 @@ const financeLinks = [
 ];
 
 const evolveLinks = [
-  { to: "/practice-tests",  label: "Practice Tests",      Icon: IconTests },
   { to: "/books-and-dev",   label: "Books & Development", Icon: IconBooks },
 ];
 
@@ -386,7 +373,6 @@ function buildBreadcrumb(pathname) {
   if (pathname === "/split-payments")         return [home, finance, { label: "Split Pay",     to: "/split-payments" }];
   if (pathname === "/statistics")             return [home, finance, { label: "Statistics",    to: "/statistics"     }];
   if (pathname === "/investments")            return [home, finance, { label: "Investments",   to: "/investments"    }];
-  if (pathname.startsWith("/practice-tests")) return [home, evolve,  { label: "Practice Tests",to: "/practice-tests" }];
   if (pathname.startsWith("/books-and-dev"))  return [home, evolve,  { label: "Books & Dev",   to: "/books-and-dev"  }];
   if (pathname.startsWith("/headquarters"))   return [home, { label: "Headquarters", to: "/headquarters" }];
 if (pathname.startsWith("/settings"))       return [home, { label: "Settings",     to: "/settings"     }];

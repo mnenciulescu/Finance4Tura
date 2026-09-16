@@ -7,9 +7,6 @@
  *  - InvestmentOperations: amount *= (1 ± random 0–20%)
  *  - PortfolioSnapshots:   amount *= (1 ± random 0–20%)
  *  - SplitPayments:        copied as-is (amounts unchanged)
- *  - TestTemplates:        copied as-is (new templateIds; used to remap TestResults)
- *  - TestResults:          copied as-is (new resultIds; templateId remapped)
- *  - KidConfig:            copied as-is (single item keyed by userId)
  *  - Books_and_Dev:        copied as-is (new bookIds)
  *  - HQ_Locations:         copied as-is (new hqIds)
  *  - HQ_Templates:         copied as-is (new templateIds; hqId remapped)
@@ -23,7 +20,7 @@
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, BatchWriteCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "eu-central-1" }));
@@ -169,53 +166,6 @@ async function run() {
     }));
     if (copies.length > 0) await batchWrite("SplitPayments", copies);
     console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
-  }
-
-  // ── Practice Tests: Templates ──────────────────────────────────────────────
-  // Build old→new templateId map so TestResults can remap their templateId.
-  const templateIdMap = new Map(); // oldTemplateId → newTemplateId
-  {
-    process.stdout.write("  TestTemplates…");
-    const source  = await scanAllForUser("TestTemplates", NENC_USER_ID);
-    const cleared = await deleteAllForUser("TestTemplates", "templateId", DEMO_USER_ID);
-    const copies  = source.map(r => {
-      const newId = randomUUID();
-      templateIdMap.set(r.templateId, newId);
-      return { ...r, templateId: newId, userId: DEMO_USER_ID };
-    });
-    if (copies.length > 0) await batchWrite("TestTemplates", copies);
-    console.log(` cleared ${cleared}, wrote ${copies.length} ✓`);
-  }
-
-  // ── Practice Tests: Results ────────────────────────────────────────────────
-  {
-    process.stdout.write("  TestResults…");
-    const source  = await scanAllForUser("TestResults", NENC_USER_ID);
-    const cleared = await deleteAllForUser("TestResults", "resultId", DEMO_USER_ID);
-    const copies  = source.map(r => ({
-      ...r,
-      resultId:   randomUUID(),
-      userId:     DEMO_USER_ID,
-      templateId: templateIdMap.get(r.templateId) ?? r.templateId,
-    }));
-    if (copies.length > 0) await batchWrite("TestResults", copies);
-    console.log(` cleared ${cleared}, wrote ${copies.length} (templateId remapped) ✓`);
-  }
-
-  // ── KidConfig ──────────────────────────────────────────────────────────────
-  // Single item keyed by userId — no userId scan needed; just get + put.
-  {
-    process.stdout.write("  KidConfig…");
-    const res = await client.send(new GetCommand({ TableName: "KidConfig", Key: { userId: NENC_USER_ID } }));
-    if (res.Item) {
-      await client.send(new PutCommand({
-        TableName: "KidConfig",
-        Item: { ...res.Item, userId: DEMO_USER_ID },
-      }));
-      console.log(` wrote 1 (${res.Item.kids?.length ?? 0} kids) ✓`);
-    } else {
-      console.log(" source not found, skipped");
-    }
   }
 
   // ── Books & Development ────────────────────────────────────────────────────
