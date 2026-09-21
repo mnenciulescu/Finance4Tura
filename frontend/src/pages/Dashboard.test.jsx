@@ -41,13 +41,15 @@ beforeEach(() => {
 });
 
 describe("Dashboard — Finance page actions", () => {
-  it("offers Add Expense and Add Income inside the page", async () => {
+  // Each IncomeCard carries its own "+ Add" for expenses and the Finance menu
+  // has Add Income, so the page-level action row was redundant.
+  it("does not repeat Add Expense / Add Income as a page-level row", async () => {
     renderPage();
-    const expense = await screen.findByText("Add Expense");
-    const income  = screen.getByText("Add Income");
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
 
-    expect(expense.closest("a").getAttribute("href")).toBe("/add-expense");
-    expect(income.closest("a").getAttribute("href")).toBe("/add-income");
+    expect(screen.queryByText("Add Expense")).toBeNull();
+    expect(screen.queryByText("Add Income")).toBeNull();
+    expect(screen.getByTitle("Add expense")).toBeTruthy();
   });
 });
 
