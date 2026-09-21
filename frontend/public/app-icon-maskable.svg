@@ -3,14 +3,14 @@
        the house scaled into the safe zone so a circular crop never clips it. -->
   <defs>
     <linearGradient id="tile" x1="0.05" y1="0" x2="0.95" y2="1">
-      <stop offset="0%"   stop-color="#6affc0"/>
-      <stop offset="34%"  stop-color="#00e07a"/>
-      <stop offset="68%"  stop-color="#00bfa0"/>
-      <stop offset="100%" stop-color="#0b8ccd"/>
+      <stop offset="0%"   stop-color="#9b7bff"/>
+      <stop offset="34%"  stop-color="#6d4aff"/>
+      <stop offset="68%"  stop-color="#3b9dff"/>
+      <stop offset="100%" stop-color="#00c9ff"/>
     </linearGradient>
     <linearGradient id="wall" x1="0" y1="0" x2="0.4" y2="1">
       <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#ddfff2"/>
+      <stop offset="100%" stop-color="#eae6ff"/>
     </linearGradient>
     <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#ffdf6b"/>
@@ -23,7 +23,8 @@
   </defs>
 
   <rect width="512" height="512" fill="url(#tile)"/>
-  <circle cx="118" cy="96" r="205" fill="#ffffff" opacity="0.14"/>
+  <circle cx="118" cy="96" r="205" fill="#ffffff" opacity="0.16"/>
+  <circle cx="430" cy="452" r="190" fill="#ff5eb1" opacity="0.30"/>
 
   <g transform="translate(256,262) scale(0.62) translate(-256,-262)">
     <path d="M-220 424 C 104 386, 196 438, 300 422 C 390 408, 452 418, 732 400 L 732 742 L -220 742 Z"
@@ -33,7 +34,7 @@
           fill="url(#wall)" stroke="url(#wall)" stroke-width="30" stroke-linejoin="round"/>
     <rect x="233" y="318" width="46" height="74" rx="11" fill="url(#door)"/>
     <circle cx="269" cy="356" r="4.5" fill="#8a5a00" opacity="0.5"/>
-    <rect x="186" y="300" width="36" height="36" rx="9" fill="#0b8ccd" opacity="0.42"/>
-    <rect x="290" y="300" width="36" height="36" rx="9" fill="#0b8ccd" opacity="0.42"/>
+    <rect x="186" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
+    <rect x="290" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
   </g>
 </svg>

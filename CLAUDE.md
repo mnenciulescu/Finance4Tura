@@ -405,7 +405,7 @@ Backend and frontend-utils tests are pure-function or context tests. `Investment
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
 | Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only; `USER_PASSWORD_AUTH` is off. Note this narrows the surface but is **not** a defence against a known password — SRP authenticates with the password too. The real protection is that no password is derivable (see Google Sign-In below) |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
-| Themes | Dark (default) and light via `data-theme="light"` on `<html>`; all components use CSS variables |
+| Themes | **Prism** (default, light and violet-accented, defined on `:root`), plus Light and Amber via `data-theme` on `<html>`. All components read CSS variables. `main.jsx` and Settings share one resolver, so the default lives in one place; a legacy stored `"dark"` maps to Prism. |
 | Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
 | Error boundary | `ErrorBoundary` class component wraps all routes; catches render errors, logs to console, shows retry UI |
 | iOS zoom on focus | `.zoom-safe-form` class on the Add Expense / Add Income `<form>`, with a `@media (max-width: 767px)` rule forcing `font-size: 16px !important` on inputs/selects/textareas (`index.css`) | iOS Safari zooms the viewport for controls under 16px and never zooms back; the pages set 13px inline, so the override needs `!important`. Suppressing zoom via the viewport meta was rejected — it breaks pinch-zoom accessibility |

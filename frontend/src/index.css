@@ -4,65 +4,68 @@
   padding: 0;
 }
 
-/* Dark theme — deep indigo-black base with a vivid spring-green accent.
-   Surfaces carry a slight violet cast so the green reads warmer against them,
-   and text sits near-white for contrast well past AA. */
+/* Prism — the default theme. Light and saturated rather than dark: a soft
+   periwinkle base, white cards, and a vivid violet accent carried through by
+   cyan and pink in the sign-in wash. Violet also matches the Free/total series
+   already used in the charts (utils/colors.js), so data and chrome agree.
+   Legacy "dark" preferences land here, since data-theme="dark" no longer
+   matches a rule and falls through to :root. */
 :root {
-  --bg:           #06080f;
-  --surface:      #111524;
-  --surface-2:    #1a2036;
-  --border:       #2c3555;
-  --text:         #f4f7ff;
-  --text-muted:   #98a3c8;
-  --accent:       #00e07a;
-  --accent-hover: #3dffa1;
-  --danger:       #ff4d6d;
-  --success:      #00e07a;
-  --warning:      #ffb300;
+  --bg:           #f5f6ff;
+  --surface:      #ffffff;
+  --surface-2:    #edf0fe;
+  --border:       #dce1f8;
+  --text:         #14163d;
+  --text-muted:   #5c6390;
+  --accent:       #6d4aff;
+  --accent-hover: #5a35f5;
+  --danger:       #ff3d71;
+  --success:      #00bd82;
+  --warning:      #ff9500;
 
-  /* Text/icons drawn ON an --accent fill. The accent is light, so this is dark. */
-  --on-accent:    #04140c;
+  /* Text/icons drawn ON an --accent fill. Violet is dark, so this is white. */
+  --on-accent:    #ffffff;
 
-  --topbar-bg:          rgba(8,11,20,0.92);
-  --topbar-border:      rgba(0,224,122,0.22);
-  --topbar-shadow:      rgba(0,224,122,0.14);
-  --topbar-link-active: rgba(0,224,122,0.12);
+  --topbar-bg:          rgba(255,255,255,0.86);
+  --topbar-border:      rgba(109,74,255,0.16);
+  --topbar-shadow:      rgba(109,74,255,0.10);
+  --topbar-link-active: rgba(109,74,255,0.10);
 
-  --badge-text:         #5cffb1;
-  --badge-text-muted:   rgba(92,255,177,0.62);
-  --amount-text:        #5cffb1;
-  --header-amount-text: #5cffb1;
-  --bar-label:          rgba(0,0,0,0.88);
+  --badge-text:         #6d4aff;
+  --badge-text-muted:   rgba(109,74,255,0.62);
+  --amount-text:        #00a06f;
+  --header-amount-text: #14163d;
+  --bar-label:          rgba(0,0,0,0.78);
 
-  --error-bg:           #2b0b16;
-  --error-text:         #ff8fa3;
-  --success-bg:         #05291a;
-  --success-text:       #5cffb1;
-  --warning-bg:         #2a1d00;
-  --warning-text:       #ffd24d;
+  --error-bg:           #ffeef2;
+  --error-text:         #d11a4a;
+  --success-bg:         #e4fbf2;
+  --success-text:       #007a53;
+  --warning-bg:         #fff4e0;
+  --warning-text:       #a85c00;
 
-  --header-current-bg:     rgba(0,224,122,0.10);
-  --header-current-border: rgba(0,224,122,0.45);
-  --avatar-bg:             rgba(0,224,122,0.14);
-  --avatar-border:         rgba(0,224,122,0.38);
-  --avatar-color:          #5cffb1;
+  --header-current-bg:     rgba(109,74,255,0.10);
+  --header-current-border: rgba(109,74,255,0.45);
+  --avatar-bg:             rgba(109,74,255,0.12);
+  --avatar-border:         rgba(109,74,255,0.40);
+  --avatar-color:          #6d4aff;
 
   /* accent overlay helpers — updated per theme */
-  --accent-grad-end:     rgba(0,224,122,0.22);
-  --accent-tint-bg:      rgba(0,224,122,0.12);
-  --accent-tint-border:  rgba(0,224,122,0.28);
-  --accent-glow-bg:      rgba(0,224,122,0.07);
-  --accent-glow-border:  rgba(0,224,122,0.18);
-  --accent-reveal-bg:    rgba(0,224,122,0.16);
-  --accent-nav-ind:      rgba(0,224,122,0.80);
-  --accent-row-bg:       rgba(0,224,122,0.07);
-  --accent-badge-bg:     rgba(0,224,122,0.12);
-  --accent-badge-border: rgba(0,224,122,0.32);
+  --accent-grad-end:     rgba(109,74,255,0.20);
+  --accent-tint-bg:      rgba(109,74,255,0.10);
+  --accent-tint-border:  rgba(109,74,255,0.26);
+  --accent-glow-bg:      rgba(109,74,255,0.06);
+  --accent-glow-border:  rgba(109,74,255,0.16);
+  --accent-reveal-bg:    rgba(109,74,255,0.14);
+  --accent-nav-ind:      rgba(109,74,255,0.75);
+  --accent-row-bg:       rgba(109,74,255,0.06);
+  --accent-badge-bg:     rgba(109,74,255,0.10);
+  --accent-badge-border: rgba(109,74,255,0.30);
 
-  /* Sign-in aurora — two hues so it reads as a gradient, not a single glow */
-  --aurora-1: rgba(0,224,122,0.26);
-  --aurora-2: rgba(11,140,205,0.24);
-  --aurora-3: rgba(106,255,192,0.14);
+  /* Sign-in aurora — violet, cyan and pink, the theme's signature */
+  --aurora-1: rgba(109,74,255,0.24);
+  --aurora-2: rgba(0,201,255,0.22);
+  --aurora-3: rgba(255,94,177,0.20);
 
   --card-w: 280px;
 

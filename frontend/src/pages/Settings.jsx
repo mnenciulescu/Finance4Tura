@@ -6,19 +6,24 @@ export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "tr
 export const setPrivacySetting = (val) => localStorage.setItem(PRIVACY_KEY, String(val));
 
 const THEME_KEY = "appTheme";
-const getStoredTheme = () => localStorage.getItem(THEME_KEY) ?? "light";
-const applyThemeToDOM = (theme) => document.documentElement.setAttribute("data-theme", theme);
+// "dark" was the old default; it is now Prism. Map it so an existing
+// preference still selects a real entry in the picker.
+export const getStoredTheme = () => {
+  const stored = localStorage.getItem(THEME_KEY);
+  return stored === "dark" || stored === null ? "prism" : stored;
+};
+export const applyThemeToDOM = (theme) => document.documentElement.setAttribute("data-theme", theme);
 const saveTheme = (theme) => localStorage.setItem(THEME_KEY, theme);
 
 const THEMES = [
   {
-    id: "dark",
-    label: "Dark",
-    bg: "#111524",
-    surface: "#1a2036",
-    border: "#2c3555",
-    accent: "#00e07a",
-    strip: "#5cffb1",
+    id: "prism",
+    label: "Prism",
+    bg: "#f5f6ff",
+    surface: "#ffffff",
+    border: "#dce1f8",
+    accent: "#6d4aff",
+    strip: "#00c9ff",
   },
   {
     id: "light",

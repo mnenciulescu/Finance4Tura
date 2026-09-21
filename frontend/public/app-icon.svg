@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="4TURA Home">
   <defs>
     <linearGradient id="tile" x1="0.05" y1="0" x2="0.95" y2="1">
-      <stop offset="0%"   stop-color="#6affc0"/>
-      <stop offset="34%"  stop-color="#00e07a"/>
-      <stop offset="68%"  stop-color="#00bfa0"/>
-      <stop offset="100%" stop-color="#0b8ccd"/>
+      <stop offset="0%"   stop-color="#9b7bff"/>
+      <stop offset="34%"  stop-color="#6d4aff"/>
+      <stop offset="68%"  stop-color="#3b9dff"/>
+      <stop offset="100%" stop-color="#00c9ff"/>
     </linearGradient>
     <linearGradient id="wall" x1="0" y1="0" x2="0.4" y2="1">
       <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#ddfff2"/>
+      <stop offset="100%" stop-color="#eae6ff"/>
     </linearGradient>
     <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#ffdf6b"/>
@@ -23,7 +23,8 @@
   <rect width="512" height="512" rx="116" fill="url(#tile)"/>
 
   <!-- corner light -->
-  <circle cx="118" cy="96" r="205" fill="#ffffff" opacity="0.14"/>
+  <circle cx="118" cy="96" r="205" fill="#ffffff" opacity="0.16"/>
+  <circle cx="430" cy="452" r="190" fill="#ff5eb1" opacity="0.30"/>
 
   <!-- hill, drawn behind the house so it looks planted -->
   <path d="M-10 424 C 104 386, 196 438, 300 422 C 390 408, 452 418, 522 400 L 522 522 L -10 522 Z"
@@ -41,6 +42,6 @@
   <circle cx="269" cy="356" r="4.5" fill="#8a5a00" opacity="0.5"/>
 
   <!-- windows -->
-  <rect x="186" y="300" width="36" height="36" rx="9" fill="#0b8ccd" opacity="0.42"/>
-  <rect x="290" y="300" width="36" height="36" rx="9" fill="#0b8ccd" opacity="0.42"/>
+  <rect x="186" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
+  <rect x="290" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
 </svg>

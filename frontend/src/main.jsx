@@ -2,9 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { getStoredTheme, applyThemeToDOM } from './pages/Settings.jsx'
 
-const savedTheme = localStorage.getItem("appTheme") ?? "light";
-document.documentElement.setAttribute("data-theme", savedTheme);
+// Resolved by Settings so the default lives in exactly one place.
+applyThemeToDOM(getStoredTheme());
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
