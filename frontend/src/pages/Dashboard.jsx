@@ -6,7 +6,6 @@ import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
-import useIsMobile from "../hooks/useIsMobile";
 
 function IconExpense() {
   return <svg width="16" height="16" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,4 5,8.5 8.5,5.5 14,11.5"/><polyline points="10.5,11.5 14,11.5 14,8"/></svg>;
@@ -17,8 +16,7 @@ function IconIncome() {
 
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
-  const { selectedYear, setAvailableYears } = useYear();
-  const isMobile = useIsMobile();
+  const { selectedYear, setSelectedYear, setAvailableYears } = useYear();
   const [allIncomes, setAllIncomes]   = useState([]);
   const [startIdx, setStartIdx]       = useState(0);
   const [expenses, setExpenses]       = useState([]);
@@ -30,6 +28,7 @@ export default function Dashboard() {
   const touchStartY = useRef(null);
   const location = useLocation();
   const pendingRestoreRef = useRef(location.state?.returnStartIdx ?? null);
+  const thisYear = new Date().getFullYear();
 
   // Incomes filtered to the selected year
   const yearIncomes = useMemo(() =>
@@ -44,9 +43,7 @@ export default function Dashboard() {
       yearIncomes[idx].date <= today ? idx : found, -1);
   }, [yearIncomes]);
 
-  // On desktop (3 columns) offset by 1 so the active column is centred.
-  // On mobile (1 column) show the active column directly — no offset.
-  const activeStartIdx = yearCurrentIdx === -1 ? 0 : Math.max(0, yearCurrentIdx - (isMobile ? 0 : 1));
+  const activeStartIdx = yearCurrentIdx === -1 ? 0 : yearCurrentIdx;
 
   // Reset to first relevant column when logo is clicked
   useEffect(() => {
@@ -54,12 +51,12 @@ export default function Dashboard() {
     setStartIdx(activeStartIdx);
   }, [location.state?.resetDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset startIdx whenever the selected year or mobile breakpoint changes.
-  // Skip when we're about to restore a saved position (handled by the effect below).
+  // Reset startIdx whenever the selected year changes. Skip when we're about to
+  // restore a saved position (handled by the effect below).
   useEffect(() => {
     if (pendingRestoreRef.current !== null) return;
     setStartIdx(activeStartIdx);
-  }, [selectedYear, yearCurrentIdx, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedYear, yearCurrentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After data finishes loading, apply a saved column position (from navigating back after add/edit).
   useEffect(() => {
@@ -86,11 +83,10 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visibleCount = isMobile ? 1 : 3;
   const safeStart  = Math.max(0, Math.min(startIdx, yearIncomes.length - 1));
-  const incomes    = yearIncomes.slice(safeStart, safeStart + visibleCount);
+  const incomes    = yearIncomes.slice(safeStart, safeStart + 1);
   const canGoLeft  = safeStart > 0;
-  const canGoRight = safeStart + visibleCount < yearIncomes.length;
+  const canGoRight = safeStart + 1 < yearIncomes.length;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -231,6 +227,40 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Year switching and the privacy toggle used to live in the desktop
+          chrome; the page owns them now. The year writes to the same context
+          Statistics reads, so the two stay in sync. */}
+      <div style={s.header}>
+        <div style={s.yearNav}>
+          <button style={s.yearBtn} onClick={() => setSelectedYear(y => y - 1)} title="Previous year">‹</button>
+          <span style={s.yearValue}>{selectedYear}</span>
+          <button
+            style={{ ...s.yearBtn, ...(selectedYear >= thisYear ? s.yearBtnOff : {}) }}
+            onClick={() => selectedYear < thisYear && setSelectedYear(y => y + 1)}
+            disabled={selectedYear >= thisYear}
+            title="Next year"
+          >›</button>
+        </div>
+        <button
+          style={s.visToggle}
+          onClick={() => setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; })}
+          title={showAmounts ? "Hide income amounts" : "Show income amounts"}
+        >
+          {showAmounts ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+              <circle cx="8" cy="8" r="2"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+              <circle cx="8" cy="8" r="2"/>
+              <line x1="2" y1="2" x2="14" y2="14"/>
+            </svg>
+          )}
+        </button>
+      </div>
+
       {error && <div style={s.errorBox}>{error}</div>}
 
       {loading ? (
@@ -240,7 +270,7 @@ export default function Dashboard() {
           <p style={s.muted}>No incomes yet.</p>
           <Link to="/add-income" style={s.btnPrimary}>Add your first income</Link>
         </div>
-      ) : isMobile ? (
+      ) : (
         <div
           style={s.mobileRoot}
           onTouchStart={handleTouchStart}
@@ -276,67 +306,9 @@ export default function Dashboard() {
               onDeleteIncome={handleDeleteIncome}
               showAmount={showAmounts}
               isCurrent={safeStart + i === yearCurrentIdx}
-              isMobile
               dashboardStartIdx={safeStart}
             />
           ))}
-        </div>
-      ) : (
-        <div style={s.navRow}>
-          <div style={s.leftCol}>
-            <button
-              style={{ ...s.navArrow, flex: 1, opacity: canGoLeft ? 1 : 0.2, cursor: canGoLeft ? "pointer" : "default" }}
-              onClick={() => canGoLeft && setStartIdx(i => i - 1)}
-              aria-label="Previous month"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="11,4 6,9 11,14"/>
-              </svg>
-            </button>
-            <button
-              style={s.visToggle}
-              onClick={() => setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; })}
-              title={showAmounts ? "Hide income amounts" : "Show income amounts"}
-            >
-              {showAmounts ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
-                  <circle cx="8" cy="8" r="2"/>
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
-                  <circle cx="8" cy="8" r="2"/>
-                  <line x1="2" y1="2" x2="14" y2="14"/>
-                </svg>
-              )}
-            </button>
-          </div>
-          <div style={s.cardRow}>
-            {incomes.map((income, i) => (
-              <IncomeCard
-                key={income.incomeId}
-                income={income}
-                expenses={expensesByIncome[income.incomeId] ?? []}
-                onToggleStatus={handleToggleStatus}
-                onDeleteExpense={handleDeleteExpense}
-                onDeleteIncome={handleDeleteIncome}
-                showAmount={showAmounts}
-                isCurrent={safeStart + i === yearCurrentIdx}
-                isCenter={i === 1}
-                dashboardStartIdx={safeStart}
-              />
-            ))}
-          </div>
-          <button
-            style={{ ...s.navArrow, alignSelf: "stretch", height: "auto", opacity: canGoRight ? 1 : 0.2, cursor: canGoRight ? "pointer" : "default" }}
-            onClick={() => canGoRight && setStartIdx(i => i + 1)}
-            aria-label="Next month"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="7,4 12,9 7,14"/>
-            </svg>
-          </button>
         </div>
       )}
     </div>
@@ -350,57 +322,64 @@ const s = {
     flex:          1,
     minHeight:     0,
   },
-  leftCol: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "8px",
-    alignItems:    "center",
+  header: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    gap:            "12px",
+    flexShrink:     0,
+    padding:        "10px 12px",
+    borderBottom:   "1px solid var(--border)",
+  },
+  yearNav: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "2px",
+    flexShrink:   0,
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    padding:      "3px",
+  },
+  yearBtn: {
+    width:          "30px",
+    height:         "30px",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     "transparent",
+    border:         "none",
+    borderRadius:   "7px",
+    color:          "var(--text)",
+    fontSize:       "17px",
+    lineHeight:     1,
+    cursor:         "pointer",
+  },
+  yearBtnOff: {
+    color:   "var(--text-muted)",
+    opacity: 0.35,
+    cursor:  "default",
+  },
+  yearValue: {
+    minWidth:           "42px",
+    textAlign:          "center",
+    fontSize:           "13px",
+    fontWeight:         700,
+    color:              "var(--text)",
+    fontVariantNumeric: "tabular-nums",
   },
   visToggle: {
-    background:   "var(--surface-2)",
-    border:       "1px solid var(--border)",
-    borderRadius: "10px",
-    color:        "var(--text-muted)",
-    width:        "44px",
-    height:       "44px",
-    display:      "flex",
-    alignItems:   "center",
+    background:     "var(--surface-2)",
+    border:         "1px solid var(--border)",
+    borderRadius:   "9px",
+    color:          "var(--text-muted)",
+    width:          "38px",
+    height:         "38px",
+    display:        "flex",
+    alignItems:     "center",
     justifyContent: "center",
-    cursor:       "pointer",
-    flexShrink:   0,
-  },
-  navRow: {
-    display:    "flex",
-    alignItems: "stretch",
-    flex:       1,
-    minHeight:  0,
-    gap:        "16px",
-  },
-  navArrow: {
-    background:   "var(--surface-2)",
-    border:       "1px solid var(--border)",
-    borderRadius: "12px",
-    color:        "var(--accent)",
-    fontSize:     "28px",
-    lineHeight:   1,
-    width:        "58px",
-    flexShrink:   0,
-    alignSelf:    "center",
-    height:       "75vh",
-    display:      "flex",
-    alignItems:   "center",
-    justifyContent: "center",
-    transition:   "background 0.15s, border-color 0.15s, opacity 0.15s",
-    userSelect:   "none",
-  },
-  cardRow: {
-    display:         "flex",
-    gap:             "16px",
-    alignItems:      "stretch",
-    justifyContent:  "flex-start",
-    flex:            1,
-    minHeight:       0,
-    minWidth:        0,
+    cursor:         "pointer",
+    flexShrink:     0,
   },
   center: {
     display:        "flex",

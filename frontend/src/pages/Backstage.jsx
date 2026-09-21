@@ -5,7 +5,10 @@ import { listExpenses, deleteExpense } from "../api/expenses";
 import { listOperations, deleteOperation, listSnapshots, deleteSnapshot } from "../api/investments";
 import { listSplitPayments, deleteSplitPayment } from "../api/splitPayments";
 import { useAuth } from "../context/AuthContext";
-import { PRIORITY_COLORS as PRIORITY_COLOR, HTTP_METHOD_COLORS as METHOD_COLOR } from "../utils/colors";
+import { HTTP_METHOD_COLORS as METHOD_COLOR } from "../utils/colors";
+
+const COL_WIDTH = "430px";
+const PAGE = 10;
 
 const STATUS_COLOR = (s) => {
   if (s >= 200 && s < 300) return "#22c55e";
@@ -13,86 +16,111 @@ const STATUS_COLOR = (s) => {
   return "#f59e0b";
 };
 
-// ── Generic filter-input component ───────────────────────────────────────────
+// Each table describes how to identify, label and summarise one of its records.
+// The whole page is driven off this, so there is one code path instead of five.
+const TABLES = [
+  {
+    id: "incomes", label: "Incomes",
+    idOf:    r => r.incomeId,
+    title:   r => r.summary,
+    amount:  r => `${r.amount} ${r.currency ?? ""}`.trim(),
+    fields:  r => [
+      ["Date", r.date],
+      ["Repeatable", r.isRepeatable ? "Yes" : "No"],
+      ["Frequency", r.repeatFrequency],
+      ["Series end", r.seriesEndDate],
+      ["Series ID", r.seriesId],
+      ["ID", r.incomeId],
+    ],
+  },
+  {
+    id: "expenses", label: "Expenses",
+    idOf:    r => r.expenseId,
+    title:   r => r.summary,
+    amount:  r => `${r.amount} ${r.currency ?? ""}`.trim(),
+    fields:  r => [
+      ["Date", r.date],
+      ["Priority", r.priority],
+      ["Status", r.status],
+      ["Mapped income", r.mappedIncomeSummary],
+      ["Repeatable", r.isRepeatable ? "Yes" : "No"],
+      ["ID", r.expenseId],
+    ],
+  },
+  {
+    id: "operations", label: "Operations",
+    idOf:    r => r.operationId,
+    title:   r => `${r.type} · ${r.platform}`,
+    amount:  r => `${r.amount} ${r.currency ?? ""}`.trim(),
+    fields:  r => [
+      ["Date", r.date],
+      ["Type", r.type],
+      ["Platform", r.platform],
+      ["Notes", r.notes],
+      ["ID", r.operationId],
+    ],
+  },
+  {
+    id: "snapshots", label: "Snapshots",
+    idOf:    r => r.snapshotId,
+    title:   r => r.platform,
+    amount:  r => `${r.amount} ${r.currency ?? ""}`.trim(),
+    fields:  r => [
+      ["Date", r.date],
+      ["Platform", r.platform],
+      ["ID", r.snapshotId],
+    ],
+  },
+  {
+    id: "splits", label: "Splits",
+    idOf:    r => r.splitPaymentId,
+    title:   r => r.description,
+    amount:  r => `${r.totalAmount} ${r.currency ?? ""}`.trim(),
+    fields:  r => [
+      ["Date", r.date],
+      ["Participants", (r.participants ?? []).map(p => p.name).join(", ")],
+      ["ID", r.splitPaymentId],
+    ],
+  },
+];
 
-function FilterInput({ value, onChange }) {
-  return (
-    <input
-      style={s.filterInput}
-      type="text"
-      placeholder="filter…"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      onClick={e => e.stopPropagation()}
-    />
-  );
-}
+function DeleteButton({ onConfirm }) {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
-// ── Trash button with inline confirm ─────────────────────────────────────────
-
-function DeleteCell({ onDelete }) {
-  const [confirm, setConfirm] = useState(false);
-  if (confirm) {
-    return (
-      <td style={{ ...s.td, whiteSpace: "nowrap" }}>
-        <button style={s.btnConfirm} onClick={() => { setConfirm(false); onDelete(); }}>Yes</button>
-        <button style={s.btnCancelSm} onClick={() => setConfirm(false)}>No</button>
-      </td>
-    );
+  function click(e) {
+    e.stopPropagation();
+    if (armed) {
+      clearTimeout(timer.current);
+      setArmed(false);
+      onConfirm();
+      return;
+    }
+    setArmed(true);
+    timer.current = setTimeout(() => setArmed(false), 4000);
   }
+
   return (
-    <td style={s.td}>
-      <button style={s.deleteBtn} title="Delete" onClick={() => setConfirm(true)}>
-        <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="1,3 13,3"/>
-          <path d="M4,3V2a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1V3"/>
-          <rect x="2" y="3" width="10" height="10" rx="1"/>
-          <line x1="5.5" y1="6" x2="5.5" y2="10"/>
-          <line x1="8.5" y1="6" x2="8.5" y2="10"/>
-        </svg>
-      </button>
-    </td>
+    <button style={{ ...s.btnGhost, ...(armed ? s.btnArmed : { color: "var(--danger)" }) }} onClick={click}>
+      {armed ? "Tap to confirm" : "Delete"}
+    </button>
   );
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
-
-const INC_COLS  = ["ID", "Summary", "Date", "Amount", "Currency", "Repeatable", "Frequency", "Series End", "Series ID"];
-const EXP_COLS  = ["ID", "Summary", "Date", "Amount", "Currency", "Priority", "Status", "Mapped Income", "Repeatable"];
-const OPS_COLS  = ["ID", "Date", "Type", "Platform", "Amount", "Currency", "Notes"];
-const SNAP_COLS = ["ID", "Date", "Platform", "Amount", "Currency"];
-const SPLIT_COLS = ["ID", "Date", "Description", "Total", "Currency", "Participants"];
-
-const emptyFilters = (cols) => Object.fromEntries(cols.map(c => [c, ""]));
-
-function matches(value, filter) {
-  return String(value ?? "").toLowerCase().includes(filter.toLowerCase());
-}
-
-const PAGE = 10;
 
 export default function Backstage() {
   const { loading: authLoading } = useAuth();
   const [log, setLog]           = useState([...opLog]);
-  const [incomes, setIncomes]   = useState([]);
-  const [expenses, setExpenses] = useState([]);
   const [dbError, setDbError]   = useState(null);
   const knownSeqRef             = useRef(getLogSeq());
 
-  const [operations,    setOperations]    = useState([]);
-  const [snapshots,     setSnapshots]     = useState([]);
-  const [splitPayments, setSplitPayments] = useState([]);
-
+  const [rows, setRows] = useState({ incomes: [], expenses: [], operations: [], snapshots: [], splits: [] });
+  const [active, setActive]     = useState("incomes");
+  const [search, setSearch]     = useState("");
+  const [showAll, setShowAll]   = useState(false);
   const [expanded, setExpanded] = useState({});
-  const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  const [logOpen, setLogOpen]   = useState(false);
 
-  const [incFilters,   setIncFilters]   = useState(emptyFilters(INC_COLS));
-  const [expFilters,   setExpFilters]   = useState(emptyFilters(EXP_COLS));
-  const [opsFilters,   setOpsFilters]   = useState(emptyFilters(OPS_COLS));
-  const [snapFilters,  setSnapFilters]  = useState(emptyFilters(SNAP_COLS));
-  const [splitFilters, setSplitFilters] = useState(emptyFilters(SPLIT_COLS));
-
-  // Poll log
   useEffect(() => {
     const id = setInterval(() => {
       const current = getLogSeq();
@@ -106,478 +134,388 @@ export default function Backstage() {
 
   const loadData = () => {
     setDbError(null);
-    Promise.all([
-      listIncomes(), listExpenses(), listOperations(), listSnapshots(),
-      listSplitPayments(),
-    ])
-      .then(([inc, exp, ops, snaps, splits]) => {
-        setIncomes(inc);
-        setExpenses(exp);
-        setOperations(ops);
-        setSnapshots(snaps);
-        setSplitPayments(splits);
-      })
+    Promise.all([listIncomes(), listExpenses(), listOperations(), listSnapshots(), listSplitPayments()])
+      .then(([incomes, expenses, operations, snapshots, splits]) =>
+        setRows({ incomes, expenses, operations, snapshots, splits }))
       .catch(() => setDbError("Failed to load database."));
   };
-  useEffect(() => { if (!authLoading) loadData(); }, [authLoading]);
+  useEffect(() => { if (!authLoading) loadData(); }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Filtered rows ──────────────────────────────────────────────────────────
-
-  const filteredIncomes = useMemo(() => incomes.filter(r => (
-    matches(r.incomeId,        incFilters["ID"])          &&
-    matches(r.summary,         incFilters["Summary"])     &&
-    matches(r.date,            incFilters["Date"])        &&
-    matches(r.amount,          incFilters["Amount"])      &&
-    matches(r.currency,        incFilters["Currency"])    &&
-    matches(r.isRepeatable ? "Yes" : "No", incFilters["Repeatable"]) &&
-    matches(r.repeatFrequency, incFilters["Frequency"])   &&
-    matches(r.seriesEndDate,   incFilters["Series End"])  &&
-    matches(r.seriesId,        incFilters["Series ID"])
-  )), [incomes, incFilters]);
-
-  const filteredExpenses = useMemo(() => expenses.filter(r => (
-    matches(r.expenseId,           expFilters["ID"])             &&
-    matches(r.summary,             expFilters["Summary"])        &&
-    matches(r.date,                expFilters["Date"])           &&
-    matches(r.amount,              expFilters["Amount"])         &&
-    matches(r.currency,            expFilters["Currency"])       &&
-    matches(r.priority,            expFilters["Priority"])       &&
-    matches(r.status,              expFilters["Status"])         &&
-    matches(r.mappedIncomeSummary, expFilters["Mapped Income"])  &&
-    matches(r.isRepeatable ? "Yes" : "No", expFilters["Repeatable"])
-  )), [expenses, expFilters]);
-
-  const filteredOps = useMemo(() => operations.filter(r => (
-    matches(r.operationId, opsFilters["ID"])       &&
-    matches(r.date,        opsFilters["Date"])      &&
-    matches(r.type,        opsFilters["Type"])      &&
-    matches(r.platform,    opsFilters["Platform"])  &&
-    matches(r.amount,      opsFilters["Amount"])    &&
-    matches(r.currency,    opsFilters["Currency"])  &&
-    matches(r.notes,       opsFilters["Notes"])
-  )), [operations, opsFilters]);
-
-  const filteredSnaps = useMemo(() => snapshots.filter(r => (
-    matches(r.snapshotId, snapFilters["ID"])       &&
-    matches(r.date,       snapFilters["Date"])      &&
-    matches(r.platform,   snapFilters["Platform"])  &&
-    matches(r.amount,     snapFilters["Amount"])    &&
-    matches(r.currency,   snapFilters["Currency"])
-  )), [snapshots, snapFilters]);
-
-  const filteredSplits = useMemo(() => splitPayments.filter(r => (
-    matches(r.splitPaymentId, splitFilters["ID"])          &&
-    matches(r.date,           splitFilters["Date"])         &&
-    matches(r.description,    splitFilters["Description"])  &&
-    matches(r.totalAmount,    splitFilters["Total"])        &&
-    matches(r.currency,       splitFilters["Currency"])     &&
-    matches((r.participants ?? []).map(p => p.name).join(" "), splitFilters["Participants"])
-  )), [splitPayments, splitFilters]);
-
-  // ── Delete handlers ────────────────────────────────────────────────────────
-
-  const handleDeleteIncome = (id) => {
-    setIncomes(prev => prev.filter(r => r.incomeId !== id));
-    deleteIncome(id).catch(() => loadData());
+  const deleters = {
+    incomes:    id => { setRows(r => ({ ...r, incomes:    r.incomes.filter(x => x.incomeId !== id) }));            deleteIncome(id).catch(loadData); },
+    expenses:   id => { setRows(r => ({ ...r, expenses:   r.expenses.filter(x => x.expenseId !== id) }));          deleteExpense(id).catch(loadData); },
+    operations: id => { setRows(r => ({ ...r, operations: r.operations.filter(x => x.operationId !== id) }));      deleteOperation(id).catch(loadData); },
+    snapshots:  id => { setRows(r => ({ ...r, snapshots:  r.snapshots.filter(x => x.snapshotId !== id) }));        deleteSnapshot(id).catch(loadData); },
+    splits:     id => { setRows(r => ({ ...r, splits:     r.splits.filter(x => x.splitPaymentId !== id) }));       deleteSplitPayment(id).catch(loadData); },
   };
 
-  const handleDeleteExpense = (id) => {
-    setExpenses(prev => prev.filter(r => r.expenseId !== id));
-    deleteExpense(id).catch(() => loadData());
-  };
+  const table   = TABLES.find(t => t.id === active);
+  const allRows = rows[active] ?? [];
 
-  const handleDeleteOperation = (id) => {
-    setOperations(prev => prev.filter(r => r.operationId !== id));
-    deleteOperation(id).catch(() => loadData());
-  };
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allRows;
+    return allRows.filter(r => {
+      const hay = [table.title(r), table.amount(r), ...table.fields(r).map(([, v]) => v)]
+        .join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [allRows, search, table]);
 
-  const handleDeleteSnapshot = (id) => {
-    setSnapshots(prev => prev.filter(r => r.snapshotId !== id));
-    deleteSnapshot(id).catch(() => loadData());
-  };
+  const visible = showAll ? filtered : filtered.slice(0, PAGE);
+  const toggleRow = id => setExpanded(m => ({ ...m, [id]: !m[id] }));
 
-  const handleDeleteSplit = (id) => {
-    setSplitPayments(prev => prev.filter(r => r.splitPaymentId !== id));
-    deleteSplitPayment(id).catch(() => loadData());
-  };
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  const setIncFilter   = (col, val) => setIncFilters(prev => ({ ...prev, [col]: val }));
-  const setExpFilter   = (col, val) => setExpFilters(prev => ({ ...prev, [col]: val }));
-  const setOpsFilter   = (col, val) => setOpsFilters(prev => ({ ...prev, [col]: val }));
-  const setSnapFilter  = (col, val) => setSnapFilters(prev => ({ ...prev, [col]: val }));
-  const setSplitFilter = (col, val) => setSplitFilters(prev => ({ ...prev, [col]: val }));
+  function pick(id) {
+    setActive(id);
+    setSearch("");
+    setShowAll(false);
+    setExpanded({});
+  }
 
   return (
-    <div style={s.root}>
+    <div style={s.page}>
+      <div style={s.column}>
 
-      {/* ── Left: Full Database ─────────────────────────────────────────── */}
-      <div style={{ ...s.col, flex: "0 0 75%" }}>
-        <div style={s.colHeader}>
-          <span style={s.colTitle}>Database</span>
-          <button style={s.refreshBtn} onClick={loadData}>Refresh</button>
+        <div style={s.header}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={s.title}>Backstage</h2>
+            <p style={s.subtitle}>{filtered.length} of {allRows.length} record{allRows.length === 1 ? "" : "s"}</p>
+          </div>
+          <button style={s.btnGhost} onClick={loadData}>Refresh</button>
         </div>
-        <div style={s.dbScroll}>
-          {dbError && <div style={s.errorBox}>{dbError}</div>}
 
-          {/* Incomes table */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>
-              Incomes <span style={s.count}>{filteredIncomes.length} / {incomes.length}</span>
-            </div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {INC_COLS.map(h => (
-                    <th key={h} style={s.th}>
-                      <div style={s.thLabel}>{h}</div>
-                      <FilterInput value={incFilters[h]} onChange={v => setIncFilter(h, v)} />
-                    </th>
-                  ))}
-                  <th style={s.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredIncomes.length === 0 && (
-                  <tr><td colSpan={INC_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
-                )}
-                {(expanded["incomes"] ? filteredIncomes : filteredIncomes.slice(0, PAGE)).map(r => (
-                  <tr key={r.incomeId} style={s.tr}>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.incomeId.slice(0, 8)}…</td>
-                    <td style={s.td}>{r.summary}</td>
-                    <td style={s.td}>{r.date}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
-                    <td style={s.td}>{r.currency}</td>
-                    <td style={s.td}>{r.isRepeatable ? "Yes" : "No"}</td>
-                    <td style={s.td}>{r.repeatFrequency ?? "—"}</td>
-                    <td style={s.td}>{r.seriesEndDate ?? "—"}</td>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.seriesId ? r.seriesId.slice(0, 8) + "…" : "—"}</td>
-                    <DeleteCell onDelete={() => handleDeleteIncome(r.incomeId)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredIncomes.length > PAGE && (
-              <button style={s.expandBtn} onClick={() => toggle("incomes")}>
-                {expanded["incomes"] ? "Show less" : `Show ${filteredIncomes.length - PAGE} more…`}
-              </button>
-            )}
-          </div>
-
-          {/* Expenses table */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>
-              Expenses <span style={s.count}>{filteredExpenses.length} / {expenses.length}</span>
-            </div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {EXP_COLS.map(h => (
-                    <th key={h} style={s.th}>
-                      <div style={s.thLabel}>{h}</div>
-                      <FilterInput value={expFilters[h]} onChange={v => setExpFilter(h, v)} />
-                    </th>
-                  ))}
-                  <th style={s.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredExpenses.length === 0 && (
-                  <tr><td colSpan={EXP_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
-                )}
-                {(expanded["expenses"] ? filteredExpenses : filteredExpenses.slice(0, PAGE)).map(r => (
-                  <tr key={r.expenseId} style={s.tr}>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.expenseId.slice(0, 8)}…</td>
-                    <td style={s.td}>{r.summary}</td>
-                    <td style={s.td}>{r.date}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
-                    <td style={s.td}>{r.currency}</td>
-                    <td style={s.td}>
-                      <span style={{ ...s.pill, color: PRIORITY_COLOR[r.priority] ?? "var(--text-muted)", borderColor: (PRIORITY_COLOR[r.priority] ?? "#6b7194") + "44" }}>
-                        {r.priority}
-                      </span>
-                    </td>
-                    <td style={s.td}>
-                      <span style={{ ...s.pill, ...(r.status === "Completed" ? s.pillDone : s.pillPending) }}>
-                        {r.status}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.mappedIncomeSummary ?? "—"}</td>
-                    <td style={s.td}>{r.isRepeatable ? "Yes" : "No"}</td>
-                    <DeleteCell onDelete={() => handleDeleteExpense(r.expenseId)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredExpenses.length > PAGE && (
-              <button style={s.expandBtn} onClick={() => toggle("expenses")}>
-                {expanded["expenses"] ? "Show less" : `Show ${filteredExpenses.length - PAGE} more…`}
-              </button>
-            )}
-          </div>
-
-          {/* Investment Operations table */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>
-              Investment Operations <span style={s.count}>{filteredOps.length} / {operations.length}</span>
-            </div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {OPS_COLS.map(h => (
-                    <th key={h} style={s.th}>
-                      <div style={s.thLabel}>{h}</div>
-                      <FilterInput value={opsFilters[h]} onChange={v => setOpsFilter(h, v)} />
-                    </th>
-                  ))}
-                  <th style={s.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOps.length === 0 && (
-                  <tr><td colSpan={OPS_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
-                )}
-                {(expanded["ops"] ? filteredOps : filteredOps.slice(0, PAGE)).map(r => (
-                  <tr key={r.operationId} style={s.tr}>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.operationId.slice(0, 8)}…</td>
-                    <td style={s.td}>{r.date}</td>
-                    <td style={s.td}>
-                      <span style={{ ...s.pill, color: r.type === "Deposit" ? "#22c55e" : "#ef4444", borderColor: (r.type === "Deposit" ? "#22c55e" : "#ef4444") + "44" }}>
-                        {r.type}
-                      </span>
-                    </td>
-                    <td style={s.td}>{r.platform}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
-                    <td style={s.td}>{r.currency}</td>
-                    <td style={{ ...s.td, color: "var(--text-muted)" }}>{r.notes || "—"}</td>
-                    <DeleteCell onDelete={() => handleDeleteOperation(r.operationId)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredOps.length > PAGE && (
-              <button style={s.expandBtn} onClick={() => toggle("ops")}>
-                {expanded["ops"] ? "Show less" : `Show ${filteredOps.length - PAGE} more…`}
-              </button>
-            )}
-          </div>
-
-          {/* Portfolio Snapshots table */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>
-              Portfolio Snapshots <span style={s.count}>{filteredSnaps.length} / {snapshots.length}</span>
-            </div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {SNAP_COLS.map(h => (
-                    <th key={h} style={s.th}>
-                      <div style={s.thLabel}>{h}</div>
-                      <FilterInput value={snapFilters[h]} onChange={v => setSnapFilter(h, v)} />
-                    </th>
-                  ))}
-                  <th style={s.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSnaps.length === 0 && (
-                  <tr><td colSpan={SNAP_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
-                )}
-                {(expanded["snaps"] ? filteredSnaps : filteredSnaps.slice(0, PAGE)).map(r => (
-                  <tr key={r.snapshotId} style={s.tr}>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.snapshotId.slice(0, 8)}…</td>
-                    <td style={s.td}>{r.date}</td>
-                    <td style={s.td}>{r.platform}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.amount}</td>
-                    <td style={s.td}>{r.currency}</td>
-                    <DeleteCell onDelete={() => handleDeleteSnapshot(r.snapshotId)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredSnaps.length > PAGE && (
-              <button style={s.expandBtn} onClick={() => toggle("snaps")}>
-                {expanded["snaps"] ? "Show less" : `Show ${filteredSnaps.length - PAGE} more…`}
-              </button>
-            )}
-          </div>
-
-          {/* Split Payments table */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>
-              Split Payments <span style={s.count}>{filteredSplits.length} / {splitPayments.length}</span>
-            </div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {SPLIT_COLS.map(h => (
-                    <th key={h} style={s.th}>
-                      <div style={s.thLabel}>{h}</div>
-                      <FilterInput value={splitFilters[h]} onChange={v => setSplitFilter(h, v)} />
-                    </th>
-                  ))}
-                  <th style={s.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSplits.length === 0 && (
-                  <tr><td colSpan={SPLIT_COLS.length + 1} style={s.emptyCell}>No records</td></tr>
-                )}
-                {(expanded["splits"] ? filteredSplits : filteredSplits.slice(0, PAGE)).map(r => (
-                  <tr key={r.splitPaymentId} style={s.tr}>
-                    <td style={{ ...s.td, ...s.idCell }}>{r.splitPaymentId.slice(0, 8)}…</td>
-                    <td style={s.td}>{r.date}</td>
-                    <td style={s.td}>{r.description}</td>
-                    <td style={{ ...s.td, fontVariantNumeric: "tabular-nums" }}>{r.totalAmount}</td>
-                    <td style={s.td}>{r.currency}</td>
-                    <td style={{ ...s.td, color: "var(--text-muted)" }}>
-                      {(r.participants ?? []).map(p => p.name).join(", ") || "—"}
-                    </td>
-                    <DeleteCell onDelete={() => handleDeleteSplit(r.splitPaymentId)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredSplits.length > PAGE && (
-              <button style={s.expandBtn} onClick={() => toggle("splits")}>
-                {expanded["splits"] ? "Show less" : `Show ${filteredSplits.length - PAGE} more…`}
-              </button>
-            )}
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── Right: Operation Log ─────────────────────────────────────────── */}
-      <div style={{ ...s.col, flex: "0 0 25%", borderRight: "none" }}>
-        <div style={s.colHeader}>
-          <span style={s.colTitle}>Operation Log</span>
-          <span style={s.colMeta}>{log.length} / 50 entries</span>
-        </div>
-        <div style={s.logList}>
-          {log.length === 0 && <p style={s.empty}>No operations yet this session.</p>}
-          {log.map(entry => (
-            <div key={entry.id} style={s.logRow}>
-              <div style={s.logTop}>
-                <span style={{ ...s.method, color: METHOD_COLOR[entry.method] ?? "#6b7194" }}>
-                  {entry.method}
-                </span>
-                <span style={s.logUrl}>{entry.url}{entry.params ? "?" + new URLSearchParams(entry.params).toString() : ""}</span>
-                <span style={{ ...s.statusBadge, color: STATUS_COLOR(entry.status) }}>
-                  {entry.status}
-                </span>
-                <span style={s.logMs}>{entry.ms}ms</span>
-              </div>
-              <div style={s.logTs}>{entry.ts}</div>
-            </div>
+        <div style={s.picker}>
+          {TABLES.map(t => (
+            <button
+              key={t.id}
+              style={{ ...s.pickerBtn, ...(t.id === active ? s.pickerBtnOn : {}) }}
+              onClick={() => pick(t.id)}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
-      </div>
 
+        <div style={s.searchWrap}>
+          <input
+            style={s.input}
+            placeholder={`Search ${table.label.toLowerCase()}…`}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div style={s.scroll}>
+          {dbError && <div style={s.errorBox}>{dbError}</div>}
+
+          {visible.length === 0 ? (
+            <div style={s.empty}>No records.</div>
+          ) : (
+            <div style={s.list}>
+              {visible.map(r => {
+                const id = table.idOf(r);
+                const open = !!expanded[id];
+                return (
+                  <div key={id} style={s.card}>
+                    <button style={s.cardHead} onClick={() => toggleRow(id)}>
+                      <span style={s.cardTitle}>{table.title(r) || "—"}</span>
+                      <span style={s.cardAmount}>{table.amount(r)}</span>
+                      <span style={{ ...s.chevron, transform: open ? "rotate(180deg)" : "none" }}>⌄</span>
+                    </button>
+
+                    {open && (
+                      <div style={s.cardBody}>
+                        {table.fields(r).map(([k, v]) => (
+                          <div key={k} style={s.detailRow}>
+                            <span style={s.detailKey}>{k}</span>
+                            <span style={s.detailVal}>{v || "—"}</span>
+                          </div>
+                        ))}
+                        <div style={s.cardActions}>
+                          <DeleteButton onConfirm={() => deleters[active](id)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {filtered.length > PAGE && (
+                <button style={s.expandBtn} onClick={() => setShowAll(v => !v)}>
+                  {showAll ? "Show less" : `Show ${filtered.length - PAGE} more…`}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Operation log — already a vertical stack, kept as-is */}
+          <div style={s.logCard}>
+            <button style={s.logHead} onClick={() => setLogOpen(v => !v)}>
+              <span style={s.logTitle}>Operation Log</span>
+              <span style={s.colMeta}>{log.length} / 50</span>
+              <span style={{ ...s.chevron, transform: logOpen ? "rotate(180deg)" : "none" }}>⌄</span>
+            </button>
+            {logOpen && (
+              <div style={s.logList}>
+                {log.length === 0 && <p style={s.empty}>No operations yet this session.</p>}
+                {log.map(entry => (
+                  <div key={entry.id} style={s.logRow}>
+                    <div style={s.logTop}>
+                      <span style={{ ...s.method, color: METHOD_COLOR[entry.method] ?? "#6b7194" }}>
+                        {entry.method}
+                      </span>
+                      <span style={{ ...s.statusBadge, color: STATUS_COLOR(entry.status) }}>{entry.status}</span>
+                      <span style={s.logMs}>{entry.ms}ms</span>
+                    </div>
+                    <div style={s.logUrl}>
+                      {entry.url}{entry.params ? "?" + new URLSearchParams(entry.params).toString() : ""}
+                    </div>
+                    <div style={s.logTs}>{entry.ts}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 const s = {
-  root: { display: "flex", flex: 1, minHeight: 0 },
-  col: {
-    display: "flex", flexDirection: "column", flex: 1,
-    minWidth: 0, minHeight: 0, borderRight: "1px solid var(--border)",
+  page: {
+    display:        "flex",
+    justifyContent: "center",
+    alignItems:     "flex-start",
+    flex:           1,
+    minHeight:      0,
   },
-  colHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "10px 16px", borderBottom: "1px solid var(--border)",
-    background: "var(--surface)", flexShrink: 0,
+  column: {
+    width:         "100%",
+    maxWidth:      COL_WIDTH,
+    display:       "flex",
+    flexDirection: "column",
+    flex:          1,
+    minHeight:     0,
   },
-  colTitle: {
-    fontSize: "12px", fontWeight: 700, color: "var(--text)",
-    textTransform: "uppercase", letterSpacing: "0.06em",
+  header: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    gap:            "12px",
+    flexShrink:     0,
+    padding:        "12px 14px",
+    borderBottom:   "1px solid var(--border)",
   },
-  colMeta:    { fontSize: "11px", color: "var(--text-muted)" },
-  refreshBtn: {
-    background: "transparent", border: "1px solid var(--border)",
-    borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px",
-    padding: "3px 10px", cursor: "pointer",
+  title:    { margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--text)" },
+  subtitle: { margin: "2px 0 0", fontSize: "11px", color: "var(--text-muted)" },
+
+  picker: {
+    display:       "flex",
+    gap:           "6px",
+    padding:       "10px 14px 0",
+    overflowX:     "auto",
+    flexShrink:    0,
+    scrollbarWidth: "none",
   },
-  dbScroll: {
-    flex: 1, overflowY: "auto", minHeight: 0,
-    padding: "12px 16px", display: "flex", flexDirection: "column", gap: "20px",
+  pickerBtn: {
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "16px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "7px 13px",
+    cursor:       "pointer",
+    whiteSpace:   "nowrap",
+    flexShrink:   0,
+    fontFamily:   "inherit",
   },
-  section:      { display: "flex", flexDirection: "column", gap: "8px" },
-  sectionTitle: {
-    fontSize: "11px", fontWeight: 700, color: "var(--text-muted)",
-    textTransform: "uppercase", letterSpacing: "0.06em",
-    display: "flex", alignItems: "center", gap: "6px",
+  pickerBtnOn: {
+    background:  "var(--accent)",
+    borderColor: "var(--accent)",
+    color:       "#fff",
   },
-  count: {
-    background: "var(--surface-2)", border: "1px solid var(--border)",
-    borderRadius: "10px", padding: "0 6px", fontSize: "10px",
-    fontWeight: 500, color: "var(--text-muted)",
+  searchWrap: { padding: "10px 14px 0", flexShrink: 0 },
+  input: {
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    color:        "var(--text)",
+    fontSize:     "16px",
+    padding:      "9px 11px",
+    outline:      "none",
+    width:        "100%",
+    boxSizing:    "border-box",
+    fontFamily:   "inherit",
   },
-  table:        { width: "100%", borderCollapse: "collapse", fontSize: "11px" },
-  th: {
-    textAlign: "left", padding: "4px 8px 3px",
-    color: "var(--text-muted)", fontWeight: 600,
-    borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
-    background: "var(--surface)", position: "sticky", top: 0,
-    verticalAlign: "top",
+
+  scroll: {
+    flex:      1,
+    minHeight: 0,
+    overflowY: "auto",
+    padding:   "10px 14px 18px",
   },
-  thLabel:      { marginBottom: "4px", whiteSpace: "nowrap" },
-  filterInput: {
-    width: "100%", background: "var(--surface-2)",
-    border: "none", borderBottom: "1px solid var(--border)",
-    color: "var(--text)", fontSize: "10px", padding: "2px 4px",
-    outline: "none", borderRadius: "3px",
-    minWidth: 0,
+  list: { display: "flex", flexDirection: "column", gap: "8px" },
+  card: {
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "11px",
+    overflow:     "hidden",
   },
-  tr:           { borderBottom: "1px solid var(--border)" },
-  td:           { padding: "5px 8px", color: "var(--text)", whiteSpace: "nowrap" },
-  idCell:       { color: "var(--text-muted)", fontFamily: "monospace", fontSize: "10px" },
-  emptyCell:    { padding: "12px 8px", color: "var(--text-muted)", fontStyle: "italic", textAlign: "center" },
-  deleteBtn: {
-    background: "none", border: "none", padding: "2px 4px",
-    cursor: "pointer", display: "flex", alignItems: "center",
-    color: "var(--danger)", opacity: 0.5,
+  cardHead: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "10px",
+    width:      "100%",
+    padding:    "10px 12px",
+    background: "transparent",
+    border:     "none",
+    textAlign:  "left",
+    cursor:     "pointer",
+    fontFamily: "inherit",
   },
-  btnConfirm: {
-    background: "var(--danger)", color: "#fff", border: "none",
-    borderRadius: "4px", fontSize: "10px", padding: "2px 7px",
-    cursor: "pointer", fontWeight: 600, marginRight: "4px",
+  cardTitle: {
+    fontSize:     "13px",
+    fontWeight:   600,
+    color:        "var(--text)",
+    flex:         1,
+    minWidth:     0,
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
   },
-  btnCancelSm: {
-    background: "transparent", color: "var(--text-muted)",
-    border: "1px solid var(--border)", borderRadius: "4px",
-    fontSize: "10px", padding: "2px 6px", cursor: "pointer",
+  cardAmount: {
+    fontSize:           "12px",
+    color:              "var(--text-muted)",
+    fontVariantNumeric: "tabular-nums",
+    flexShrink:         0,
   },
-  pill: {
-    display: "inline-block", padding: "1px 6px", borderRadius: "10px",
-    fontSize: "10px", fontWeight: 600, border: "1px solid transparent",
+  chevron: {
+    color:      "var(--text-muted)",
+    fontSize:   "13px",
+    lineHeight: 1,
+    flexShrink: 0,
+    transition: "transform 0.15s",
   },
-  pillDone:    { background: "var(--success-bg)", color: "var(--success-text)", borderColor: "var(--accent)" },
-  pillPending: { background: "var(--warning-bg)", color: "var(--warning-text)", borderColor: "var(--warning)" },
-  logList:     { flex: 1, overflowY: "auto", minHeight: 0, padding: "6px 0" },
-  logRow:      { padding: "4px 12px", borderBottom: "1px solid var(--border)" },
-  logTop:      { display: "flex", alignItems: "center", gap: "6px" },
-  method:      { fontSize: "9px", fontWeight: 700, width: "40px", flexShrink: 0 },
-  logUrl: {
-    fontSize: "10px", color: "var(--text)", flex: 1,
-    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace",
+  cardBody: {
+    borderTop:     "1px solid var(--border)",
+    padding:       "10px 12px",
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "6px",
   },
-  statusBadge: { fontSize: "10px", fontWeight: 700, flexShrink: 0 },
-  logMs:       { fontSize: "9px", color: "var(--text-muted)", flexShrink: 0, width: "38px", textAlign: "right" },
-  logTs:       { fontSize: "9px", color: "var(--text-muted)", paddingLeft: "46px", lineHeight: 1.2 },
-  empty: {
-    padding: "24px 16px", color: "var(--text-muted)", fontSize: "12px",
-    fontStyle: "italic", textAlign: "center",
+  detailRow: {
+    display:        "flex",
+    justifyContent: "space-between",
+    gap:            "12px",
+    fontSize:       "11px",
   },
-  errorBox: {
-    background: "var(--error-bg)", border: "1px solid var(--danger)",
-    borderRadius: "8px", color: "var(--error-text)", padding: "10px 14px", fontSize: "12px",
+  detailKey: { color: "var(--text-muted)", flexShrink: 0 },
+  detailVal: {
+    color:      "var(--text)",
+    fontWeight: 500,
+    wordBreak:  "break-all",
+    textAlign:  "right",
+  },
+  cardActions: {
+    display:        "flex",
+    justifyContent: "flex-end",
+    paddingTop:     "4px",
   },
   expandBtn: {
-    background: "transparent", border: "1px solid var(--border)",
-    borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px",
-    padding: "4px 12px", cursor: "pointer", marginTop: "4px", width: "100%",
+    background:   "transparent",
+    border:       "1px dashed var(--border)",
+    borderRadius: "9px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    padding:      "9px",
+    cursor:       "pointer",
+    fontFamily:   "inherit",
   },
+  btnGhost: {
+    background:   "transparent",
+    border:       "1px solid var(--border)",
+    borderRadius: "8px",
+    color:        "var(--text-muted)",
+    fontSize:     "12px",
+    fontWeight:   600,
+    padding:      "7px 13px",
+    cursor:       "pointer",
+    flexShrink:   0,
+    fontFamily:   "inherit",
+  },
+  btnArmed: {
+    background:  "var(--danger)",
+    borderColor: "var(--danger)",
+    color:       "#fff",
+  },
+  empty: {
+    padding:   "30px 0",
+    textAlign: "center",
+    color:     "var(--text-muted)",
+    fontSize:  "12px",
+  },
+  errorBox: {
+    background:   "var(--error-bg)",
+    border:       "1px solid var(--danger)",
+    borderRadius: "8px",
+    color:        "var(--error-text)",
+    padding:      "9px 12px",
+    fontSize:     "12px",
+    marginBottom: "10px",
+  },
+
+  logCard: {
+    marginTop:    "14px",
+    background:   "var(--surface)",
+    border:       "1px solid var(--border)",
+    borderRadius: "11px",
+    overflow:     "hidden",
+  },
+  logHead: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "10px",
+    width:      "100%",
+    padding:    "11px 12px",
+    background: "transparent",
+    border:     "none",
+    cursor:     "pointer",
+    fontFamily: "inherit",
+  },
+  logTitle: {
+    fontSize:      "11px",
+    fontWeight:    700,
+    color:         "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    flex:          1,
+    textAlign:     "left",
+  },
+  colMeta: { fontSize: "11px", color: "var(--text-muted)" },
+  logList: {
+    borderTop: "1px solid var(--border)",
+    maxHeight: "300px",
+    overflowY: "auto",
+  },
+  logRow: {
+    padding:      "8px 12px",
+    borderBottom: "1px solid var(--border)",
+  },
+  logTop: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "8px",
+  },
+  method:      { fontSize: "10px", fontWeight: 700, width: "44px", flexShrink: 0 },
+  statusBadge: { fontSize: "10px", fontWeight: 700 },
+  logMs:       { fontSize: "10px", color: "var(--text-muted)", marginLeft: "auto" },
+  logUrl: {
+    fontSize:  "11px",
+    color:     "var(--text)",
+    wordBreak: "break-all",
+    marginTop: "2px",
+  },
+  logTs: { fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" },
 };

@@ -22,8 +22,8 @@ const renderCard = (props = {}) =>
 const px = (v) => parseFloat(v);
 
 describe("IncomeCard expense row icons", () => {
-  it("gives the edit and delete icons the same box on mobile", () => {
-    renderCard({ isMobile: true });
+  it("gives the edit and delete icons the same box", () => {
+    renderCard();
     const edit = screen.getByTitle("Edit expense");
     const del  = screen.getByTitle("Delete expense");
 
@@ -33,7 +33,7 @@ describe("IncomeCard expense row icons", () => {
   });
 
   it("sizes the edit glyph up so it reads as large as the delete emoji", () => {
-    renderCard({ isMobile: true });
+    renderCard();
     const edit = screen.getByTitle("Edit expense");
     const del  = screen.getByTitle("Delete expense");
 
@@ -44,16 +44,9 @@ describe("IncomeCard expense row icons", () => {
   });
 
   it("actually applies the edit-link styling (s.editLink used to be undefined)", () => {
-    renderCard({ isMobile: true });
+    renderCard();
     const edit = screen.getByTitle("Edit expense");
     expect(edit.style.opacity).toBe("0.45");
     expect(edit.style.display).toBe("inline-flex");
-  });
-
-  it("keeps the icons smaller on desktop", () => {
-    renderCard({ isMobile: false });
-    const edit = screen.getByTitle("Edit expense");
-    expect(px(edit.style.width)).toBe(18);
-    expect(px(edit.style.fontSize)).toBe(15);
   });
 });

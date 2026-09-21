@@ -1,71 +1,135 @@
-import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useState } from "react";
+import { useAppSettings } from "../context/AppSettingsContext";
+import { getAuthToken } from "../api/client";
+import NavSheet from "./NavSheet";
+import { navGroups, visibleItems } from "./navConfig";
 
-function IconDashboard() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="1" width="5.5" height="5.5" rx="1.5"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1.5"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1.5"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.5"/></svg>;
-}
-function IconSplit() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="7.5" x2="5" y2="7.5"/><polyline points="5,4.5 8.5,7.5 5,10.5"/><line x1="8.5" y1="4" x2="14" y2="4"/><line x1="8.5" y1="11" x2="14" y2="11"/></svg>;
+// ── JWT expiry timer ─────────────────────────────────────────────────────────
+
+function getTokenExp() {
+  try {
+    const token = getAuthToken();
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).exp ?? null;
+  } catch {
+    return null;
+  }
 }
 
-function IconInvestments() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1,12 4,8.5 7,10 11,5 14,3"/><polyline points="11,3 14,3 14,6"/><line x1="1" y1="14" x2="14" y2="14"/></svg>;
+function JwtTimer() {
+  const [remaining, setRemaining] = useState(() => {
+    const exp = getTokenExp();
+    return exp ? Math.max(0, exp - Math.floor(Date.now() / 1000)) : null;
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const exp = getTokenExp();
+      setRemaining(exp ? Math.max(0, exp - Math.floor(Date.now() / 1000)) : null);
+    };
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (remaining === null) return null;
+
+  const totalMins = Math.floor(remaining / 60);
+  const hours = Math.floor(totalMins / 60);
+  const mins  = totalMins % 60;
+  const label = hours > 0 ? `${hours}h:${String(mins).padStart(2, "0")}m` : `${mins}m`;
+  const color = remaining <= 300 ? "var(--danger)" : remaining <= 600 ? "#f59e0b" : "var(--text-muted)";
+
+  return (
+    <span style={{ ...s.sessionRow, color }}>
+      Session ends in {label}
+    </span>
+  );
 }
 
-function IconStats() {
-  return <svg width="22" height="22" viewBox="0 0 15 15" fill="currentColor"><rect x="1" y="9" width="3" height="5" rx="1"/><rect x="6" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>;
-}
-
-// Add Expense / Add Income are not tabs — they belong to the Finance page and
-// live as actions inside it (see Dashboard's mobile action row).
-const tabs = [
-  { to: "/",               label: "Finance",     end: true, Icon: IconDashboard   },
-  { to: "/split-payments", label: "Split Pay",              Icon: IconSplit       },
-  { to: "/investments",    label: "Investments",            Icon: IconInvestments },
-  { to: "/statistics",     label: "Stats",                  Icon: IconStats       },
-];
+// ── Shell ────────────────────────────────────────────────────────────────────
 
 export default function MobileLayout({ children }) {
   const { user, signOut } = useAuth();
+  const { settings } = useAppSettings();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
+  const [lastPath, setLastPath] = useState(pathname);
+
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?";
+  const gates = { backstageEnabled: settings.backstageEnabled, username: user?.username };
+
+  // Any route change closes whatever is open, so a sheet never outlives its
+  // page — including on browser back/forward, which no click handler sees.
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setOpenGroup(null);
+    setShowUserMenu(false);
+  }
+
+  const groups = navGroups
+    .map(g => (g.items ? { ...g, items: visibleItems(g, gates) } : g))
+    .filter(g => !g.items || g.items.length > 0);
+
+  const sheetGroup = groups.find(g => g.id === openGroup) ?? null;
+
+  function onTab(group) {
+    if (group.items) setOpenGroup(v => (v === group.id ? null : group.id));
+    else {
+      setOpenGroup(null);
+      navigate(group.to);
+    }
+  }
 
   return (
     <div style={s.shell}>
-      {/* Top bar */}
       <header style={s.topBar}>
         <div style={s.brand}>
-          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: 'auto', display: 'block' }} />
+          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: "auto", display: "block" }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
-        <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)}>
+        <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)} aria-label="Account">
           {initials}
         </button>
         {showUserMenu && (
           <div style={s.userMenu}>
             <span style={s.userMenuName}>{user?.username}</span>
+            <JwtTimer />
             <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
           </div>
         )}
       </header>
 
-      {/* Page content */}
       <main style={s.main}>{children}</main>
 
-      {/* Bottom tab bar */}
+      {sheetGroup && (
+        <NavSheet
+          title={sheetGroup.label}
+          items={sheetGroup.items}
+          onClose={() => setOpenGroup(null)}
+        />
+      )}
+
       <nav style={s.tabBar}>
-        {tabs.map(({ to, label, end, Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            style={({ isActive }) => ({ ...s.tab, color: isActive ? "var(--accent)" : "var(--text-muted)" })}
-          >
-            <Icon />
-            <span style={s.tabLabel}>{label}</span>
-          </NavLink>
-        ))}
+        {groups.map(group => {
+          const active = group.match(pathname) || openGroup === group.id;
+          return (
+            <button
+              key={group.id}
+              onClick={() => onTab(group)}
+              aria-label={group.label}
+              aria-current={group.match(pathname) ? "page" : undefined}
+              style={{ ...s.tab, color: active ? "var(--accent)" : "var(--text-muted)" }}
+            >
+              <group.Icon />
+              <span style={s.tabLabel}>{group.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
@@ -78,12 +142,16 @@ const s = {
     height:        "100dvh",
     overflow:      "hidden",
   },
+  // viewport-fit=cover lets content run under the notch, so the bar pads itself
+  // down by the inset rather than using a fixed height.
   topBar: {
     display:        "flex",
     alignItems:     "center",
     justifyContent: "space-between",
     padding:        "0 16px",
-    height:         "52px",
+    paddingTop:     "env(safe-area-inset-top)",
+    minHeight:      "52px",
+    boxSizing:      "content-box",
     background:     "var(--topbar-bg)",
     borderBottom:   "1px solid var(--topbar-border)",
     flexShrink:     0,
@@ -120,38 +188,34 @@ const s = {
     cursor:         "pointer",
   },
   userMenu: {
-    position:     "absolute",
-    top:          "56px",
-    right:        "12px",
-    background:   "var(--surface)",
-    border:       "1px solid var(--border)",
-    borderRadius: "10px",
-    padding:      "12px 16px",
-    display:      "flex",
-    flexDirection:"column",
-    gap:          "10px",
-    boxShadow:    "0 4px 20px rgba(0,0,0,0.2)",
-    zIndex:       200,
-    minWidth:     "140px",
+    position:      "absolute",
+    top:           "calc(56px + env(safe-area-inset-top))",
+    right:         "12px",
+    background:    "var(--surface)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "10px",
+    padding:       "12px 16px",
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "10px",
+    boxShadow:     "0 4px 20px rgba(0,0,0,0.2)",
+    zIndex:        200,
+    minWidth:      "170px",
   },
   userMenuName: {
     fontSize:   "12px",
     color:      "var(--text-muted)",
     fontWeight: 500,
   },
-  signOutBtn: {
-    background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "7px",
-    color:        "var(--text-muted)",
-    fontSize:     "12px",
-    padding:      "6px 12px",
-    cursor:       "pointer",
-    textAlign:    "left",
+  sessionRow: {
+    fontSize:           "11px",
+    fontWeight:         600,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing:      "0.02em",
   },
   main: {
     flex:          1,
-    overflow:      "hidden",
+    overflowY:     "auto",
     minHeight:     0,
     display:       "flex",
     flexDirection: "column",
@@ -163,6 +227,7 @@ const s = {
     backdropFilter: "blur(12px)",
     flexShrink:     0,
     paddingBottom:  "env(safe-area-inset-bottom)",
+    zIndex:         100,
   },
   tab: {
     flex:           1,
@@ -173,7 +238,10 @@ const s = {
     gap:            "3px",
     padding:        "8px 2px",
     minWidth:       0,
-    textDecoration: "none",
+    border:         "none",
+    background:     "transparent",
+    cursor:         "pointer",
+    fontFamily:     "inherit",
     transition:     "color 0.15s",
   },
   tabLabel: {

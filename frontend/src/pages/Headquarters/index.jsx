@@ -83,6 +83,7 @@ export default function Headquarters() {
 
   return (
     <div style={s.root}>
+      <div style={s.column}>
       {/* Tab bar */}
       <div style={s.tabBar}>
         {tabs.map(tab => (
@@ -130,6 +131,7 @@ export default function Headquarters() {
             onTemplateDeleted={handleTemplateDeleted}
           />
         )}
+      </div>
       </div>
     </div>
   );

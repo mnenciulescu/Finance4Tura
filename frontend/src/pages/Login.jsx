@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
-import useIsMobile from "../hooks/useIsMobile";
 
 export default function Login() {
-  const isMobile = useIsMobile();
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode]             = useState("signin"); // "signin" | "signup"
   const [username, setUsername]     = useState("");
@@ -109,31 +107,17 @@ export default function Login() {
     }
   };
 
-  const rootStyle = isMobile ? s.root : {
-    ...s.root,
-    backgroundImage:    "url('/login_back_1.jpg')",
-    backgroundSize:     "cover",
-    backgroundPosition: "center",
-    justifyContent:     "flex-end",
-    paddingRight:       "16vw",
-  };
-
-  const cardStyle = isMobile ? s.card : {
-    ...s.card,
-    boxShadow: "0 12px 56px rgba(0,0,0,0.4), 0 2px 16px rgba(0,0,0,0.25)",
-  };
-
   if (transitioning) {
     return (
-      <div style={rootStyle}>
+      <div style={s.root}>
         <div style={s.spinner} />
       </div>
     );
   }
 
   return (
-    <div style={rootStyle}>
-      <form style={cardStyle} onSubmit={handleSubmit}>
+    <div style={s.root}>
+      <form style={s.card} onSubmit={handleSubmit}>
         <div style={s.brand}>
           <img src="/house_logo.png" alt="4TURA Home" style={{ height: 68, width: 'auto', display: 'block' }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>

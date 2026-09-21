@@ -168,18 +168,17 @@ export default function Settings() {
 const s = {
   outer: {
     display:        "flex",
-    flex:           1,
     alignItems:     "flex-start",
     justifyContent: "center",
-    paddingTop:     "40px",
+    padding:        "16px",
   },
   card: {
     width:        "100%",
-    maxWidth:     "520px",
+    maxWidth:     "430px",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
     borderRadius: "14px",
-    padding:      "28px 32px",
+    padding:      "20px 18px",
     boxShadow:    "0 4px 32px rgba(0,0,0,0.15)",
   },
   title: {

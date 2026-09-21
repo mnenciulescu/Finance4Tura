@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { YearProvider } from "../context/YearContext";
@@ -23,9 +23,6 @@ vi.mock("../api/expenses", () => ({
 }));
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ loading: false }) }));
 
-let mobile = true;
-vi.mock("../hooks/useIsMobile", () => ({ default: () => mobile }));
-
 // Dashboard reads the privacy flag from localStorage on first render
 const store = {};
 globalThis.localStorage = {
@@ -41,11 +38,10 @@ const renderPage = () =>
 
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-04T10:00:00Z"));
-  mobile = true;
 });
 
 describe("Dashboard — Finance page actions", () => {
-  it("offers Add Expense and Add Income inside the page on mobile", async () => {
+  it("offers Add Expense and Add Income inside the page", async () => {
     renderPage();
     const expense = await screen.findByText("Add Expense");
     const income  = screen.getByText("Add Income");
@@ -53,12 +49,32 @@ describe("Dashboard — Finance page actions", () => {
     expect(expense.closest("a").getAttribute("href")).toBe("/add-expense");
     expect(income.closest("a").getAttribute("href")).toBe("/add-income");
   });
+});
 
-  it("does not add the action row on desktop, which has them in the Sidebar", async () => {
-    mobile = false;
+// These two used to live in the desktop chrome, which no longer exists.
+describe("Dashboard — controls rehomed from the desktop bar", () => {
+  it("carries its own year stepper and will not step past the current year", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
-    expect(screen.queryByText("Add Expense")).toBeNull();
-    expect(screen.queryByText("Add Income")).toBeNull();
+
+    // The card's date badge also renders a year, so read the stepper's own value.
+    const shownYear = () => screen.getByTitle("Previous year").nextSibling.textContent;
+
+    expect(shownYear()).toBe("2026");
+    expect(screen.getByTitle("Next year").disabled).toBe(true);
+
+    fireEvent.click(screen.getByTitle("Previous year"));
+    expect(shownYear()).toBe("2025");
+    expect(screen.getByTitle("Next year").disabled).toBe(false);
+  });
+
+  it("carries the privacy toggle that hides income amounts", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+
+    const toggle = screen.getByTitle(/income amounts$/);
+    const before = toggle.title;
+    fireEvent.click(toggle);
+    expect(screen.getByTitle(/income amounts$/).title).not.toBe(before);
   });
 });

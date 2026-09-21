@@ -1,39 +1,79 @@
-import { render, screen } from "@testing-library/react";
+import { render, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi, describe, it, expect } from "vitest";
 
-vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { username: "nenciulescu" }, signOut: vi.fn() }),
-}));
+const auth = { user: { username: "nenciulescu" }, signOut: vi.fn() };
+const appSettings = { settings: { backstageEnabled: true } };
+
+vi.mock("../context/AuthContext", () => ({ useAuth: () => auth }));
+vi.mock("../context/AppSettingsContext", () => ({ useAppSettings: () => appSettings }));
+vi.mock("../api/client", () => ({ getAuthToken: () => null }));
 
 const { default: MobileLayout } = await import("./MobileLayout");
 
 const renderBar = () =>
   render(<MemoryRouter><MobileLayout><div /></MobileLayout></MemoryRouter>);
 
+const tabLabels = () =>
+  [...document.querySelectorAll("nav button")].map(b => b.textContent);
+
+const sheet = () => document.querySelector('[role="dialog"]');
+
+// Scoped to the bar: an open sheet carries the same aria-label as its tab.
+const tab = label => within(document.querySelector("nav")).getByLabelText(label);
+
 describe("MobileLayout tab bar", () => {
-  it("has exactly four tabs", () => {
+  it("mirrors the desktop nav groups", () => {
     renderBar();
-    const links = [...document.querySelectorAll("nav a")];
-    expect(links.map(a => a.textContent)).toEqual([
-      "Finance", "Split Pay", "Investments", "Stats",
-    ]);
+    expect(tabLabels()).toEqual(["Home", "Finance", "Evolve", "HQ", "System"]);
   });
 
-  it("renames Home to Finance and points it at the root", () => {
+  it("opens the Finance group as a sheet rather than navigating", () => {
     renderBar();
-    // note: "Home" still appears in the "4TURA Home" brand, so scope to the nav
-    const nav = document.querySelector("nav");
-    expect(nav.textContent).not.toContain("Home");
-    expect(screen.getByText("Finance").closest("a").getAttribute("href")).toBe("/");
+    expect(sheet()).toBeNull();
+
+    fireEvent.click(tab("Finance"));
+
+    const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
+    expect(items).toEqual(expect.arrayContaining([
+      "Dashboard", "Add Income", "Add Expense", "Split Pay", "Statistics", "Investments",
+    ]));
   });
 
-  it("no longer exposes Add Expense / Add Income as tabs", () => {
+  it("closes an open sheet when its tab is tapped again", () => {
     renderBar();
-    expect(screen.queryByText("Add Expense")).toBeNull();
-    expect(screen.queryByText("Add Income")).toBeNull();
-    const hrefs = [...document.querySelectorAll("nav a")].map(a => a.getAttribute("href"));
-    expect(hrefs).not.toContain("/add-expense");
-    expect(hrefs).not.toContain("/add-income");
+    fireEvent.click(tab("Finance"));
+    expect(sheet()).not.toBeNull();
+    fireEvent.click(tab("Finance"));
+    expect(sheet()).toBeNull();
+  });
+
+  it("shows Backstage and Admin in System for the admin user", () => {
+    renderBar();
+    fireEvent.click(tab("System"));
+    const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
+    expect(items).toEqual(expect.arrayContaining(["Settings", "Backstage", "Admin"]));
+  });
+
+  it("hides Backstage when the app setting is off, and Admin for other users", () => {
+    appSettings.settings = { backstageEnabled: false };
+    auth.user = { username: "someone-else" };
+    try {
+      renderBar();
+      fireEvent.click(tab("System"));
+      const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
+      expect(items).not.toContain("Backstage");
+      expect(items).not.toContain("Admin");
+      expect(items).toContain("Settings");
+    } finally {
+      appSettings.settings = { backstageEnabled: true };
+      auth.user = { username: "nenciulescu" };
+    }
+  });
+
+  it("keeps Add Expense / Add Income out of the bar itself", () => {
+    renderBar();
+    expect(tabLabels()).not.toContain("Add Expense");
+    expect(tabLabels()).not.toContain("Add Income");
   });
 });

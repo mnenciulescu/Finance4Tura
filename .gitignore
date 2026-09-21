@@ -13,6 +13,9 @@ frontend/dist/
 .env.local
 frontend/.env.local
 
+# Local Claude Code tooling config
+.claude/settings.local.json
+
 # macOS
 .DS_Store
 

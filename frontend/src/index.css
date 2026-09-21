@@ -194,43 +194,12 @@ button:focus-visible {
   to { transform: rotate(360deg); }
 }
 
-.side-card {
-  opacity: 0.55;
-}
-
-[data-theme="light"] .side-card {
-  opacity: 0.72;
-  --text:       #000a02;
-  --text-muted: #2a4233;
-}
-
-[data-theme="amber"] .side-card {
-  opacity: 0.72;
-  --text:       #0a0800;
-  --text-muted: #5c4415;
-}
-
-.center-card {
-  box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2), 0 0 40px rgba(255,255,255,0.28);
-}
-
-[data-theme="light"] .center-card {
-  box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(22,163,74,0.35);
-}
-
-[data-theme="amber"] .center-card {
-  box-shadow: 0 16px 48px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08), 0 0 32px rgba(180,83,9,0.22);
-}
-
 /* iOS Safari zooms the viewport whenever a focused form control has a
    font-size below 16px, and does not zoom back out afterwards. The Add
    Expense / Add Income forms size their controls inline at 13px, so the
-   override has to be !important to beat the inline style.
-   Breakpoint matches the 768px used by useIsMobile. */
-@media (max-width: 767px) {
-  .zoom-safe-form input,
-  .zoom-safe-form select,
-  .zoom-safe-form textarea {
-    font-size: 16px !important;
-  }
+   override has to be !important to beat the inline style. */
+.zoom-safe-form input,
+.zoom-safe-form select,
+.zoom-safe-form textarea {
+  font-size: 16px !important;
 }

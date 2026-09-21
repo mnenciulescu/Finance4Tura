@@ -14,8 +14,8 @@ const read = (p) => readFileSync(resolve(here, "..", p), "utf8");
 describe("no zoom-on-focus in the add/edit forms", () => {
   const css = read("index.css");
 
-  it("forces 16px form controls on mobile", () => {
-    const block = css.slice(css.indexOf("@media (max-width: 767px)"));
+  it("forces 16px form controls", () => {
+    const block = css.slice(css.indexOf(".zoom-safe-form input"));
     expect(block).toContain(".zoom-safe-form input");
     expect(block).toContain(".zoom-safe-form select");
     expect(block).toContain(".zoom-safe-form textarea");

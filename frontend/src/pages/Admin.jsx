@@ -185,6 +185,7 @@ export default function Admin() {
 
   return (
     <div style={s.page}>
+      <div style={s.column}>
       <div style={s.header}>
         <h1 style={s.title}>Admin Panel</h1>
         <p style={s.subtitle}>{users.length} account{users.length !== 1 ? "s" : ""} registered</p>
@@ -193,12 +194,11 @@ export default function Admin() {
       {error && <div style={s.errorBox}>{error}</div>}
 
       <div style={s.columns}>
-        {/* Left: Settings */}
-        <div style={s.leftCol}>
+        <div>
           <div style={s.settingsCard}>
             <div style={s.settingsTitle}>App Settings</div>
             {[
-              { key: "backstageEnabled",     label: "Backstage menu",   desc: "Show or hide the Backstage link in the sidebar for all users" },
+              { key: "backstageEnabled",     label: "Backstage menu",   desc: "Show or hide Backstage in the System menu for all users" },
               { key: "googleLoginEnabled",   label: "Google Sign-In",   desc: "Allow users to log in with their Google account" },
               { key: "createAccountEnabled", label: "Create account",   desc: "Allow new users to register from the login page" },
             ].map(({ key, label, desc }, i) => {
@@ -291,85 +291,73 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Right: Users */}
-        <div style={s.rightCol}>
-          <div style={s.usersCard}>
-            <div style={s.settingsTitle}>Users</div>
-      <div style={s.tableWrap}>
-        <table style={s.table}>
-          <thead>
-            <tr>
-              {["User", "Email", "Type", "Status", "Incomes", "Expenses", "Total entries", "Actions"].map(h => (
-                <th key={h} style={s.th}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+        {/* Users */}
+        <div style={s.usersCard}>
+          <div style={s.settingsTitle}>Users</div>
+          <div style={s.userList}>
             {users.map(u => {
               const isSelf  = u.username === user?.username;
               const isAdmin = u.role === "admin";
               const total   = u.incomes + u.expenses;
               return (
-                <tr key={u.username} style={{ ...s.tr, ...(isSelf ? s.trSelf : {}) }}>
-                  <td style={{ ...s.td, textAlign: "left" }}>
-                    <div style={s.usernameCell}>
-                      <div style={{ ...s.avatar, background: isAdmin ? "rgba(168,85,247,0.15)" : "var(--avatar-bg)", border: `1px solid ${isAdmin ? "#a855f7" : "var(--avatar-border)"}`, color: isAdmin ? "#a855f7" : "var(--avatar-color)" }}>
-                        {u.username.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={s.usernameText}>{u.username}</div>
-                        {isSelf && <div style={s.selfBadge}>You</div>}
-                      </div>
+                <div key={u.username} style={{ ...s.userCard, ...(isSelf ? s.trSelf : {}) }}>
+                  <div style={s.usernameCell}>
+                    <div style={{ ...s.avatar, background: isAdmin ? "rgba(168,85,247,0.15)" : "var(--avatar-bg)", border: `1px solid ${isAdmin ? "#a855f7" : "var(--avatar-border)"}`, color: isAdmin ? "#a855f7" : "var(--avatar-color)" }}>
+                      {u.username.slice(0, 2).toUpperCase()}
                     </div>
-                  </td>
-                  <td style={{ ...s.td, ...s.emailCell }}>{u.email ?? <span style={s.noEmail}>—</span>}</td>
-                  <td style={s.td}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={s.usernameText}>
+                        {u.username}
+                        {isSelf && <span style={s.selfBadge}>You</span>}
+                      </div>
+                      <div style={s.emailCell}>{u.email ?? <span style={s.noEmail}>—</span>}</div>
+                    </div>
                     <span style={{ ...s.roleBadge, ...(isAdmin ? s.roleBadgeAdmin : s.roleBadgeNormal) }}>
                       {isAdmin ? "Admin" : "Normal"}
                     </span>
-                  </td>
-                  <td style={s.td}>
-                    <span style={{ ...s.statusDot, background: u.enabled ? "var(--accent)" : "var(--text-muted)" }} />
-                    {u.enabled ? "Active" : "Disabled"}
-                  </td>
-                  <td style={{ ...s.td, ...s.numCell }}>{u.incomes}</td>
-                  <td style={{ ...s.td, ...s.numCell }}>{u.expenses}</td>
-                  <td style={{ ...s.td, ...s.numCell }}>{total}</td>
-                  <td style={s.td}>
-                    <div style={s.actions}>
+                  </div>
+
+                  <div style={s.userStats}>
+                    <span>
+                      <span style={{ ...s.statusDot, background: u.enabled ? "var(--accent)" : "var(--text-muted)" }} />
+                      {u.enabled ? "Active" : "Disabled"}
+                    </span>
+                    <span style={s.numCell}>{u.incomes} inc</span>
+                    <span style={s.numCell}>{u.expenses} exp</span>
+                    <span style={{ ...s.numCell, fontWeight: 600, color: "var(--text)" }}>{total} total</span>
+                  </div>
+
+                  <div style={s.actions}>
+                    <button
+                      style={{ ...s.btn, ...s.btnRole, flex: 1, opacity: isSelf ? 0.45 : 1 }}
+                      onClick={() => handleRoleToggle(u)}
+                      disabled={roleLoading === u.username || isSelf}
+                      title={isSelf ? "Cannot change your own role" : `Set as ${isAdmin ? "Normal" : "Admin"}`}
+                    >
+                      {roleLoading === u.username ? "…" : isAdmin ? "→ Normal" : "→ Admin"}
+                    </button>
+                    {!isSelf && (
                       <button
-                        style={{ ...s.btn, ...s.btnRole }}
-                        onClick={() => handleRoleToggle(u)}
-                        disabled={roleLoading === u.username || isSelf}
-                        title={isSelf ? "Cannot change your own role" : `Set as ${isAdmin ? "Normal" : "Admin"}`}
+                        style={{ ...s.btn, ...s.btnDelete, flex: 1 }}
+                        onClick={() => openDeleteModal(u)}
+                        title="Delete user and all data"
                       >
-                        {roleLoading === u.username ? "…" : isAdmin ? "→ Normal" : "→ Admin"}
+                        Delete
                       </button>
-                      {!isSelf && (
-                        <button
-                          style={{ ...s.btn, ...s.btnDelete }}
-                          onClick={() => openDeleteModal(u)}
-                          title="Delete user and all data"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                    )}
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-          </div>{/* end usersCard */}
-        </div>{/* end rightCol */}
+          </div>
+        </div>{/* end usersCard */}
       </div>{/* end columns */}
+      </div>{/* end column */}
 
       {/* Backup modal — unified */}
       {backupModal && backupModal.phase !== "loading" && (
         <div style={s.overlay}>
-          <div style={{ ...s.modal, maxWidth: "500px" }}>
+          <div style={{ ...s.modal, maxWidth: "430px" }}>
             {/* Title */}
             <h2 style={s.modalTitle}>
               {backupModal.phase === "preview" && "Backup ALL Tables"}
@@ -513,29 +501,26 @@ export default function Admin() {
 
 const s = {
   page: {
+    display:        "flex",
+    justifyContent: "center",
+    alignItems:     "flex-start",
+    flex:           1,
+    minHeight:      0,
+    overflowY:      "auto",
+    padding:        "16px",
+  },
+  column: {
+    width:         "100%",
+    maxWidth:      "430px",
     display:       "flex",
     flexDirection: "column",
-    flex:          1,
-    minHeight:     0,
     gap:           "16px",
-    overflowY:     "auto",
   },
   header: { flexShrink: 0 },
   columns: {
-    display:    "flex",
-    gap:        "20px",
-    alignItems: "flex-start",
-    flex:       1,
-    minHeight:  0,
-  },
-  leftCol: {
-    width:     "280px",
-    flexShrink: 0,
-  },
-  rightCol: {
-    flex:      1,
-    minWidth:  0,
-    overflowX: "auto",
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "16px",
   },
   title:  { fontSize: "18px", fontWeight: 700, color: "var(--text)", margin: 0 },
   subtitle: { fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" },
@@ -563,14 +548,18 @@ const s = {
   toggleOn:  { background: "var(--accent)" },
   toggleOff: { background: "var(--border)" },
   toggleThumb: { position: "absolute", top: "3px", width: "16px", height: "16px", borderRadius: "50%", background: "#fff", transition: "transform 0.2s", display: "block" },
-  tableWrap: { flexShrink: 0 },
-  table:    { width: "100%", borderCollapse: "collapse", minWidth: "700px" },
-  th:       { textAlign: "center", fontSize: "11px", color: "var(--text-muted)", padding: "8px 12px", borderBottom: "2px solid var(--border)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" },
-  tr:       { borderBottom: "1px solid var(--border)", transition: "background 0.1s" },
+  userList: { display: "flex", flexDirection: "column", gap: "10px" },
+  userCard: {
+    display: "flex", flexDirection: "column", gap: "10px",
+    border: "1px solid var(--border)", borderRadius: "10px", padding: "11px 12px",
+  },
+  userStats: {
+    display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px",
+    fontSize: "11px", color: "var(--text-muted)",
+  },
   trSelf:   { background: "rgba(22,163,74,0.04)" },
-  td:       { padding: "10px 12px", fontSize: "13px", color: "var(--text)", verticalAlign: "middle", textAlign: "center" },
   numCell:  { fontVariantNumeric: "tabular-nums" },
-  emailCell:{ fontSize: "12px", color: "var(--text-muted)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  emailCell:{ fontSize: "12px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   noEmail:  { color: "var(--border)", fontSize: "12px" },
   usernameCell: { display: "flex", alignItems: "center", gap: "10px" },
   avatar: {
@@ -582,7 +571,7 @@ const s = {
   selfBadge: {
     fontSize: "10px", color: "var(--accent)", fontWeight: 600,
     background: "rgba(22,163,74,0.1)", padding: "1px 5px", borderRadius: "4px",
-    display: "inline-block", marginTop: "2px",
+    display: "inline-block", marginLeft: "6px",
   },
   roleBadge:       { padding: "3px 8px", borderRadius: "10px", fontSize: "11px", fontWeight: 600 },
   roleBadgeAdmin:  { background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.4)" },
@@ -599,7 +588,7 @@ const s = {
   },
   modal: {
     background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px",
-    padding: "28px 32px", width: "100%", maxWidth: "400px", boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+    padding: "22px 20px", width: "100%", maxWidth: "430px", boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
   },
   modalTitle:  { fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 10px" },
   modalBody:   { fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.6, margin: "0 0 20px" },

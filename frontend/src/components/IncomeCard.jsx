@@ -21,8 +21,8 @@ const getDow = (income) =>
     ? income.dayOfWeek.slice(0, 3)
     : DOW[new Date(Date.UTC(...income.date.split("-").map((v, i) => i === 1 ? +v - 1 : +v))).getUTCDay()];
 
-export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isMobile = false, isCurrent = false, isCenter = false, dashboardStartIdx }) {
-  const financeHome = isMobile ? "/" : "/finance";
+export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteExpense, onDeleteIncome, showAmount = false, isCurrent = false, dashboardStartIdx }) {
+  const financeHome = "/finance";
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isSeriesMember = income.seriesId && income.seriesId !== income.incomeId;
   const { totalCompleted, totalPending } = expenses.reduce(
@@ -38,25 +38,25 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   const cur     = income.currency ?? "RON";
 
   return (
-    <div className={!isMobile ? (isCenter ? "center-card" : "side-card") : undefined} style={{ ...s.card, ...(isMobile ? { flex: 1, width: "100%" } : { flex: isCenter ? "1.35" : "1", ...(!isCenter && { opacity: 0.9 }) }) }}>
+    <div style={{ ...s.card, flex: 1, width: "100%" }}>
       {/* Header */}
       <div style={{ ...s.header, ...(isCurrent ? s.headerCurrent : {}) }}>
         {/* Top accent strip */}
         <div style={s.accentStrip} />
 
-        <div style={{ ...s.headerRow, padding: isMobile ? "7px 10px 9px" : "10px 12px 12px" }}>
+        <div style={{ ...s.headerRow, padding: "7px 10px 9px" }}>
           {/* Row 1: date badge + current pill + add */}
           <div style={s.headerTop}>
             {(() => { const { month, day, year } = monthParts(income.date); return (
               <div style={s.dateBadge}>
-                <span style={{ ...s.badgeMonth, fontSize: isMobile ? "17px" : "13px" }}>{month}</span>
-                <span style={{ ...s.badgeDay,   fontSize: isMobile ? "17px" : "13px" }}>{day}</span>
-                <span style={{ ...s.badgeYear,  fontSize: isMobile ? "15px" : "12px" }}>{year}</span>
+                <span style={{ ...s.badgeMonth, fontSize: "17px" }}>{month}</span>
+                <span style={{ ...s.badgeDay,   fontSize: "17px" }}>{day}</span>
+                <span style={{ ...s.badgeYear,  fontSize: "15px" }}>{year}</span>
                 <span style={s.badgeSep}>·</span>
-                <span style={{ ...s.badgeDow, fontSize: isMobile ? "14px" : "11px" }}>{getDow(income)}</span>
+                <span style={{ ...s.badgeDow, fontSize: "14px" }}>{getDow(income)}</span>
               </div>
             ); })()}
-            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.addBtn, fontSize: isMobile ? "13px" : "11px", padding: isMobile ? "5px 12px" : "3px 8px" }} title="Add expense">
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.addBtn, fontSize: "13px", padding: "5px 12px" }} title="Add expense">
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="7" y1="2" x2="7" y2="12"/>
                 <line x1="2" y1="7" x2="12" y2="7"/>
@@ -67,7 +67,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
           {/* Row 2: income name + delete + edit + hidden amount */}
           <div style={s.summaryRow}>
-            <span style={{ ...s.summary, fontSize: isMobile ? "15px" : "13px" }} title={income.summary}>{income.summary}</span>
+            <span style={{ ...s.summary, fontSize: "15px" }} title={income.summary}>{income.summary}</span>
             <button style={s.deleteIncomeBtn} title="Delete income" onClick={() => setShowDeleteDialog(true)}>
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1,3 13,3"/>
@@ -83,7 +83,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
               </svg>
             </Link>
             <span style={{ flex: 1 }} />
-            <span style={{ ...s.headerAmount, fontSize: isMobile ? "14px" : "11px", color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
+            <span style={{ ...s.headerAmount, fontSize: "14px", color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
               {fmt(income.amount ?? 0)} {cur}
             </span>
           </div>
@@ -94,7 +94,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
       {/* Expense list */}
       <div style={s.body}>
         {expenses.length === 0 ? (
-          <div style={{ ...s.empty, fontSize: isMobile ? "14px" : "12px" }}>No expenses mapped</div>
+          <div style={{ ...s.empty, fontSize: "14px" }}>No expenses mapped</div>
         ) : (
           <ul style={s.list}>
             {expenses
@@ -104,29 +104,29 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 || a.date.localeCompare(b.date)
               )
               .map(exp => (
-                <li key={exp.expenseId} style={{ ...s.expenseRow, padding: isMobile ? "11px 16px" : "7px 16px", ...(exp.special ? s.expenseRowSpecial : {}) }}>
+                <li key={exp.expenseId} style={{ ...s.expenseRow, padding: "11px 16px", ...(exp.special ? s.expenseRowSpecial : {}) }}>
                   <div style={s.expenseLeft}>
                     <span
-                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer", width: isMobile ? "18px" : "14px", height: isMobile ? "18px" : "14px", fontSize: isMobile ? "12px" : "10px" }}
+                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer", width: "18px", height: "18px", fontSize: "12px" }}
                       title={exp.status === "Completed" ? "Mark as Pending" : "Mark as Completed"}
                       onClick={() => onToggleStatus?.(exp)}
                     >
                       {exp.status === "Completed" ? "✓" : ""}
                     </span>
                     <span
-                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194", width: isMobile ? "9px" : "7px", height: isMobile ? "9px" : "7px" }}
+                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194", width: "9px", height: "9px" }}
                       title={`Priority: ${exp.priority}`}
                     />
                     {exp.special && (
-                      <span style={{ ...s.specialStar, fontSize: isMobile ? "12px" : "10px" }} title="Special">★</span>
+                      <span style={{ ...s.specialStar, fontSize: "12px" }} title="Special">★</span>
                     )}
-                    <span style={{ ...s.expenseSummary, fontSize: isMobile ? "15px" : "12px" }} title={exp.summary}>{exp.summary}</span>
-                    <span style={{ ...s.expenseDate, fontSize: isMobile ? "12px" : "10px" }}>{exp.date.slice(5)}</span>
+                    <span style={{ ...s.expenseSummary, fontSize: "15px" }} title={exp.summary}>{exp.summary}</span>
+                    <span style={{ ...s.expenseDate, fontSize: "12px" }}>{exp.date.slice(5)}</span>
                   </div>
                   <div style={s.expenseRight}>
-                    <span style={{ ...s.expenseAmount, fontSize: isMobile ? "15px" : "12px" }}>{fmt(exp.amount ?? 0)}</span>
-                    <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.rowIcon(isMobile), ...s.editLink, fontSize: isMobile ? "20px" : "15px" }} title="Edit expense">✎</Link>
-                    <button style={{ ...s.rowIcon(isMobile), ...s.deleteBtn, fontSize: isMobile ? "14px" : "11px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
+                    <span style={{ ...s.expenseAmount, fontSize: "15px" }}>{fmt(exp.amount ?? 0)}</span>
+                    <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.rowIcon, ...s.editLink, fontSize: "20px" }} title="Edit expense">✎</Link>
+                    <button style={{ ...s.rowIcon, ...s.deleteBtn, fontSize: "14px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
                 </li>
               ))}
@@ -168,10 +168,10 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
           const pctCompN = adjC / innerSum;
           const pctPendN = adjP / innerSum;
 
-          const lbl = { ...s.barSegLabel, fontSize: isMobile ? "12px" : "10px" };
+          const lbl = { ...s.barSegLabel, fontSize: "12px" };
           return (
             <div style={s.barWrap}>
-              <div style={{ ...s.dualBar, height: isMobile ? "68px" : "58px" }}>
+              <div style={{ ...s.dualBar, height: "68px" }}>
                 {/* Left spent column — stacked top/bottom */}
                 <div style={{ display: "flex", flexDirection: "column", width: `${pctSpentN * 100}%`, minWidth: "72px", height: "100%" }}>
                   {/* Top row: total expenses */}
@@ -186,22 +186,22 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                       <span style={lbl}>{fmtInt(totalCompleted)}</span>
                     </div>
                     <div style={{ ...s.dualBarPending, width: `${pctPendN * 100}%` }}>
-                      <span style={{ ...s.barSegLabel, fontSize: isMobile ? "15px" : "13px" }}>{fmtInt(totalPending)}</span>
+                      <span style={{ ...s.barSegLabel, fontSize: "15px" }}>{fmtInt(totalPending)}</span>
                     </div>
                   </div>
                 </div>
                 {/* Right free column — spans full height (merged) */}
                 {pctFreeN > 0 && (
                   <div style={{ ...s.dualBarFree, width: `${pctFreeN * 100}%`, background: freeColor }}>
-                    <span style={{ ...s.barSegLabel, fontSize: isMobile ? "15px" : "13px" }}>{fmtInt(safeBalance)}</span>
+                    <span style={{ ...s.barSegLabel, fontSize: "15px" }}>{fmtInt(safeBalance)}</span>
                   </div>
                 )}
               </div>
               <div style={s.legend}>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.total   }}/> Total</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.done    }}/> Done</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.pending }}/> Pending</span>
-                <span style={{ ...s.legendItem, fontSize: isMobile ? "12px" : "10px" }}><span style={{ ...s.legendDot, background: freeColor          }}/> {overBudget ? "Over" : "Free"}</span>
+                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.total   }}/> Total</span>
+                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.done    }}/> Done</span>
+                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.pending }}/> Pending</span>
+                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: freeColor          }}/> {overBudget ? "Over" : "Free"}</span>
               </div>
             </div>
           );
@@ -460,15 +460,15 @@ const s = {
   // Shared box so the edit and delete icons line up and are equally tappable.
   // The glyphs need different font sizes to render at the same visual size:
   // the 🗑 emoji fills its em box, while ✎ only inks about 70% of it.
-  rowIcon: (isMobile) => ({
+  rowIcon: {
     display:        "inline-flex",
     alignItems:     "center",
     justifyContent: "center",
-    width:          isMobile ? "26px" : "18px",
-    height:         isMobile ? "26px" : "18px",
+    width:          "26px",
+    height:         "26px",
     flexShrink:     0,
     lineHeight:     1,
-  }),
+  },
   editLink: {
     background:     "none",
     border:         "none",

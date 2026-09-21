@@ -260,19 +260,20 @@ export default function AddIncome() {
 }
 
 const s = {
+  // Top-aligned, not centred: vertical centring fights the on-screen keyboard.
   outer: {
     display:        "flex",
-    flex:           1,
-    alignItems:     "center",
+    alignItems:     "flex-start",
     justifyContent: "center",
+    padding:        "16px",
   },
   card: {
     width:        "100%",
-    maxWidth:     "460px",
+    maxWidth:     "430px",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
     borderRadius: "14px",
-    padding:      "28px 32px",
+    padding:      "20px 18px",
     boxShadow:    "0 4px 32px rgba(0,0,0,0.3)",
   },
   title:      { fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "20px" },
@@ -294,10 +295,10 @@ const s = {
   radioGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   radioLabel: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" },
   actions: {
-    display:        "flex",
-    justifyContent: "flex-end",
-    gap:            "10px",
-    paddingTop:     "6px",
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "10px",
+    paddingTop:          "8px",
     borderTop:      "1px solid var(--border)",
     marginTop:      "4px",
   },

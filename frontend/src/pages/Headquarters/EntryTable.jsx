@@ -51,6 +51,10 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
   // Delete confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  // Which entry cards are expanded
+  const [openEntries, setOpenEntries] = useState({});
+  const toggleEntry = id => setOpenEntries(m => ({ ...m, [id]: !m[id] }));
+
   // Refs to avoid stale closures in debounced saves
   const newRowRef          = useRef(null);
   const newRowSaveTimer    = useRef(null);
@@ -236,210 +240,179 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
     }
   }
 
-  return (
-    <div style={s.tableWrap}>
-      <table style={s.table}>
-        <thead>
-          <tr>
-            <th style={s.th}>Date</th>
-            {params.map(p => (
-              <th key={p.parameterId} style={p.type === "number" ? s.thRight : s.th}>
-                <span style={{ fontSize: "9px", color: "var(--accent)", marginRight: "3px" }}>{typeIcon(p.type)}</span>
-                {p.title}{p.unit ? ` (${p.unit})` : ""}
-              </th>
-            ))}
-            {computedColumns.map(col => (
-              <th key={col.title} style={s.thComputed}>{col.title}</th>
-            ))}
-            <th style={s.th}>Notes</th>
-            <th style={s.th}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* New row */}
-          {newRow && (
-            <tr style={s.inlineEditRow}>
-              <td style={s.td}>
-                <input
-                  type="date"
-                  style={{ ...s.inlineInput, width: "130px" }}
-                  value={newRow.date}
-                  onChange={e => updateNewRowField("date", e.target.value)}
-                />
-              </td>
-              {params.map(p => {
-                const v   = newRow.values.find(x => x.parameterId === p.parameterId);
-                const val = v !== undefined ? v.value : (p.type === "boolean" ? false : "");
-                return (
-                  <td key={p.parameterId} style={p.type === "number" ? s.tdRight : s.td}>
-                    {p.type === "boolean" ? (
-                      <input
-                        type="checkbox"
-                        checked={!!val}
-                        onChange={e => updateNewRowValue(p.parameterId, e.target.checked)}
-                      />
-                    ) : (
-                      <input
-                        type={p.type === "number" ? "number" : "text"}
-                        style={{
-                          ...s.inlineInput,
-                          width:     p.type === "number" ? "90px" : "240px",
-                          textAlign: p.type === "number" ? "right" : "left",
-                        }}
-                        value={val}
-                        onChange={e => updateNewRowValue(p.parameterId, e.target.value)}
-                      />
-                    )}
-                  </td>
-                );
-              })}
-              {computedColumns.map(col => (
-                <td key={col.title} style={s.tdComputed}>
-                  <span style={{ color: "var(--text-muted)" }}>—</span>
-                </td>
-              ))}
-              <td style={s.td}>
-                <input
-                  type="text"
-                  style={{ ...s.inlineInput, width: "140px" }}
-                  value={newRow.notes}
-                  placeholder="notes…"
-                  onChange={e => updateNewRowField("notes", e.target.value)}
-                />
-              </td>
-              <td style={s.td}>
-                <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                  <button style={s.btnSm} onClick={flushNewRow} disabled={newRowSaving}>
-                    {newRowSaving ? "…" : "Save"}
-                  </button>
-                  <button style={s.btnIcon} onClick={cancelNewRow}>✕</button>
-                  {newRowError && (
-                    <span style={{ color: "var(--danger)", fontSize: "11px" }}>{newRowError}</span>
-                  )}
-                </div>
-              </td>
-            </tr>
-          )}
-
-          {/* Empty state */}
-          {entries.length === 0 && !newRow && (
-            <tr>
-              <td
-                colSpan={params.length + 3 + computedColumns.length}
-                style={{ ...s.td, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "16px" }}
-              >
-                No entries yet.
-              </td>
-            </tr>
-          )}
-
-          {/* Existing entries */}
-          {entries.map(entry => {
-            const isEditing = editingId === entry.entryId;
+  // Stacked, labelled inputs — the mobile stand-in for inline <td> editing.
+  function EditFields({ data, onField, onValue }) {
+    return (
+      <div style={s.editFields}>
+        <label style={s.fieldLabel}>Date
+          <input
+            type="date"
+            style={s.fieldInput}
+            value={data.date}
+            onChange={e => onField("date", e.target.value)}
+          />
+        </label>
+        {params.map(p => {
+          const v   = data.values.find(x => x.parameterId === p.parameterId);
+          const val = v !== undefined ? v.value : (p.type === "boolean" ? false : "");
+          if (p.type === "boolean") {
             return (
-              <tr key={entry.entryId} style={isEditing ? s.inlineEditRow : s.tr}>
-                <td style={s.td}>
-                  {isEditing ? (
-                    <input
-                      type="date"
-                      style={{ ...s.inlineInput, width: "130px" }}
-                      value={editData.date}
-                      onChange={e => updateEditField("date", e.target.value)}
-                    />
-                  ) : entry.date}
-                </td>
+              <label key={p.parameterId} style={s.fieldCheck}>
+                <input
+                  type="checkbox"
+                  checked={!!val}
+                  onChange={e => onValue(p.parameterId, e.target.checked)}
+                />
+                {p.title}{p.unit ? ` (${p.unit})` : ""}
+              </label>
+            );
+          }
+          return (
+            <label key={p.parameterId} style={s.fieldLabel}>
+              {p.title}{p.unit ? ` (${p.unit})` : ""}
+              <input
+                type={p.type === "number" ? "number" : "text"}
+                inputMode={p.type === "number" ? "decimal" : undefined}
+                style={s.fieldInput}
+                value={val}
+                onChange={e => onValue(p.parameterId, e.target.value)}
+              />
+            </label>
+          );
+        })}
+        <label style={s.fieldLabel}>Notes
+          <input
+            type="text"
+            style={s.fieldInput}
+            value={data.notes}
+            placeholder="notes…"
+            onChange={e => onField("notes", e.target.value)}
+          />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.entryList}>
+      {/* New entry */}
+      {newRow && (
+        <div style={{ ...s.entryCard, ...s.entryCardEditing }}>
+          <div style={s.entryHead}>
+            <span style={s.entryDate}>New entry</span>
+            {newRowSaving && <span style={s.savingTag}>saving…</span>}
+          </div>
+          <div style={s.entryBody}>
+            <EditFields data={newRow} onField={updateNewRowField} onValue={updateNewRowValue} />
+            {newRowError && <div style={s.rowError}>{newRowError}</div>}
+            <div style={s.entryActions}>
+              <button style={s.btnGhost} onClick={cancelNewRow}>Cancel</button>
+              <button style={s.btnPrimarySm} onClick={flushNewRow} disabled={newRowSaving}>
+                {newRowSaving ? "Saving…" : "Done"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {entries.length === 0 && !newRow && (
+        <div style={s.entryEmpty}>No entries yet.</div>
+      )}
+
+      {entries.map(entry => {
+        const isEditing = editingId === entry.entryId;
+        const open = isEditing || !!openEntries[entry.entryId];
+
+        if (isEditing) {
+          return (
+            <div key={entry.entryId} style={{ ...s.entryCard, ...s.entryCardEditing }}>
+              <div style={s.entryHead}>
+                <span style={s.entryDate}>{editData.date}</span>
+                {editSaving && <span style={s.savingTag}>saving…</span>}
+              </div>
+              <div style={s.entryBody}>
+                <EditFields data={editData} onField={updateEditField} onValue={updateEditValue} />
+                {editError && <div style={s.rowError}>{editError}</div>}
+                <div style={s.entryActions}>
+                  <button style={s.btnGhost} onClick={cancelEdit}>Cancel</button>
+                  <button style={s.btnPrimarySm} onClick={flushEdit} disabled={editSaving}>
+                    {editSaving ? "Saving…" : "Done"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Two or three values are enough to tell entries apart in the collapsed head.
+        const preview = params.slice(0, 2).map(p => {
+          const v = (entry.values || []).find(x => x.parameterId === p.parameterId);
+          return v?.value === "" || v?.value == null ? null : `${p.title} ${v.value}`;
+        }).filter(Boolean).join(" · ");
+
+        return (
+          <div key={entry.entryId} style={s.entryCard}>
+            <button style={s.entryHeadBtn} onClick={() => toggleEntry(entry.entryId)}>
+              <span style={s.entryHeadMain}>
+                <span style={s.entryDate}>{entry.date}</span>
+                {preview && <span style={s.entryPreview}>{preview}</span>}
+              </span>
+              <span style={{ ...s.chevron, transform: open ? "rotate(180deg)" : "none" }}>⌄</span>
+            </button>
+
+            {open && (
+              <div style={s.entryBody}>
                 {params.map(p => {
-                  if (isEditing) {
-                    const v   = editData.values.find(x => x.parameterId === p.parameterId);
-                    const val = v !== undefined ? v.value : (p.type === "boolean" ? false : "");
-                    return (
-                      <td key={p.parameterId} style={p.type === "number" ? s.tdRight : s.td}>
-                        {p.type === "boolean" ? (
-                          <input
-                            type="checkbox"
-                            checked={!!val}
-                            onChange={e => updateEditValue(p.parameterId, e.target.checked)}
-                          />
-                        ) : (
-                          <input
-                            type={p.type === "number" ? "number" : "text"}
-                            style={{
-                              ...s.inlineInput,
-                              width:     p.type === "number" ? "90px" : "240px",
-                              textAlign: p.type === "number" ? "right" : "left",
-                            }}
-                            value={val}
-                            onChange={e => updateEditValue(p.parameterId, e.target.value)}
-                          />
-                        )}
-                      </td>
-                    );
-                  }
-                  // Read mode
-                  const v   = (entry.values || []).find(x => x.parameterId === p.parameterId);
-                  const val = v?.value;
+                  const v = (entry.values || []).find(x => x.parameterId === p.parameterId);
                   return (
-                    <td key={p.parameterId} style={p.type === "number" ? s.tdRight : s.tdTrunc}>
-                      {displayValue(val, p.type)}
-                    </td>
+                    <div key={p.parameterId} style={s.readRow}>
+                      <span style={s.readKey}>
+                        <span style={s.typeIcon}>{typeIcon(p.type)}</span>
+                        {p.title}{p.unit ? ` (${p.unit})` : ""}
+                      </span>
+                      <span style={s.readVal}>{displayValue(v?.value, p.type)}</span>
+                    </div>
                   );
                 })}
+
                 {computedColumns.map(col => {
                   const val = computedValues[entry.entryId]?.[col.title];
                   return (
-                    <td key={col.title} style={s.tdComputed}>
-                      {val == null ? <span style={{ color: "var(--text-muted)" }}>—</span> : val}
-                    </td>
+                    <div key={col.title} style={{ ...s.readRow, ...s.readRowComputed }}>
+                      <span style={s.readKey}>{col.title}</span>
+                      <span style={s.readVal}>
+                        {val == null ? <span style={{ color: "var(--text-muted)" }}>—</span> : val}
+                      </span>
+                    </div>
                   );
                 })}
-                <td style={s.tdTrunc}>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      style={{ ...s.inlineInput, width: "140px" }}
-                      value={editData.notes}
-                      placeholder="notes…"
-                      onChange={e => updateEditField("notes", e.target.value)}
-                    />
-                  ) : (
-                    entry.notes
-                      ? <span title={entry.notes}>{entry.notes}</span>
-                      : <span style={{ color: "var(--text-muted)" }}>—</span>
-                  )}
-                </td>
-                <td style={s.td}>
-                  {isEditing ? (
-                    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                      <button style={s.btnSm} onClick={flushEdit} disabled={editSaving}>
-                        {editSaving ? "…" : "Save"}
-                      </button>
-                      <button style={s.btnIcon} onClick={cancelEdit}>✕</button>
-                      {editError && (
-                        <span style={{ color: "var(--danger)", fontSize: "11px" }}>{editError}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                      <button
-                        style={s.btnIcon}
-                        title="Edit"
-                        onClick={() => startEdit(entry)}
-                      >✎</button>
-                      <button
-                        style={{ ...s.btnIcon, color: confirmDeleteId === entry.entryId ? "var(--danger)" : "var(--text-muted)" }}
-                        title={confirmDeleteId === entry.entryId ? "Click again to confirm" : "Delete"}
-                        onClick={() => handleDelete(entry.entryId)}
-                      >
-                        {confirmDeleteId === entry.entryId ? "⚠ Del?" : "🗑"}
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+
+                <div style={s.readRow}>
+                  <span style={s.readKey}>Notes</span>
+                  <span style={s.readVal}>
+                    {entry.notes || <span style={{ color: "var(--text-muted)" }}>—</span>}
+                  </span>
+                </div>
+
+                <div style={s.entryActions}>
+                  <button style={s.btnGhost} onClick={() => startEdit(entry)}>Edit</button>
+                  <button
+                    style={{
+                      ...s.btnGhost,
+                      ...(confirmDeleteId === entry.entryId
+                        ? { background: "var(--danger)", borderColor: "var(--danger)", color: "#fff" }
+                        : { color: "var(--danger)" }),
+                    }}
+                    onClick={() => handleDelete(entry.entryId)}
+                  >
+                    {confirmDeleteId === entry.entryId ? "Tap to confirm" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

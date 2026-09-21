@@ -1,35 +1,5 @@
-import useIsMobile from "../hooks/useIsMobile";
-import Sidebar from "./Sidebar";
 import MobileLayout from "./MobileLayout";
 
 export default function Layout({ children }) {
-  const isMobile = useIsMobile();
-
-  if (isMobile) {
-    return <MobileLayout>{children}</MobileLayout>;
-  }
-
-  return (
-    <div style={s.shell}>
-      <Sidebar />
-      <main style={s.main}>{children}</main>
-    </div>
-  );
+  return <MobileLayout>{children}</MobileLayout>;
 }
-
-const s = {
-  shell: {
-    display:       "flex",
-    flexDirection: "column",
-    height:        "100vh",
-    overflow:      "hidden",
-  },
-  main: {
-    flex:           1,
-    display:        "flex",
-    flexDirection:  "column",
-    padding:        "28px 32px",
-    overflowY:      "auto",
-    minHeight:      0,
-  },
-};

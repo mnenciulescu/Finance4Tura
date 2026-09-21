@@ -13,7 +13,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['house_logo.png'],
+      includeAssets: ['house_logo.png', 'apple-touch-icon.png'],
       manifest: {
         name: '4TURA Home',
         short_name: '4TURA Home',
@@ -24,8 +24,13 @@ export default defineConfig({
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        // Square icons: house_logo.png is a 3600x1517 banner and gets squashed
+        // when a launcher treats it as an icon. Maskable carries extra padding
+        // so a circular crop does not clip the roofline.
         icons: [
-          { src: 'house_logo.png', sizes: 'any', type: 'image/png', purpose: 'any maskable' },
+          { src: 'pwa-192.png',          sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512.png',          sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

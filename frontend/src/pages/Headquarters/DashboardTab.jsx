@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import s from "./styles";
 
@@ -121,7 +122,7 @@ function WaterChart({ template, entries }) {
   const avgCalda = avg("apaCalda");
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
+    <ResponsiveContainer width="100%" height={210}>
       <LineChart data={data} margin={{ top: 32, right: 48, bottom: 0, left: 0 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
@@ -148,48 +149,58 @@ function WaterChart({ template, entries }) {
   );
 }
 
-// ── Generic entry table (read-only) ───────────────────────────────────────────
+// ── Generic entry list (read-only) ────────────────────────────────────────────
 
-function EntryReadTable({ template, entries }) {
+const READ_LIMIT = 5;
+
+function EntryReadList({ template, entries }) {
+  const [showAll, setShowAll] = useState(false);
   const params = template.parameters || [];
   const sorted = [...entries]
     .filter(e => e.templateId === template.templateId)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  if (!sorted.length) return <div style={{ color: "var(--text-muted)", fontSize: "12px", fontStyle: "italic" }}>No entries yet.</div>;
+  if (!sorted.length) return <div style={s.entryEmpty}>No entries yet.</div>;
+
+  const visible = showAll ? sorted : sorted.slice(0, READ_LIMIT);
 
   return (
-    <div style={s.tableWrap}>
-      <table style={s.table}>
-        <thead>
-          <tr>
-            <th style={s.th}>Date</th>
-            {params.map(p => <th key={p.parameterId} style={s.th}>{p.title}{p.unit ? ` (${p.unit})` : ""}</th>)}
-            <th style={s.th}>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map(entry => (
-            <tr key={entry.entryId} style={s.tr}>
-              <td style={{ ...s.td, whiteSpace: "nowrap" }}>{entry.date}</td>
-              {params.map(p => {
-                const v   = (entry.values || []).find(x => x.parameterId === p.parameterId);
-                const val = v?.value;
-                return (
-                  <td key={p.parameterId} style={{ ...s.td, whiteSpace: "normal", wordBreak: "break-word" }}>
+    <div style={s.entryList}>
+      {visible.map(entry => (
+        <div key={entry.entryId} style={s.entryCard}>
+          <div style={s.entryHead}>
+            <span style={s.entryDate}>{entry.date}</span>
+          </div>
+          <div style={s.entryBody}>
+            {params.map(p => {
+              const v   = (entry.values || []).find(x => x.parameterId === p.parameterId);
+              const val = v?.value;
+              return (
+                <div key={p.parameterId} style={s.readRow}>
+                  <span style={s.readKey}>{p.title}{p.unit ? ` (${p.unit})` : ""}</span>
+                  <span style={s.readVal}>
                     {val === null || val === undefined || val === ""
                       ? <span style={{ color: "var(--text-muted)" }}>—</span>
                       : String(val)}
-                  </td>
-                );
-              })}
-              <td style={{ ...s.td, whiteSpace: "normal", wordBreak: "break-word", color: entry.notes ? "var(--text)" : "var(--text-muted)" }}>
-                {entry.notes || "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  </span>
+                </div>
+              );
+            })}
+            <div style={s.readRow}>
+              <span style={s.readKey}>Notes</span>
+              <span style={s.readVal}>
+                {entry.notes || <span style={{ color: "var(--text-muted)" }}>—</span>}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {sorted.length > READ_LIMIT && (
+        <button style={s.btnGhost} onClick={() => setShowAll(v => !v)}>
+          {showAll ? "Show less" : `Show ${sorted.length - READ_LIMIT} more…`}
+        </button>
+      )}
     </div>
   );
 }
@@ -217,7 +228,7 @@ function ColumnCard({ location, templates, entries }) {
           </div>
           {isWaterTemplate(tpl)
             ? <WaterChart template={tpl} entries={entries} />
-            : <EntryReadTable template={tpl} entries={entries} />
+            : <EntryReadList template={tpl} entries={entries} />
           }
         </div>
       ))}
@@ -238,7 +249,7 @@ export default function DashboardTab({ locations, templates, entries }) {
 
   return (
     <div style={s.tabContent}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", alignItems: "start" }}>
         {locations.map(loc => (
           <ColumnCard key={loc.hqId} location={loc} templates={templates} entries={entries} />
         ))}
