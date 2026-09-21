@@ -1,11 +1,9 @@
 import axios from "axios";
-import client from "./client";
-
-const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+import client, { API_BASE } from "./client";
 
 // Use plain axios for GET — called before auth token is set (Login page)
 export async function getAppSettings() {
-  const res = await axios.get(`${BASE}/app-settings`);
+  const res = await axios.get(`${API_BASE}/app-settings`);
   return res.data;
 }
 

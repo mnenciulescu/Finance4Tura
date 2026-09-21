@@ -58,7 +58,7 @@ const s = {
   tabBtnActive: {
     background:  "var(--accent)",
     borderColor: "var(--accent)",
-    color:       "#fff",
+    color:       "var(--on-accent)",
     fontWeight:  700,
   },
 
@@ -214,7 +214,7 @@ const s = {
     background:   "var(--accent)",
     border:       "1px solid var(--accent)",
     borderRadius: "8px",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     fontSize:     "12px",
     fontWeight:   600,
     padding:      "7px 14px",
@@ -521,7 +521,7 @@ const s = {
   // Buttons
   btnPrimary: {
     background:   "var(--accent)",
-    color:        "#000",
+    color:        "var(--on-accent)",
     border:       "none",
     borderRadius: "8px",
     padding:      "7px 16px",

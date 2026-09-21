@@ -4,54 +4,65 @@
   padding: 0;
 }
 
+/* Dark theme — deep indigo-black base with a vivid spring-green accent.
+   Surfaces carry a slight violet cast so the green reads warmer against them,
+   and text sits near-white for contrast well past AA. */
 :root {
-  --bg:           #0f1117;
-  --surface:      #1a1d27;
-  --surface-2:    #222535;
-  --border:       #2e3148;
-  --text:         #e2e4f0;
-  --text-muted:   #6b7194;
-  --accent:       #16a34a;
-  --accent-hover: #15803d;
-  --danger:       #ef4444;
-  --success:      #22c55e;
-  --warning:      #f59e0b;
+  --bg:           #06080f;
+  --surface:      #111524;
+  --surface-2:    #1a2036;
+  --border:       #2c3555;
+  --text:         #f4f7ff;
+  --text-muted:   #98a3c8;
+  --accent:       #00e07a;
+  --accent-hover: #3dffa1;
+  --danger:       #ff4d6d;
+  --success:      #00e07a;
+  --warning:      #ffb300;
 
-  --topbar-bg:          rgba(10,20,14,0.97);
-  --topbar-border:      rgba(134,239,172,0.2);
-  --topbar-shadow:      rgba(134,239,172,0.1);
-  --topbar-link-active: rgba(134,239,172,0.10);
+  /* Text/icons drawn ON an --accent fill. The accent is light, so this is dark. */
+  --on-accent:    #04140c;
 
-  --badge-text:         #86efac;
-  --badge-text-muted:   rgba(134,239,172,0.55);
-  --amount-text:        #86efac;
-  --header-amount-text: #86efac;
-  --bar-label:          rgba(0,0,0,0.85);
+  --topbar-bg:          rgba(8,11,20,0.92);
+  --topbar-border:      rgba(0,224,122,0.22);
+  --topbar-shadow:      rgba(0,224,122,0.14);
+  --topbar-link-active: rgba(0,224,122,0.12);
 
-  --error-bg:           #3b1212;
-  --error-text:         #fca5a5;
-  --success-bg:         #052e16;
-  --success-text:       #86efac;
-  --warning-bg:         #1c1400;
-  --warning-text:       #fcd34d;
+  --badge-text:         #5cffb1;
+  --badge-text-muted:   rgba(92,255,177,0.62);
+  --amount-text:        #5cffb1;
+  --header-amount-text: #5cffb1;
+  --bar-label:          rgba(0,0,0,0.88);
 
-  --header-current-bg:     rgba(22,163,74,0.08);
-  --header-current-border: rgba(22,163,74,0.4);
-  --avatar-bg:             rgba(134,239,172,0.12);
-  --avatar-border:         rgba(134,239,172,0.3);
-  --avatar-color:          #86efac;
+  --error-bg:           #2b0b16;
+  --error-text:         #ff8fa3;
+  --success-bg:         #05291a;
+  --success-text:       #5cffb1;
+  --warning-bg:         #2a1d00;
+  --warning-text:       #ffd24d;
+
+  --header-current-bg:     rgba(0,224,122,0.10);
+  --header-current-border: rgba(0,224,122,0.45);
+  --avatar-bg:             rgba(0,224,122,0.14);
+  --avatar-border:         rgba(0,224,122,0.38);
+  --avatar-color:          #5cffb1;
 
   /* accent overlay helpers — updated per theme */
-  --accent-grad-end:     rgba(134,239,172,0.2);
-  --accent-tint-bg:      rgba(134,239,172,0.1);
-  --accent-tint-border:  rgba(134,239,172,0.25);
-  --accent-glow-bg:      rgba(134,239,172,0.06);
-  --accent-glow-border:  rgba(134,239,172,0.15);
-  --accent-reveal-bg:    rgba(134,239,172,0.15);
-  --accent-nav-ind:      rgba(134,239,172,0.7);
-  --accent-row-bg:       rgba(134,239,172,0.06);
-  --accent-badge-bg:     rgba(22,163,74,0.1);
-  --accent-badge-border: rgba(22,163,74,0.3);
+  --accent-grad-end:     rgba(0,224,122,0.22);
+  --accent-tint-bg:      rgba(0,224,122,0.12);
+  --accent-tint-border:  rgba(0,224,122,0.28);
+  --accent-glow-bg:      rgba(0,224,122,0.07);
+  --accent-glow-border:  rgba(0,224,122,0.18);
+  --accent-reveal-bg:    rgba(0,224,122,0.16);
+  --accent-nav-ind:      rgba(0,224,122,0.80);
+  --accent-row-bg:       rgba(0,224,122,0.07);
+  --accent-badge-bg:     rgba(0,224,122,0.12);
+  --accent-badge-border: rgba(0,224,122,0.32);
+
+  /* Sign-in aurora — two hues so it reads as a gradient, not a single glow */
+  --aurora-1: rgba(0,224,122,0.26);
+  --aurora-2: rgba(11,140,205,0.24);
+  --aurora-3: rgba(106,255,192,0.14);
 
   --card-w: 280px;
 
@@ -73,6 +84,7 @@
   --accent:       #15803d;
   --accent-hover: #166534;
   --danger:       #dc2626;
+  --on-accent:    #ffffff;
 
   --topbar-bg:          rgba(232,242,234,0.97);
   --topbar-border:      rgba(22,163,74,0.3);
@@ -108,6 +120,10 @@
   --accent-row-bg:       rgba(22,163,74,0.06);
   --accent-badge-bg:     rgba(22,163,74,0.1);
   --accent-badge-border: rgba(22,163,74,0.3);
+
+  --aurora-1: rgba(22,163,74,0.20);
+  --aurora-2: rgba(13,148,136,0.16);
+  --aurora-3: rgba(134,239,172,0.22);
 }
 
 [data-theme="amber"] {
@@ -120,6 +136,7 @@
   --accent:       #b45309;
   --accent-hover: #92400e;
   --danger:       #dc2626;
+  --on-accent:    #ffffff;
   --success:      #15803d;
   --warning:      #ea580c;
 
@@ -157,6 +174,10 @@
   --accent-row-bg:       rgba(180,83,9,0.06);
   --accent-badge-bg:     rgba(180,83,9,0.10);
   --accent-badge-border: rgba(180,83,9,0.30);
+
+  --aurora-1: rgba(180,83,9,0.18);
+  --aurora-2: rgba(217,119,6,0.16);
+  --aurora-3: rgba(252,211,77,0.20);
 }
 
 html {

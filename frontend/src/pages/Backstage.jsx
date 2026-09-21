@@ -334,7 +334,7 @@ const s = {
   pickerBtnOn: {
     background:  "var(--accent)",
     borderColor: "var(--accent)",
-    color:       "#fff",
+    color:       "var(--on-accent)",
   },
   searchWrap: { padding: "10px 14px 0", flexShrink: 0 },
   input: {

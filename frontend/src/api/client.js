@@ -1,7 +1,11 @@
 import axios from "axios";
 
+// The app runs against AWS only — there is no local backend to fall back to.
+export const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod";
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3001",
+  baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
   timeout: 15000,
 });

@@ -7,11 +7,6 @@ stack_name = "finance4tura-backend"
 cached = true
 parallel = true
 
-[default.local_start_api.parameters]
-warm_containers = "EAGER"
-parameter_overrides = "DynamoDbEndpoint=http://host.docker.internal:8000"
-port = 3001
-
 [default.deploy.parameters]
 region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"

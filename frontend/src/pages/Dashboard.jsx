@@ -365,7 +365,7 @@ const s = {
   muted: { color: "var(--text-muted)", fontSize: "14px" },
   btnPrimary: {
     background:     "var(--accent)",
-    color:          "#fff",
+    color:          "var(--on-accent)",
     border:         "none",
     borderRadius:   "8px",
     padding:        "8px 18px",

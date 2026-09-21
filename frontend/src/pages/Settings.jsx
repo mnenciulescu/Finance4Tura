@@ -14,11 +14,11 @@ const THEMES = [
   {
     id: "dark",
     label: "Dark",
-    bg: "#1a1d27",
-    surface: "#222535",
-    border: "#2e3148",
-    accent: "#16a34a",
-    strip: "#86efac",
+    bg: "#111524",
+    surface: "#1a2036",
+    border: "#2c3555",
+    accent: "#00e07a",
+    strip: "#5cffb1",
   },
   {
     id: "light",
@@ -321,7 +321,7 @@ const s = {
   },
   btnOk: {
     background:   "var(--accent)",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     border:       "none",
     borderRadius: "8px",
     padding:      "8px 24px",

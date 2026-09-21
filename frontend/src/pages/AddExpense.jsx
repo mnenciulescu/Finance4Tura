@@ -471,7 +471,7 @@ const s = {
   },
   btnPrimary: {
     background:   "var(--accent)",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     border:       "none",
     borderRadius: "8px",
     padding:      "8px 20px",

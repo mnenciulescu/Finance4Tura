@@ -264,7 +264,7 @@ export default function Admin() {
               <div style={{ ...s.deleteError, marginBottom: "10px" }}>{fxError}</div>
             )}
             <button
-              style={{ ...s.btn, background: "var(--accent)", color: "#000", border: "none", width: "100%", padding: "9px", fontSize: "12px", opacity: fxUpdating ? 0.6 : 1, cursor: fxUpdating ? "not-allowed" : "pointer" }}
+              style={{ ...s.btn, background: "var(--accent)", color: "var(--on-accent)", border: "none", width: "100%", padding: "9px", fontSize: "12px", opacity: fxUpdating ? 0.6 : 1, cursor: fxUpdating ? "not-allowed" : "pointer" }}
               onClick={handleUpdateFx}
               disabled={fxUpdating}
             >
@@ -282,7 +282,7 @@ export default function Admin() {
               <div style={{ ...s.deleteError, marginBottom: "10px" }}>{backupError}</div>
             )}
             <button
-              style={{ ...s.btn, background: "var(--accent)", color: "#000", border: "none", width: "100%", padding: "9px", fontSize: "12px" }}
+              style={{ ...s.btn, background: "var(--accent)", color: "var(--on-accent)", border: "none", width: "100%", padding: "9px", fontSize: "12px" }}
               onClick={handleBackupClick}
               disabled={backupModal !== null}
             >
@@ -442,7 +442,7 @@ export default function Admin() {
                 <>
                   <button style={s.btnCancel} onClick={() => setBackupModal(null)}>Cancel</button>
                   <button
-                    style={{ background: "var(--accent)", color: "#000", border: "none", borderRadius: "8px", padding: "8px 20px", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    style={{ background: "var(--accent)", color: "var(--on-accent)", border: "none", borderRadius: "8px", padding: "8px 20px", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                     onClick={handleBackupConfirm}
                   >
                     Confirm & Backup

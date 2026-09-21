@@ -13,20 +13,19 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['house_logo.png', 'apple-touch-icon.png'],
+      includeAssets: ['apple-touch-icon.png', 'app-icon.svg'],
       manifest: {
         name: '4TURA Home',
         short_name: '4TURA Home',
         description: 'Personal budgeting app',
-        theme_color: '#16a34a',
-        background_color: '#eef2ee',
+        theme_color: '#00e07a',
+        background_color: '#06080f',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
-        // Square icons: house_logo.png is a 3600x1517 banner and gets squashed
-        // when a launcher treats it as an icon. Maskable carries extra padding
-        // so a circular crop does not clip the roofline.
+        // Rendered from public/app-icon.svg. Maskable carries extra padding so
+        // a circular crop never clips the house.
         icons: [
           { src: 'pwa-192.png',          sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'pwa-512.png',          sizes: '512x512', type: 'image/png', purpose: 'any' },

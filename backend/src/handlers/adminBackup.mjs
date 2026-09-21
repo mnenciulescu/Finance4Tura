@@ -2,8 +2,7 @@ import { DynamoDBClient, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 
-const endpoint = process.env.DYNAMODB_ENDPOINT;
-const dynamo = new DynamoDBClient(endpoint ? { endpoint, region: "eu-central-1" } : {});
+const dynamo = new DynamoDBClient({});
 const ssm    = new SSMClient({ region: "eu-central-1" });
 
 const TABLES = [

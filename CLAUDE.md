@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Finance4Tura is a personal budgeting web app. Incomes are received periodically, and expenses are mapped to the most recent income before their date. The UI shows income-period column cards (4 on desktop, 1 on mobile with swipe), each with its associated expenses and a summary footer.
+Finance4Tura is a personal budgeting web app. Incomes are received periodically, and expenses are mapped to the most recent income before their date. The UI shows one income-period card at a time, swipeable between periods, with its associated expenses and a summary footer.
 
 **Current status**: All phases complete and deployed to AWS.
 
@@ -20,35 +20,31 @@ retained but orphaned — no longer in this stack, kept only as a rollback path.
 
 ```
 finance4tura/
-├── frontend/        # React + Vite app (port 5173 locally)
-├── backend/         # AWS SAM Lambda functions (port 3001 locally)
-├── docker/          # DynamoDB Local Docker config (port 8000)
+├── frontend/        # React + Vite app
+├── backend/         # AWS SAM Lambda functions
 ├── Documentation/   # AWS_Deploy.md, AWS_Sync.md, Requirements.md
 └── README.md
 ```
 
 ## Development Commands
 
-### Docker (DynamoDB Local)
-```bash
-cd docker
-docker compose up -d                                           # Start DynamoDB Local
-aws dynamodb list-tables --endpoint-url http://localhost:8000  # Verify
-./init-tables.sh                                               # Bootstrap tables (first time only)
-```
+**There is no local backend.** DynamoDB Local, `sam local start-api` and the
+seed scripts were removed — the app runs against AWS only. `npm run dev` serves
+the frontend locally but talks to the deployed API, so a dev session reads and
+writes **production data**.
 
 ### Backend (AWS SAM)
 ```bash
 cd backend
 sam build --no-cached              # Build (always use --no-cached to pick up changes)
-sam local start-api                # API Gateway on port 3001
 sam build --no-cached && sam deploy  # Deploy to AWS (samconfig.toml has all defaults)
+node --test src/**/*.test.mjs      # Unit tests (pure functions, no AWS)
 ```
 
 ### Frontend (Vite + React)
 ```bash
 cd frontend
-npm run dev      # Dev server on port 5173
+npm run dev      # Dev server against the deployed API — production data
 npm run build    # Production build
 npm run lint     # Lint
 ```
@@ -64,23 +60,27 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 ### Backend
 - **Runtime**: Node.js 20, AWS Lambda via AWS SAM (`backend/template.yaml`)
-- **Database**: DynamoDB Local in Docker for dev; real AWS DynamoDB in production
-- `DYNAMODB_ENDPOINT` env var controls which endpoint Lambda connects to
+- **Database**: AWS DynamoDB. There is no local endpoint override.
 - All infrastructure defined in `template.yaml`; deploy config in `samconfig.toml`
-- `userId` extracted in every handler: `event.requestContext?.authorizer?.claims?.sub ?? "local-dev"`
+- `userId` extracted in every handler from the Cognito JWT `sub` claim
 
 ### Frontend
 - React 19 + Vite inside `frontend/`
 - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`
-- Responsive: `useIsMobile` hook (breakpoint 768px) switches between desktop (Sidebar) and mobile (MobileLayout)
-- Mobile tab bar: Finance · Split Pay · Investments · Stats — Add Expense / Add Income are **not** tabs; they are actions inside the Finance page (mobile `/` → `Dashboard`)
-- Home Overview (`/`) — new landing page (see below); Finance Dashboard moved to `/finance`
-- Split Payments module (`/split-payments`) is fully responsive (desktop Sidebar + mobile tab bar); data stored in DynamoDB (`SplitPayments` table). See below
-- Investments module (`/investments`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Investments) and mobile tab bar (Investments, after Split Pay). See below
-- Statistics module (`/statistics`) is a mobile-first stacked-block page — desktop Sidebar (Finance → Statistics) and mobile tab bar (Stats, last). See below
-- AI News (`/ai-news`) — mobile shows Date/Source/Title/Link only (no Summary column)
-- Backstage (`/backstage`) — raw data view for all tables, 10 rows per table by default with expand/collapse
-- Books & Development module (`/books-and-dev`) — available on desktop (Evolve dropdown in Sidebar); see below
+- **Mobile-only.** There is no desktop layout: `Sidebar.jsx` and the `useIsMobile`
+  hook were deleted. Every page renders as a centred phone-width column
+  (`max-width: 430px`) on any screen, so a laptop browser shows the same UI.
+- `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
+  top bar (brand, avatar menu with the JWT session countdown) and the bottom bar.
+- Bottom bar groups mirror what the desktop dropdowns used to be —
+  **Home · Finance · Evolve · HQ · System**. Finance and System open bottom
+  sheets (`NavSheet.jsx`); Evolve and HQ navigate directly. Config lives in
+  `components/navConfig.js`, icons in `components/navIcons.jsx`.
+- Home Overview is `/`; the Finance Dashboard is `/finance`.
+- The Dashboard owns the year stepper and the privacy (hide amounts) toggle —
+  both used to live in the desktop chrome.
+- Backstage (`/backstage`) — table picker + search + live API log
+- Books & Development (`/books-and-dev`) — card list with a filter sheet
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 - `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
@@ -88,7 +88,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 ### Books & Development Module
 
-Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & Development). Desktop-only.
+Route: `/books-and-dev` — reached from the Evolve tab in the bottom bar.
 
 **Table columns**: Person · Type · Source · Author · Title · Completed · Rating · Comments · Actions
 
@@ -106,13 +106,12 @@ Route: `/books-and-dev` — accessible from desktop Sidebar (Evolve → Books & 
 **Backend handler**: `backend/src/handlers/booksAndDev.mjs`
 - Sorted by `dateCompleted` descending, then title ascending
 
-**Seed script**: `backend/src/seed-books-local.mjs` — seeds 89 entries from original Excel import (Mihai books/audiobooks/trainings + Radu books)
 
 ### Split Payments Module
 
-Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile bottom tab bar (Split Pay). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too** — same widths, paddings and font sizes on every screen, mirroring the Home Overview layout. Replaces the old wide desktop-only table.
+Route: `/split-payments` — Finance group in the bottom bar. Centred phone-width column (`max-width: 430px`) on any screen.
 
-**File**: `frontend/src/pages/SplitPayment.jsx` (self-contained; no `useIsMobile` — there is a single layout, width-capped by the `COL_WIDTH` constant)
+**File**: `frontend/src/pages/SplitPayment.jsx` (self-contained; width-capped by the `COL_WIDTH` constant)
 
 **Layout**:
 - Header: title, `N open · M settled` plus per-currency "left to cover" totals, and a `+ New` button
@@ -139,9 +138,9 @@ Route: `/split-payments` — desktop Sidebar (Finance → Split Pay) and mobile 
 
 ### Investments Module
 
-Route: `/investments` — desktop Sidebar (Finance → Investments) and mobile bottom tab bar (**Investments**, the 5th tab, after Split Pay). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too** — same widths, paddings and font sizes on every screen, mirroring Split Pay and Home Overview. Replaces the old wide desktop-only multi-section layout.
+Route: `/investments` — Finance group in the bottom bar. Centred phone-width column (`max-width: 430px`) on any screen.
 
-**File**: `frontend/src/pages/Investments.jsx` (self-contained; no `useIsMobile` — a single layout width-capped by the `COL_WIDTH` constant)
+**File**: `frontend/src/pages/Investments.jsx` (self-contained; width-capped by the `COL_WIDTH` constant)
 
 **Layout**: a header (`N snapshots · M operations`) plus four stacked blocks.
 
@@ -186,11 +185,11 @@ On mobile, `/` renders `Dashboard` — the Finance page — and the tab is label
 
 ### Statistics Module
 
-Route: `/statistics` — desktop Sidebar (Finance → Statistics) and mobile bottom tab bar (**Stats**, the 6th and last tab). Renders as a **centered phone-width column (`max-width: 430px`) on desktop too**, same as Split Pay, Home Overview, and Investments. The old two-chart desktop layout is gone, along with the `useIsMobile` branch.
+Route: `/statistics` — Finance group in the bottom bar. Centred phone-width column (`max-width: 430px`) on any screen.
 
 **File**: `frontend/src/pages/Statistics.jsx` (self-contained, no external CSS)
 
-**Header**: title, `N months with data · now <Month>`, and a **year stepper** (`‹ 2026 ›`). Mobile has no global year picker, so the page carries its own; it reads/writes the same `YearContext` as the desktop Sidebar selector, so the two stay in sync. Stepping forward is disabled at the current year.
+**Header**: title, `N months with data · now <Month>`, and a **year stepper** (`‹ 2026 ›`). The page carries its own; it reads/writes the same `YearContext` as the Dashboard's stepper, so the two stay in sync. Stepping forward is disabled at the current year.
 
 **Block 1 — Monthly averages**:
 - Two-up stat row: **Avg free / month** (indigo when ≥ 0, red when negative) and **Survival / month** (`avg.high + avg.medium × 0.8 + 7000`, purple)
@@ -375,26 +374,6 @@ cd backend && node --test src/**/*.test.mjs
 
 Backend and frontend-utils tests are pure-function or context tests. `Investments.test.jsx` renders the page with `@testing-library/react` against mocked API modules — still no DynamoDB or network calls.
 
-## Local Dev Seed Scripts
-
-```bash
-# Sync all tables from AWS → local DynamoDB (remaps real userId → local-dev)
-cd backend
-node src/sync-from-aws.mjs
-
-# Seed investment operations + snapshots for local-dev (historical data)
-node src/seed-investments-local.mjs
-
-# Seed Books & Development table from Excel import data (89 entries)
-node src/seed-books-local.mjs
-
-# General local seed (incomes/expenses)
-node src/seed-local.mjs
-
-# Mirror nenciulescu's AWS data to the demo user (production only)
-node src/seed-demo-from-nenciulescu.mjs
-```
-
 ## AWS Infrastructure
 
 | Resource | Value |
@@ -412,9 +391,8 @@ node src/seed-demo-from-nenciulescu.mjs
 |----------|--------|
 | Repeating events | Expand to individual records at write time |
 | Income mapping | Denormalized on Expense record for fast rendering |
-| Local DB | DynamoDB Local (Docker) — identical API to AWS |
 | Frontend | React + Vite (S3/CloudFront compatible), PWA |
-| API | AWS SAM Lambda (`sam local` mirrors production) |
+| API | AWS SAM Lambda (one function per route) |
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates (admin-only POST fetches frankfurter.app). No runtime online fetch or localStorage buffering |
@@ -422,7 +400,7 @@ node src/seed-demo-from-nenciulescu.mjs
 | Statistics | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Stats added as the 6th mobile tab; own year stepper (no global picker on mobile); Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block, now visible on mobile |
 | Investments | Mobile-first stacked blocks in one phone-width (430 px) column on desktop and mobile alike; Investments added to the mobile tab bar after Split Pay; expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
 | Split Payments | DynamoDB-backed card list (no table); one phone-width (430 px) layout on desktop and mobile alike; open entries expanded, settled collapsed; debounced coverage auto-save |
-| Books & Development | Desktop-only (Evolve sidebar dropdown); star ratings, type/source/person filters, seeded from Excel |
+| Books & Development | Evolve tab; card list, star ratings, filter sheet |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only (`nenciulescu`) |
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
 | Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only; `USER_PASSWORD_AUTH` is off. Note this narrows the surface but is **not** a defence against a known password — SRP authenticates with the password too. The real protection is that no password is derivable (see Google Sign-In below) |

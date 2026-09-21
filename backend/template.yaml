@@ -8,7 +8,6 @@ Globals:
     Architectures: [x86_64]
     Environment:
       Variables:
-        DYNAMODB_ENDPOINT: !Ref DynamoDbEndpoint
         INCOMES_TABLE: Incomes
         EXPENSES_TABLE: Expenses
         SPLIT_PAYMENTS_TABLE: SplitPayments
@@ -22,12 +21,6 @@ Globals:
         HQ_ENTRIES_TABLE: HQ_Entries
 
 Parameters:
-  DynamoDbEndpoint:
-    Type: String
-    Default: ""
-    Description: >
-      Override DynamoDB endpoint (e.g. http://localhost:8000 for local dev).
-      Leave blank to use the real AWS DynamoDB endpoint.
   CognitoUserPoolArn:
     Type: String
     Default: "arn:aws:cognito-idp:eu-central-1:980921747943:userpool/eu-central-1_CD7AdBFwQ"

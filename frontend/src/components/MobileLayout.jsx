@@ -89,7 +89,7 @@ export default function MobileLayout({ children }) {
     <div style={s.shell}>
       <header style={s.topBar}>
         <div style={s.brand}>
-          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 28, width: "auto", display: "block" }} />
+          <img src="/app-icon.svg" alt="" style={{ height: 30, width: 30, display: "block", borderRadius: 8 }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
         <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)} aria-label="Account">

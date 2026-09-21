@@ -119,7 +119,7 @@ export default function Login() {
     <div style={s.root}>
       <form style={s.card} onSubmit={handleSubmit}>
         <div style={s.brand}>
-          <img src="/house_logo.png" alt="4TURA Home" style={{ height: 68, width: 'auto', display: 'block' }} />
+          <img src="/app-icon.svg" alt="" style={{ height: 76, width: 76, display: "block", borderRadius: 18, boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
 
@@ -201,22 +201,36 @@ export default function Login() {
 }
 
 const s = {
+  // Aurora background: three soft radial washes over the base colour, tinted
+  // with the accent so it re-colours with the theme instead of being a photo.
   root: {
-    height:         "100vh",
+    minHeight:      "100dvh",
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
-    background:     "var(--bg)",
+    padding:        "24px 16px",
+    position:       "relative",
+    overflow:       "hidden",
+    backgroundColor: "var(--bg)",
+    backgroundImage: `
+      radial-gradient(62% 48% at 10% 4%,   var(--aurora-1) 0%, transparent 68%),
+      radial-gradient(58% 44% at 96% 16%,  var(--aurora-2) 0%, transparent 70%),
+      radial-gradient(90% 55% at 52% 106%, var(--aurora-3) 0%, transparent 72%)
+    `,
   },
   card: {
-    width:         "320px",
+    width:         "100%",
+    maxWidth:      "360px",
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "14px",
+    borderRadius:  "20px",
     padding:       "32px 28px",
     display:       "flex",
     flexDirection: "column",
     gap:           "18px",
+    position:      "relative",
+    boxShadow:     "0 24px 70px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.25)",
+    backdropFilter: "blur(10px)",
   },
   brand: {
     display:        "flex",
@@ -299,7 +313,7 @@ const s = {
     background:   "var(--accent)",
     border:       "none",
     borderRadius: "8px",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     fontSize:     "14px",
     fontWeight:   600,
     padding:      "10px",
