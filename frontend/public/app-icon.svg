@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="4TURA Home">
   <defs>
     <linearGradient id="tile" x1="0.05" y1="0" x2="0.95" y2="1">
-      <stop offset="0%"   stop-color="#9b7bff"/>
-      <stop offset="34%"  stop-color="#6d4aff"/>
-      <stop offset="68%"  stop-color="#3b9dff"/>
-      <stop offset="100%" stop-color="#00c9ff"/>
+      <stop offset="0%"   stop-color="#2e3950"/>
+      <stop offset="34%"  stop-color="#222a3a"/>
+      <stop offset="68%"  stop-color="#4a5c72"/>
+      <stop offset="100%" stop-color="#7f97a7"/>
     </linearGradient>
     <linearGradient id="wall" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#eae6ff"/>
+      <stop offset="0%"   stop-color="#f3ddc4"/>
+      <stop offset="100%" stop-color="#dfb184"/>
     </linearGradient>
     <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#ffdf6b"/>
-      <stop offset="100%" stop-color="#ffa800"/>
+      <stop offset="0%"   stop-color="#e2571a"/>
+      <stop offset="100%" stop-color="#c2410c"/>
     </linearGradient>
     <linearGradient id="hill" x1="0" y1="0" x2="1" y2="0.4">
       <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.30"/>
@@ -24,7 +24,7 @@
 
   <!-- corner light -->
   <circle cx="118" cy="96" r="205" fill="#ffffff" opacity="0.16"/>
-  <circle cx="430" cy="452" r="190" fill="#ff5eb1" opacity="0.30"/>
+  <circle cx="430" cy="452" r="190" fill="#dfb184" opacity="0.22"/>
 
   <!-- hill, drawn behind the house so it looks planted -->
   <path d="M-10 424 C 104 386, 196 438, 300 422 C 390 408, 452 418, 522 400 L 522 522 L -10 522 Z"
@@ -39,9 +39,9 @@
 
   <!-- door -->
   <rect x="233" y="318" width="46" height="74" rx="11" fill="url(#door)"/>
-  <circle cx="269" cy="356" r="4.5" fill="#8a5a00" opacity="0.5"/>
+  <circle cx="269" cy="356" r="4.5" fill="#f3ddc4" opacity="0.75"/>
 
   <!-- windows -->
-  <rect x="186" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
-  <rect x="290" y="300" width="36" height="36" rx="9" fill="#6d4aff" opacity="0.38"/>
+  <rect x="186" y="300" width="36" height="36" rx="9" fill="#222a3a" opacity="0.45"/>
+  <rect x="290" y="300" width="36" height="36" rx="9" fill="#222a3a" opacity="0.45"/>
 </svg>

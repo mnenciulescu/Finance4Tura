@@ -6,24 +6,25 @@ export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "tr
 export const setPrivacySetting = (val) => localStorage.setItem(PRIVACY_KEY, String(val));
 
 const THEME_KEY = "appTheme";
-// "dark" was the old default; it is now Prism. Map it so an existing
-// preference still selects a real entry in the picker.
+// "dark" and "prism" were earlier defaults, both now replaced by Ember. Map
+// them so an existing preference still selects a real entry in the picker.
+const LEGACY_DEFAULTS = ["dark", "prism"];
 export const getStoredTheme = () => {
   const stored = localStorage.getItem(THEME_KEY);
-  return stored === "dark" || stored === null ? "prism" : stored;
+  return stored === null || LEGACY_DEFAULTS.includes(stored) ? "ember" : stored;
 };
 export const applyThemeToDOM = (theme) => document.documentElement.setAttribute("data-theme", theme);
 const saveTheme = (theme) => localStorage.setItem(THEME_KEY, theme);
 
 const THEMES = [
   {
-    id: "prism",
-    label: "Prism",
-    bg: "#f5f6ff",
+    id: "ember",
+    label: "Ember",
+    bg: "#dce6ec",
     surface: "#ffffff",
-    border: "#dce1f8",
-    accent: "#6d4aff",
-    strip: "#00c9ff",
+    border: "#9db2c0",
+    accent: "#c2410c",
+    strip: "#222a3a",
   },
   {
     id: "light",
