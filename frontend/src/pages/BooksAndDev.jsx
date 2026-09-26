@@ -35,6 +35,32 @@ function defaultForm() {
   return { name: "", source: "Book", type: "Book", author: "", title: "", dateCompleted: "", rating: null, comments: "" };
 }
 
+const STATS_MONTHS = 3;   // window for the per-person summary
+const PAGE         = 5;   // entries revealed per "Show more"
+const UNASSIGNED   = "Unassigned";
+
+/** The last N calendar months as YYYY-MM keys, current month first. */
+function recentMonths(n) {
+  const now = new Date();
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
+/** Count, average rating and type split over the recent window. */
+function windowStats(items, monthKeys) {
+  const recent = items.filter(b => monthKeys.has((b.dateCompleted || "").slice(0, 7)));
+  const rated  = recent.filter(b => typeof b.rating === "number" && b.rating > 0);
+  const byType = {};
+  recent.forEach(b => { const t = b.type || "Other"; byType[t] = (byType[t] ?? 0) + 1; });
+  return {
+    count: recent.length,
+    avg:   rated.length ? rated.reduce((sum, b) => sum + b.rating, 0) / rated.length : null,
+    byType: Object.entries(byType).sort((a, b) => b[1] - a[1]),
+  };
+}
+
 // Two-step inline confirm, reverting after 4s — the pattern the rest of the app uses.
 function DeleteButton({ onConfirm }) {
   const [armed, setArmed] = useState(false);
@@ -72,6 +98,8 @@ export default function BooksAndDev() {
   const [formErr, setFormErr]   = useState(null);
   const [saving, setSaving]     = useState(false);
   const [expanded, setExpanded] = useState({});
+  const [collapsed, setCollapsed] = useState({});   // person -> section collapsed
+  const [shown, setShown]         = useState({});   // person -> entries revealed
 
   const [fName,   setFName]   = useState("");
   const [fSource, setFSource] = useState("");
@@ -104,6 +132,30 @@ export default function BooksAndDev() {
   }, [books, fName, fSource, fType, fRating, search]);
 
   const activeFilters = [fName, fSource, fType, fRating, search].filter(Boolean).length;
+
+  // One section per person, each newest-first. Sections are the primary
+  // structure now; the flat list made it impossible to see how any one person
+  // was actually doing.
+  const sections = useMemo(() => {
+    const monthKeys = new Set(recentMonths(STATS_MONTHS));
+    const byPerson  = new Map();
+    for (const b of filtered) {
+      const key = b.name?.trim() || UNASSIGNED;
+      if (!byPerson.has(key)) byPerson.set(key, []);
+      byPerson.get(key).push(b);
+    }
+    return [...byPerson.entries()]
+      .map(([person, items]) => {
+        const sorted = [...items].sort((a, b) =>
+          (b.dateCompleted || "").localeCompare(a.dateCompleted || "") ||
+          (a.title || "").localeCompare(b.title || ""));
+        return { person, items: sorted, stats: windowStats(sorted, monthKeys) };
+      })
+      .sort((a, b) =>
+        // Unassigned last, everyone else alphabetical.
+        (a.person === UNASSIGNED) - (b.person === UNASSIGNED) ||
+        a.person.localeCompare(b.person));
+  }, [filtered]);
 
   function clearFilters() {
     setFName(""); setFSource(""); setFType(""); setFRating(""); setSearch("");
@@ -182,6 +234,7 @@ export default function BooksAndDev() {
           <div style={{ minWidth: 0 }}>
             <h2 style={s.title}>Books &amp; Development</h2>
             <p style={s.subtitle}>
+              {sections.length} {sections.length === 1 ? "person" : "people"} ·{" "}
               {filtered.length} of {books.length} entr{books.length === 1 ? "y" : "ies"}
             </p>
           </div>
@@ -205,42 +258,107 @@ export default function BooksAndDev() {
           <div style={s.empty}>No entries found.</div>
         ) : (
           <div style={s.list}>
-            {filtered.map(b => {
-              const open = !!expanded[b.bookId];
+            {sections.map(({ person, items, stats }) => {
+              const sectionOpen = !collapsed[person];
+              const visible     = items.slice(0, shown[person] ?? 1);
+              const left        = items.length - visible.length;
+
               return (
-                <div key={b.bookId} style={s.card}>
-                  <button style={s.cardHead} onClick={() => toggle(b.bookId)}>
-                    <div style={s.cardHeadMain}>
-                      <span style={s.cardTitle}>{b.title}</span>
-                      {b.author && <span style={s.cardAuthor}>{b.author}</span>}
-                      <div style={s.cardMeta}>
-                        <span style={{ ...s.badge, ...typeBadge(b.type) }}>{b.type || "—"}</span>
-                        <Stars value={b.rating} onChange={v => handleRatingChange(b, v)} size={14} />
-                        <span style={s.flexFill} />
-                        <span style={s.cardDate}>{b.dateCompleted || "—"}</span>
-                      </div>
-                    </div>
-                    <span style={{ ...s.chevron, transform: open ? "rotate(180deg)" : "none" }}>⌄</span>
+                <div key={person} style={s.section} data-person={person}>
+                  <button
+                    style={s.sectionHead}
+                    onClick={() => setCollapsed(m => ({ ...m, [person]: !m[person] }))}
+                  >
+                    <span style={s.sectionName}>{person}</span>
+                    <span style={s.sectionCount}>{items.length}</span>
+                    <span style={s.flexFill} />
+                    <span style={{ ...s.chevron, transform: sectionOpen ? "rotate(180deg)" : "none" }}>⌄</span>
                   </button>
 
-                  {open && (
-                    <div style={s.cardBody}>
-                      <div style={s.detailRow}>
-                        <span style={s.detailKey}>Person</span>
-                        <span style={s.detailVal}>{b.name || "—"}</span>
+                  {sectionOpen && (
+                    <>
+                      <div style={s.statsBlock}>
+                        <span style={s.statsLabel}>Last {STATS_MONTHS} months</span>
+                        <div style={s.statsRow}>
+                          <div style={s.stat}>
+                            <span style={s.statValue} data-stat="count">{stats.count}</span>
+                            <span style={s.statKey}>completed</span>
+                          </div>
+                          <div style={s.stat}>
+                            <span style={s.statValue} data-stat="avg">
+                              {stats.avg == null ? "—" : `★ ${stats.avg.toFixed(1)}`}
+                            </span>
+                            <span style={s.statKey}>avg rating</span>
+                          </div>
+                        </div>
+                        {stats.byType.length > 0 && (
+                          <div style={s.typeSplit}>
+                            {stats.byType.map(([type, n]) => (
+                              <span key={type} style={{ ...s.badge, ...typeBadge(type) }}>
+                                {type} {n}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div style={s.detailRow}>
-                        <span style={s.detailKey}>Source</span>
-                        <span style={s.detailVal}>{b.source || "—"}</span>
-                      </div>
-                      {b.comments && (
-                        <div style={s.comments}>{b.comments}</div>
+
+                      <span style={s.listLabel}>
+                        {visible.length === 1 ? "Latest" : `Latest ${visible.length}`}
+                      </span>
+
+                      {visible.map(b => {
+                        const open = !!expanded[b.bookId];
+                        return (
+                          <div key={b.bookId} style={s.card}>
+                            <button style={s.cardHead} onClick={() => toggle(b.bookId)}>
+                              <div style={s.cardHeadMain}>
+                                <span style={s.cardTitle}>{b.title}</span>
+                                {b.author && <span style={s.cardAuthor}>{b.author}</span>}
+                                <div style={s.cardMeta}>
+                                  <span style={{ ...s.badge, ...typeBadge(b.type) }}>{b.type || "—"}</span>
+                                  <Stars value={b.rating} onChange={v => handleRatingChange(b, v)} size={14} />
+                                  <span style={s.flexFill} />
+                                  <span style={s.cardDate}>{b.dateCompleted || "—"}</span>
+                                </div>
+                              </div>
+                              <span style={{ ...s.chevron, transform: open ? "rotate(180deg)" : "none" }}>⌄</span>
+                            </button>
+
+                            {open && (
+                              <div style={s.cardBody}>
+                                <div style={s.detailRow}>
+                                  <span style={s.detailKey}>Source</span>
+                                  <span style={s.detailVal}>{b.source || "—"}</span>
+                                </div>
+                                {b.comments && <div style={s.comments}>{b.comments}</div>}
+                                <div style={s.cardActions}>
+                                  <button style={s.btnGhost} onClick={() => openEdit(b)}>Edit</button>
+                                  <DeleteButton onConfirm={() => handleDelete(b)} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {left > 0 && (
+                        <button
+                          style={s.moreBtn}
+                          onClick={() => setShown(m => ({ ...m, [person]: visible.length + PAGE }))}
+                        >
+                          Show {Math.min(PAGE, left)} more
+                          <span style={s.moreCount}>{visible.length}/{items.length}</span>
+                        </button>
                       )}
-                      <div style={s.cardActions}>
-                        <button style={s.btnGhost} onClick={() => openEdit(b)}>Edit</button>
-                        <DeleteButton onConfirm={() => handleDelete(b)} />
-                      </div>
-                    </div>
+                      {left === 0 && items.length > 1 && (
+                        <button
+                          style={s.moreBtn}
+                          onClick={() => setShown(m => ({ ...m, [person]: 1 }))}
+                        >
+                          Show less
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -427,6 +545,113 @@ const s = {
     flex:          1,
     minHeight:     0,
   },
+  // ── Per-person section ────────────────────────────────────────────────────
+  section: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "8px",
+    paddingBottom: "6px",
+  },
+  sectionHead: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "8px",
+    width:        "100%",
+    padding:      "4px 2px",
+    background:   "transparent",
+    border:       "none",
+    cursor:       "pointer",
+    fontFamily:   "inherit",
+    textAlign:    "left",
+  },
+  sectionName: {
+    fontSize:   "15px",
+    fontWeight: 700,
+    color:      "var(--text)",
+  },
+  sectionCount: {
+    fontSize:     "11px",
+    fontWeight:   700,
+    color:        "var(--text-muted)",
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "10px",
+    padding:      "1px 7px",
+  },
+  statsBlock: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "9px",
+    background:    "var(--surface)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "12px",
+    padding:       "11px 13px",
+  },
+  statsLabel: {
+    fontSize:      "10px",
+    fontWeight:    700,
+    color:         "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  },
+  statsRow: {
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "10px",
+  },
+  stat: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "2px",
+    background:    "var(--surface-2)",
+    borderRadius:  "9px",
+    padding:       "8px 10px",
+  },
+  statValue: {
+    fontSize:           "18px",
+    fontWeight:         700,
+    color:              "var(--accent)",
+    fontVariantNumeric: "tabular-nums",
+    lineHeight:         1.1,
+  },
+  statKey: {
+    fontSize: "10px",
+    color:    "var(--text-muted)",
+  },
+  typeSplit: {
+    display:  "flex",
+    flexWrap: "wrap",
+    gap:      "6px",
+  },
+  listLabel: {
+    fontSize:      "10px",
+    fontWeight:    700,
+    color:         "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    paddingLeft:   "2px",
+  },
+  moreBtn: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    gap:            "8px",
+    background:     "transparent",
+    border:         "1px dashed var(--border)",
+    borderRadius:   "9px",
+    color:          "var(--text-muted)",
+    fontSize:       "12px",
+    fontWeight:     600,
+    padding:        "9px",
+    cursor:         "pointer",
+    fontFamily:     "inherit",
+  },
+  moreCount: {
+    fontSize:           "10px",
+    opacity:            0.75,
+    fontVariantNumeric: "tabular-nums",
+  },
+
   card: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
