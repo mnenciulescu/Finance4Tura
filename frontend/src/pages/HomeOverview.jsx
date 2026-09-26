@@ -104,15 +104,16 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
   }, [incomes, today]);
 
   // Every expense mapped to this income, not just the outstanding ones.
-  // Still-pending first so what needs doing stays at the top.
+  // Priority then date — the same order IncomeCard uses on the Finance
+  // Dashboard. Status is deliberately not part of the sort: keying on it made
+  // rows jump position the moment one was ticked.
   const items = useMemo(() => {
     if (!currentIncome) return [];
     return expenses
       .filter(e => e.mappedIncomeId === currentIncome.incomeId)
       .slice()
       .sort((a, b) =>
-        (a.status === "Completed") - (b.status === "Completed")
-        || (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
+        (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
         || a.date.localeCompare(b.date)
       );
   }, [expenses, currentIncome]);
