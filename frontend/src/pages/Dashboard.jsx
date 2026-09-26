@@ -77,6 +77,7 @@ export default function Dashboard() {
   }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const safeStart  = Math.max(0, Math.min(startIdx, yearIncomes.length - 1));
+  const atCurrent  = safeStart === activeStartIdx;
   const incomes    = yearIncomes.slice(safeStart, safeStart + 1);
   const canGoLeft  = safeStart > 0;
   const canGoRight = safeStart + 1 < yearIncomes.length;
@@ -236,21 +237,31 @@ export default function Dashboard() {
         </div>
 
         {/* Stepping between income periods. Swiping the card only works with a
-            touch screen, so a mouse had no way to move between them. Arrows are
-            ← → against the year's ‹ ›, and the counter says which of the two
-            steppers you are looking at. */}
+            touch screen, so a mouse had no way to move between them. The middle
+            button returns to the current period. */}
         {yearIncomes.length > 1 && (
-          <div style={s.yearNav}>
+          <div style={s.incomeNav}>
             <button
-              style={{ ...s.yearBtn, ...(canGoLeft ? {} : s.yearBtnOff) }}
+              style={{ ...s.incomeBtn, ...(canGoLeft ? {} : s.yearBtnOff) }}
               onClick={() => canGoLeft && setStartIdx(i => i - 1)}
               disabled={!canGoLeft}
               title="Previous income"
               aria-label="Previous income"
             >←</button>
-            <span style={s.incomePos}>{safeStart + 1}/{yearIncomes.length}</span>
             <button
-              style={{ ...s.yearBtn, ...(canGoRight ? {} : s.yearBtnOff) }}
+              style={{ ...s.incomeBtn, ...(atCurrent ? s.yearBtnOff : { color: "var(--accent)" }) }}
+              onClick={() => !atCurrent && setStartIdx(activeStartIdx)}
+              disabled={atCurrent}
+              title="Go to the current income"
+              aria-label="Go to the current income"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <circle cx="8" cy="8" r="6" />
+                <circle cx="8" cy="8" r="2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            <button
+              style={{ ...s.incomeBtn, ...(canGoRight ? {} : s.yearBtnOff) }}
               onClick={() => canGoRight && setStartIdx(i => i + 1)}
               disabled={!canGoRight}
               title="Next income"
@@ -358,13 +369,31 @@ const s = {
     opacity: 0.35,
     cursor:  "default",
   },
-  incomePos: {
-    minWidth:           "34px",
-    textAlign:          "center",
-    fontSize:           "12px",
-    fontWeight:         700,
-    color:              "var(--text-muted)",
-    fontVariantNumeric: "tabular-nums",
+  incomeNav: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "2px",
+    flexShrink:   0,
+    background:   "var(--surface-2)",
+    border:       "1px solid var(--border)",
+    borderRadius: "9px",
+    padding:      "3px",
+  },
+  // Wider than the year stepper: these get used far more often, and 46px
+  // clears the 44px touch-target guideline.
+  incomeBtn: {
+    width:          "46px",
+    height:         "34px",
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     "transparent",
+    border:         "none",
+    borderRadius:   "7px",
+    color:          "var(--text)",
+    fontSize:       "16px",
+    lineHeight:     1,
+    cursor:         "pointer",
   },
   yearValue: {
     minWidth:           "42px",

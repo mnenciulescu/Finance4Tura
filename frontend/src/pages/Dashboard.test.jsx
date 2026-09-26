@@ -60,15 +60,29 @@ describe("Dashboard — stepping between income periods", () => {
     renderPage();
     // Opens on the current period — 2026-09 for the pinned date.
     await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
-    expect(screen.getByText("2/2")).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Previous income"));
     expect(screen.getByText("Salary Aug")).toBeTruthy();
     expect(screen.queryByText("Salary Sep")).toBeNull();
-    expect(screen.getByText("1/2")).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Next income"));
     expect(screen.getByText("Salary Sep")).toBeTruthy();
+  });
+
+  it("jumps back to the current period, and is disabled while already there", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+
+    const current = () => screen.getByLabelText("Go to the current income");
+    expect(current().disabled).toBe(true);        // already on it
+
+    fireEvent.click(screen.getByLabelText("Previous income"));
+    expect(screen.getByText("Salary Aug")).toBeTruthy();
+    expect(current().disabled).toBe(false);
+
+    fireEvent.click(current());
+    expect(screen.getByText("Salary Sep")).toBeTruthy();
+    expect(current().disabled).toBe(true);
   });
 
   it("disables each arrow at its end of the range", async () => {
