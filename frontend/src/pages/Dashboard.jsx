@@ -234,6 +234,31 @@ export default function Dashboard() {
             title="Next year"
           >›</button>
         </div>
+
+        {/* Stepping between income periods. Swiping the card only works with a
+            touch screen, so a mouse had no way to move between them. Arrows are
+            ← → against the year's ‹ ›, and the counter says which of the two
+            steppers you are looking at. */}
+        {yearIncomes.length > 1 && (
+          <div style={s.yearNav}>
+            <button
+              style={{ ...s.yearBtn, ...(canGoLeft ? {} : s.yearBtnOff) }}
+              onClick={() => canGoLeft && setStartIdx(i => i - 1)}
+              disabled={!canGoLeft}
+              title="Previous income"
+              aria-label="Previous income"
+            >←</button>
+            <span style={s.incomePos}>{safeStart + 1}/{yearIncomes.length}</span>
+            <button
+              style={{ ...s.yearBtn, ...(canGoRight ? {} : s.yearBtnOff) }}
+              onClick={() => canGoRight && setStartIdx(i => i + 1)}
+              disabled={!canGoRight}
+              title="Next income"
+              aria-label="Next income"
+            >→</button>
+          </div>
+        )}
+
         <button
           style={s.visToggle}
           onClick={() => setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; })}
@@ -332,6 +357,14 @@ const s = {
     color:   "var(--text-muted)",
     opacity: 0.35,
     cursor:  "default",
+  },
+  incomePos: {
+    minWidth:           "34px",
+    textAlign:          "center",
+    fontSize:           "12px",
+    fontWeight:         700,
+    color:              "var(--text-muted)",
+    fontVariantNumeric: "tabular-nums",
   },
   yearValue: {
     minWidth:           "42px",

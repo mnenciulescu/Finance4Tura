@@ -53,6 +53,38 @@ describe("Dashboard — Finance page actions", () => {
   });
 });
 
+// Swiping the income card needs a touch screen, so with a mouse there was no
+// way to move between income periods at all.
+describe("Dashboard — stepping between income periods", () => {
+  it("moves to the previous income and back", async () => {
+    renderPage();
+    // Opens on the current period — 2026-09 for the pinned date.
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+    expect(screen.getByText("2/2")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Previous income"));
+    expect(screen.getByText("Salary Aug")).toBeTruthy();
+    expect(screen.queryByText("Salary Sep")).toBeNull();
+    expect(screen.getByText("1/2")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Next income"));
+    expect(screen.getByText("Salary Sep")).toBeTruthy();
+  });
+
+  it("disables each arrow at its end of the range", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+
+    // Newest period: nothing further forward.
+    expect(screen.getByLabelText("Next income").disabled).toBe(true);
+    expect(screen.getByLabelText("Previous income").disabled).toBe(false);
+
+    fireEvent.click(screen.getByLabelText("Previous income"));
+    expect(screen.getByLabelText("Previous income").disabled).toBe(true);
+    expect(screen.getByLabelText("Next income").disabled).toBe(false);
+  });
+});
+
 // These two used to live in the desktop chrome, which no longer exists.
 describe("Dashboard — controls rehomed from the desktop bar", () => {
   it("carries its own year stepper and will not step past the current year", async () => {
