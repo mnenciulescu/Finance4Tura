@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { listBooks, createBook, updateBook, deleteBook } from "../api/booksAndDev";
 
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 const SOURCES = ["Book", "Voxa", "Udemy", "Other"];
 const TYPES   = ["Book", "Audiobook", "Training", "Other"];

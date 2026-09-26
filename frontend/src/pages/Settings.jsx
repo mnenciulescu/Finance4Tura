@@ -180,7 +180,7 @@ const s = {
   },
   card: {
     width:        "100%",
-    maxWidth:     "430px",
+    maxWidth:     "var(--app-max-w)",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
     borderRadius: "14px",

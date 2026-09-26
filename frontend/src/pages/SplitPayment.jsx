@@ -9,7 +9,7 @@ import {
 
 // The whole page is a single phone-width column, rendered the same way on
 // desktop and on mobile — same widths, paddings and font sizes everywhere.
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -86,7 +86,7 @@ export default function MobileLayout({ children }) {
   }
 
   return (
-    <div style={s.shell}>
+    <div className="app-shell" style={s.shell}>
       <header style={s.topBar}>
         <div style={s.brand}>
           <img src="/app-icon.svg" alt="" style={{ height: 30, width: 30, display: "block", borderRadius: 8 }} />

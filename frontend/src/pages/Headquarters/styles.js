@@ -1,4 +1,4 @@
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 const s = {
   // Centred phone-width column. The old negative margin cancelled the desktop
@@ -428,7 +428,7 @@ const s = {
     border:        "1px solid var(--border)",
     borderRadius:  "14px",
     width:         "100%",
-    maxWidth: "430px",
+    maxWidth: "var(--app-max-w)",
     maxHeight:     "90vh",
     display:       "flex",
     flexDirection: "column",

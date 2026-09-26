@@ -668,7 +668,7 @@ export default function HomeOverview() {
     // one after another in a centered, phone-width column at their natural
     // content height; the surrounding page (main) scrolls to reveal them.
     <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "16px" }}>
-      <div style={{ width: "100%", maxWidth: "430px", display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div style={{ width: "100%", maxWidth: "var(--app-max-w)", display: "flex", flexDirection: "column", gap: "16px" }}>
 
         {/* Section 1 — Pending Expenses */}
         <div style={{ display: "flex", flexDirection: "column" }}>

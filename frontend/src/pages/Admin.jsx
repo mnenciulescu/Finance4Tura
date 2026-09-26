@@ -357,7 +357,7 @@ export default function Admin() {
       {/* Backup modal — unified */}
       {backupModal && backupModal.phase !== "loading" && (
         <div style={s.overlay}>
-          <div style={{ ...s.modal, maxWidth: "430px" }}>
+          <div style={{ ...s.modal, maxWidth: "var(--app-max-w)" }}>
             {/* Title */}
             <h2 style={s.modalTitle}>
               {backupModal.phase === "preview" && "Backup ALL Tables"}
@@ -511,7 +511,7 @@ const s = {
   },
   column: {
     width:         "100%",
-    maxWidth:      "430px",
+    maxWidth:      "var(--app-max-w)",
     display:       "flex",
     flexDirection: "column",
     gap:           "16px",
@@ -588,7 +588,7 @@ const s = {
   },
   modal: {
     background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "14px",
-    padding: "22px 20px", width: "100%", maxWidth: "430px", boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+    padding: "22px 20px", width: "100%", maxWidth: "var(--app-max-w)", boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
   },
   modalTitle:  { fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 10px" },
   modalBody:   { fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.6, margin: "0 0 20px" },

@@ -11,7 +11,7 @@ import { CHART_COLORS as C } from "../utils/colors";
 
 // The whole page is a single phone-width column, rendered the same way on
 // desktop and on mobile — same widths, paddings and font sizes everywhere.
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 

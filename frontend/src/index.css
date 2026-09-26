@@ -71,6 +71,10 @@
 
   --card-w: 280px;
 
+  /* The one place the phone-column width is defined. The shell enforces it;
+     pages and bottom sheets read it rather than repeating the number. */
+  --app-max-w: 430px;
+
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
@@ -183,6 +187,26 @@
   --aurora-1: rgba(180,83,9,0.18);
   --aurora-2: rgba(217,119,6,0.16);
   --aurora-3: rgba(252,211,77,0.20);
+}
+
+/* The app is mobile-only, so on any viewport it renders as a single centred
+   phone-width column — top bar and tab bar included, not just the content.
+   Capping the shell rather than each page means a page cannot stretch by
+   forgetting to cap itself, which is how the Dashboard came to run full width. */
+.app-shell {
+  width: 100%;
+  max-width: var(--app-max-w);
+  margin: 0 auto;
+}
+
+/* Once there is room either side, frame the column so it reads as deliberate
+   rather than as a layout that failed to fill the window. */
+@media (min-width: 520px) {
+  .app-shell {
+    border-left:  1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow:   0 0 60px rgba(0, 0, 0, 0.10);
+  }
 }
 
 html {

@@ -7,7 +7,7 @@ import { listSplitPayments, deleteSplitPayment } from "../api/splitPayments";
 import { useAuth } from "../context/AuthContext";
 import { HTTP_METHOD_COLORS as METHOD_COLOR } from "../utils/colors";
 
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 const PAGE = 10;
 
 const STATUS_COLOR = (s) => {

@@ -13,7 +13,7 @@ import { getFxRates } from "../api/fxRates";
 
 // The whole page is a single phone-width column, rendered the same way on
 // desktop and on mobile — same widths, paddings and font sizes everywhere.
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 // Portfolio evolution chart never plots anything before this month.
 const CHART_START = "2023-01";

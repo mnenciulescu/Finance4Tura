@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const COL_WIDTH = "430px";
+const COL_WIDTH = "var(--app-max-w)";
 
 export default function NavSheet({ title, items, onClose }) {
   const navigate = useNavigate();
