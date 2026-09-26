@@ -103,21 +103,30 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
     return past.reduce((best, i) => i.date > best.date ? i : best);
   }, [incomes, today]);
 
-  const pending = useMemo(() => {
+  // Every expense mapped to this income, not just the outstanding ones.
+  // Still-pending first so what needs doing stays at the top.
+  const items = useMemo(() => {
     if (!currentIncome) return [];
     return expenses
-      .filter(e => e.status === "Pending" && e.mappedIncomeId === currentIncome.incomeId)
+      .filter(e => e.mappedIncomeId === currentIncome.incomeId)
       .slice()
       .sort((a, b) =>
-        (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
+        (a.status === "Completed") - (b.status === "Completed")
+        || (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
         || a.date.localeCompare(b.date)
       );
   }, [expenses, currentIncome]);
 
-  const total = useMemo(() =>
-    pending.reduce((sum, e) => sum + (Number(e.amount) || 0), 0),
-    [pending]
-  );
+  const { doneTotal, pendingTotal } = useMemo(() => {
+    let doneTotal = 0, pendingTotal = 0;
+    for (const e of items) {
+      const amt = Number(e.amount) || 0;
+      if (e.status === "Completed") doneTotal += amt;
+      else                          pendingTotal += amt;
+    }
+    return { doneTotal, pendingTotal };
+  }, [items]);
+  const total = doneTotal + pendingTotal;
 
   if (!currentIncome) {
     return (
@@ -129,7 +138,7 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
   const { month, day, year } = monthParts(currentIncome.date);
   const dow = getDow(currentIncome.date);
-  const cur = pending[0]?.currency || "";
+  const cur = items[0]?.currency || "";
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", background: "var(--surface)", display: "flex", flexDirection: "column", flex: 1 }}>
@@ -147,7 +156,7 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
             <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--badge-text)", opacity: 0.7 }}>{dow}</span>
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--badge-text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Pending Expenses
+              Expenses
             </span>
           </div>
           {/* Income summary */}
@@ -159,67 +168,108 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
       {/* Expense list */}
       <div style={{ flex: 1 }}>
-        {pending.length === 0 ? (
+        {items.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: "12px", padding: "12px 16px" }}>
-            No pending expenses for this period.
+            No expenses for this period.
           </div>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {pending.map(exp => (
-              <li key={exp.expenseId} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "7px 16px", borderBottom: "1px solid var(--border)",
-                ...(exp.special ? { background: "rgba(239,68,68,0.07)" } : {}),
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
-                  {/* Pending status badge — click to complete */}
-                  <span
-                    title="Mark as Completed"
-                    onClick={() => onToggle?.(exp)}
-                    style={{
-                      width: "14px", height: "14px", flexShrink: 0,
-                      border: "1.5px dashed var(--text-muted)", borderRadius: "3px",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer",
-                    }}
-                  />
-                  {/* Priority dot */}
+            {items.map(exp => {
+              const isDone = exp.status === "Completed";
+              return (
+                <li key={exp.expenseId} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "7px 16px", borderBottom: "1px solid var(--border)",
+                  ...(exp.special && !isDone ? { background: "rgba(239,68,68,0.07)" } : {}),
+                  ...(isDone ? { opacity: 0.55 } : {}),
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
+                    {/* Status box — click to flip between Pending and Completed */}
+                    <span
+                      title={isDone ? "Mark as Pending" : "Mark as Completed"}
+                      onClick={() => onToggle?.(exp)}
+                      style={{
+                        width: "14px", height: "14px", flexShrink: 0, borderRadius: "3px",
+                        border: isDone ? "1.5px solid var(--success)" : "1.5px dashed var(--text-muted)",
+                        background: isDone ? "var(--success)" : "transparent",
+                        color: "#fff", fontSize: "10px", lineHeight: 1,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer",
+                      }}
+                    >{isDone ? "✓" : ""}</span>
+                    {/* Priority dot */}
+                    <span style={{
+                      width: "7px", height: "7px", flexShrink: 0, borderRadius: "50%",
+                      background: PRIORITY_COLOR[exp.priority] ?? "#6b7194",
+                    }} />
+                    {exp.special && <span style={{ fontSize: "10px", color: "#ef4444", flexShrink: 0 }}>★</span>}
+                    <span
+                      title={exp.summary}
+                      style={{
+                        fontSize: "12px", color: "var(--text)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        textDecoration: isDone ? "line-through" : "none",
+                      }}
+                    >
+                      {exp.summary}
+                    </span>
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", flexShrink: 0 }}>{exp.date.slice(5)}</span>
+                  </div>
                   <span style={{
-                    width: "7px", height: "7px", flexShrink: 0, borderRadius: "50%",
-                    background: PRIORITY_COLOR[exp.priority] ?? "#6b7194",
-                  }} />
-                  {exp.special && <span style={{ fontSize: "10px", color: "#ef4444", flexShrink: 0 }}>★</span>}
-                  <span style={{ fontSize: "12px", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={exp.summary}>
-                    {exp.summary}
+                    fontSize: "12px", fontVariantNumeric: "tabular-nums", color: "var(--text)",
+                    fontWeight: 500, flexShrink: 0, marginLeft: "8px",
+                    textDecoration: isDone ? "line-through" : "none",
+                  }}>
+                    {fmtDec(exp.amount ?? 0)}
                   </span>
-                  <span style={{ fontSize: "10px", color: "var(--text-muted)", flexShrink: 0 }}>{exp.date.slice(5)}</span>
-                </div>
-                <span style={{ fontSize: "12px", fontVariantNumeric: "tabular-nums", color: "var(--text)", fontWeight: 500, flexShrink: 0, marginLeft: "8px" }}>
-                  {fmtDec(exp.amount ?? 0)}
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
-      {/* Footer — pending-only bar */}
+      {/* Footer — done vs pending, split in proportion to the amounts */}
       {total > 0 && (
         <div style={{ padding: "8px 12px 10px", borderTop: "1px solid var(--border)" }}>
-          <div style={{
-            height: "34px", borderRadius: "6px", overflow: "hidden",
-            background: BAR_COLOR.pending,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontVariantNumeric: "tabular-nums" }}>
-              {fmtInt(total)}
-            </span>
+          <div style={{ height: "34px", borderRadius: "6px", overflow: "hidden", display: "flex" }}>
+            {doneTotal > 0 && (
+              <div style={{
+                flex: doneTotal, background: BAR_COLOR.done, minWidth: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--bar-label)", fontVariantNumeric: "tabular-nums" }}>
+                  {fmtInt(doneTotal)}
+                </span>
+              </div>
+            )}
+            {pendingTotal > 0 && (
+              <div style={{
+                flex: pendingTotal, background: BAR_COLOR.pending, minWidth: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--bar-label)", fontVariantNumeric: "tabular-nums" }}>
+                  {fmtInt(pendingTotal)}
+                </span>
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "5px" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.pending, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Pending</span>
-            <span style={{ fontSize: "10px", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-              — {fmtDec(total)} {cur}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 10px", marginTop: "5px" }}>
+            {doneTotal > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10px", color: "var(--text-muted)" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.done, flexShrink: 0 }} />
+                Done — <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDec(doneTotal)}</span>
+              </span>
+            )}
+            {pendingTotal > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10px", color: "var(--text-muted)" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.pending, flexShrink: 0 }} />
+                Pending — <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDec(pendingTotal)}</span>
+              </span>
+            )}
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+              {fmtDec(total)} {cur}
             </span>
           </div>
         </div>
@@ -637,13 +687,13 @@ export default function HomeOverview() {
   }, []);
 
   async function handleToggleExpense(exp) {
-    // Optimistically mark as Completed in local state
-    setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: "Completed" } : e));
+    // Completed rows are listed now, so this flips both ways.
+    const next = exp.status === "Completed" ? "Pending" : "Completed";
+    setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: next } : e));
     try {
-      await updateExpense(exp.expenseId, { ...exp, status: "Completed" });
+      await updateExpense(exp.expenseId, { ...exp, status: next });
     } catch {
-      // Rollback on failure
-      setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: "Pending" } : e));
+      setExpenses(prev => prev.map(e => e.expenseId === exp.expenseId ? { ...e, status: exp.status } : e));
     }
   }
 
