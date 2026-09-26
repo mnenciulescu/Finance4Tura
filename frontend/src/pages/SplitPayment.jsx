@@ -83,6 +83,12 @@ export default function SplitPayment() {
   const [confirmId, setConfirmId] = useState(null);
   const confirmTimer = useRef(null);
   const saveTimers   = useRef({});
+  const askTimer     = useRef(null);
+
+  // Set when a coverage edit would fill the final empty slot. Settling moves the
+  // card out of "In progress", so the change is shown but not saved until the
+  // user agrees to it. { entryId, title, prevOccs }
+  const [pendingSettle, setPendingSettle] = useState(null);
 
   useEffect(() => {
     listSplitPayments()
@@ -93,16 +99,20 @@ export default function SplitPayment() {
 
   useEffect(() => () => {
     clearTimeout(confirmTimer.current);
+    clearTimeout(askTimer.current);
     Object.values(saveTimers.current).forEach(clearTimeout);
   }, []);
 
   const { open, done } = useMemo(() => {
     const sorted = [...entries].sort((a, b) => (b.createdDate || "").localeCompare(a.createdDate || ""));
+    // An entry awaiting settle confirmation stays in "In progress", so the card
+    // does not vanish out from under the question being asked about it.
+    const isOpen = e => !stats(e).complete || e.splitPaymentId === pendingSettle?.entryId;
     return {
-      open: sorted.filter(e => !stats(e).complete),
-      done: sorted.filter(e =>  stats(e).complete),
+      open: sorted.filter(isOpen),
+      done: sorted.filter(e => !isOpen(e)),
     };
-  }, [entries]);
+  }, [entries, pendingSettle]);
 
   const outstanding = useMemo(() => {
     const acc = {};
@@ -124,20 +134,67 @@ export default function SplitPayment() {
   }
 
   function applyOccs(entryId, mapper) {
-    const updated = entries.map(e =>
-      e.splitPaymentId !== entryId ? e : { ...e, occurrences: mapper(normOccs(e), e) }
-    );
-    setEntries(updated);
-    const entry = updated.find(e => e.splitPaymentId === entryId);
-    if (entry) persist(entryId, entry.occurrences);
+    const before = entries.find(e => e.splitPaymentId === entryId);
+    if (!before) return;
+
+    const prevOccs = normOccs(before);
+    const nextOccs = mapper(prevOccs, before);
+
+    // Show the edit either way, so the field reflects what was just entered.
+    setEntries(entries.map(e => (e.splitPaymentId === entryId ? { ...e, occurrences: nextOccs } : e)));
+
+    const wasComplete = stats(before).complete;
+    const nowComplete = stats({ ...before, occurrences: nextOccs }).complete;
+
+    if (nowComplete && !wasComplete) {
+      // Filling the final slot settles the entry and moves it out of this
+      // section, so hold the save and ask first. An amount counts as filled on
+      // its first keystroke, so the question waits for typing to stop rather
+      // than interrupting it — and the card is pinned in place meanwhile.
+      clearTimeout(saveTimers.current[entryId]);
+      clearTimeout(askTimer.current);
+      setPendingSettle(p =>
+        p?.entryId === entryId
+          ? { ...p, ask: false }
+          : { entryId, title: before.title, prevOccs, ask: false });
+      askTimer.current = setTimeout(
+        () => setPendingSettle(p => (p ? { ...p, ask: true } : p)), 700);
+      return;
+    }
+
+    // Edited back below complete (cleared a slot) — the question no longer applies.
+    if (pendingSettle?.entryId === entryId) {
+      clearTimeout(askTimer.current);
+      setPendingSettle(null);
+    }
+    persist(entryId, nextOccs);
+  }
+
+  function confirmSettle() {
+    const p = pendingSettle;
+    clearTimeout(askTimer.current);
+    setPendingSettle(null);
+    if (!p) return;
+    const entry = entries.find(e => e.splitPaymentId === p.entryId);
+    if (entry) persist(p.entryId, normOccs(entry));
+  }
+
+  function cancelSettle() {
+    const p = pendingSettle;
+    clearTimeout(askTimer.current);
+    setPendingSettle(null);
+    if (!p) return;
+    setEntries(prev => prev.map(e =>
+      e.splitPaymentId === p.entryId ? { ...e, occurrences: p.prevOccs } : e
+    ));
   }
 
   const setOcc = (entryId, idx, value) =>
     applyOccs(entryId, occs => occs.map((o, i) => (i === idx ? { ...o, value } : o)));
 
+  /** Amount entries only — date slots open the picker instead. */
   function quickFill(entry, idx) {
-    const value = entry.occurrenceType === "amount" ? String(suggestValue(entry)) : todayStr();
-    setOcc(entry.splitPaymentId, idx, value);
+    setOcc(entry.splitPaymentId, idx, String(suggestValue(entry)));
   }
 
   /** Fill every still-empty amount occurrence; the last one absorbs the rounding rest. */
@@ -347,6 +404,23 @@ export default function SplitPayment() {
           onSubmit={handleSubmit}
         />
       )}
+
+      {pendingSettle?.ask && (
+        <div style={s.overlay} onClick={cancelSettle}>
+          <div style={s.dialog} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <p style={s.dialogTitle}>Mark as settled?</p>
+            <p style={s.dialogBody}>
+              That was the last open slot on{" "}
+              <strong style={{ color: "var(--text)" }}>{pendingSettle.title || "this entry"}</strong>.
+              Confirming moves it into Settled.
+            </p>
+            <div style={s.dialogActions}>
+              <button style={s.cancelBtn} onClick={cancelSettle}>Cancel</button>
+              <button style={s.saveBtn} onClick={confirmSettle}>Mark settled</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -362,6 +436,17 @@ function EntryCard({
   const pct        = count ? Math.round((paid / count) * 100) : 0;
   const id         = entry.splitPaymentId;
   const confirming = confirmId === id;
+  const inputs     = useRef({});
+
+  // On a date entry the action button opens the picker instead of writing
+  // today's date. It used to commit today outright, so a stray tap on the
+  // button — which sits inside the same tile as the field — silently filled
+  // the slot and could settle the whole entry.
+  function openPicker(i) {
+    const el = inputs.current[i];
+    if (!el) return;
+    try { el.showPicker(); } catch { el.focus(); }
+  }
 
   return (
     <div style={s.card(complete)}>
@@ -400,6 +485,7 @@ function EntryCard({
                 <div key={i} style={s.occ(filled)}>
                   <span style={s.occIdx(filled)}>{i + 1}</span>
                   <input
+                    ref={el => { inputs.current[i] = el; }}
                     type={isAmount ? "number" : "date"}
                     inputMode={isAmount ? "decimal" : undefined}
                     value={occ.value ?? ""}
@@ -411,8 +497,12 @@ function EntryCard({
                   />
                   <button
                     style={s.occAction(filled)}
-                    title={filled ? "Clear" : (isAmount ? "Fill suggested amount" : "Set today")}
-                    onClick={() => (filled ? onSetOcc(id, i, "") : onQuickFill(entry, i))}
+                    title={filled ? "Clear" : (isAmount ? "Fill suggested amount" : "Pick a date")}
+                    onClick={() => {
+                      if (filled)   return onSetOcc(id, i, "");
+                      if (isAmount) return onQuickFill(entry, i);
+                      openPicker(i);
+                    }}
                   >
                     {filled ? "✕" : "+"}
                   </button>
@@ -846,6 +936,35 @@ const s = {
     alignItems:     "flex-end",
     justifyContent: "center",
     zIndex:         500,
+  },
+  // Centred question, as opposed to the bottom sheet the forms use.
+  dialog: {
+    alignSelf:     "center",
+    width:         "100%",
+    maxWidth:      "340px",
+    margin:        "0 16px",
+    background:    "var(--surface)",
+    border:        "1px solid var(--border)",
+    borderRadius:  "14px",
+    padding:       "20px 18px 16px",
+    boxShadow:     "0 18px 60px rgba(0,0,0,0.35)",
+  },
+  dialogTitle: {
+    fontSize:     "15px",
+    fontWeight:   700,
+    color:        "var(--text)",
+    marginBottom: "8px",
+  },
+  dialogBody: {
+    fontSize:     "13px",
+    color:        "var(--text-muted)",
+    lineHeight:   1.55,
+    marginBottom: "18px",
+  },
+  dialogActions: {
+    display:             "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap:                 "10px",
   },
   sheet: {
     background:    "var(--surface)",
