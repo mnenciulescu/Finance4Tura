@@ -6,31 +6,34 @@ export const getPrivacySetting = () => localStorage.getItem(PRIVACY_KEY) === "tr
 export const setPrivacySetting = (val) => localStorage.setItem(PRIVACY_KEY, String(val));
 
 const THEME_KEY = "appTheme";
-// "dark" and "prism" were earlier defaults, both now replaced by Ember. Map
-// them so an existing preference still selects a real entry in the picker.
-const LEGACY_DEFAULTS = ["dark", "prism"];
+// Each of these was the default at some point and has since been replaced, most
+// recently Ember by Dusk. Map them so an existing preference still selects a
+// real entry in the picker rather than leaving it with nothing highlighted.
+const LEGACY_DEFAULTS = ["dark", "prism", "ember"];
 export const getStoredTheme = () => {
   const stored = localStorage.getItem(THEME_KEY);
-  return stored === null || LEGACY_DEFAULTS.includes(stored) ? "ember" : stored;
+  return stored === null || LEGACY_DEFAULTS.includes(stored) ? "dusk" : stored;
 };
 export const applyThemeToDOM = (theme) => document.documentElement.setAttribute("data-theme", theme);
 const saveTheme = (theme) => localStorage.setItem(THEME_KEY, theme);
 
 const THEMES = [
+  // Swatch values are literal on purpose: a preview of theme X cannot be
+  // painted with the variables of the theme currently applied.
   {
-    id: "ember",
-    label: "Ember",
-    bg: "#dce6ec",
-    surface: "#ffffff",
-    border: "#9db2c0",
-    accent: "#c2410c",
-    strip: "#222a3a",
+    id: "dusk",
+    label: "Dusk",
+    bg: "#4a4e57",
+    surface: "#2d3343",
+    border: "#434e60",
+    accent: "#bc9876",
+    strip: "#8fb39a",
   },
   {
     id: "light",
     label: "Light",
-    bg: "#f9fbf9",
-    surface: "#eef2ee",
+    bg: "#eef2ee",
+    surface: "#f9fbf9",
     border: "#c2d4c4",
     accent: "#15803d",
     strip: "#15803d",
@@ -38,8 +41,8 @@ const THEMES = [
   {
     id: "amber",
     label: "Amber",
-    bg: "#fffdf8",
-    surface: "#f6ecd6",
+    bg: "#f4e9d7",
+    surface: "#fffdf8",
     border: "#d4a845",
     accent: "#b45309",
     strip: "#b45309",
@@ -54,26 +57,26 @@ function ThemeCard({ theme, selected, onSelect }) {
         ...s.themeCard,
         ...(selected ? s.themeCardSelected : {}),
         borderColor: selected ? theme.accent : "var(--border)",
-        boxShadow: selected ? `0 0 0 2px ${theme.accent}33` : "none",
+        boxShadow:   selected ? `0 0 0 2px ${theme.accent}33` : "none",
       }}
     >
       {/* Mini app preview */}
       <div style={{ ...s.themePreviewBox, background: theme.bg }}>
         {/* Top bar */}
         <div style={{ ...s.themeTopbar, background: theme.surface, borderBottom: `1px solid ${theme.border}` }}>
-          <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: theme.accent, opacity: 0.9 }} />
+          <div style={{ width: "10px", height: "10px", borderRadius: "var(--r-pill)", background: theme.accent, opacity: 0.9 }} />
           <div style={{ display: "flex", gap: "4px" }}>
-            <div style={{ width: "18px", height: "3px", borderRadius: "2px", background: theme.border }} />
-            <div style={{ width: "12px", height: "3px", borderRadius: "2px", background: theme.border }} />
+            <div style={{ width: "18px", height: "3px", borderRadius: "var(--r-pill)", background: theme.border }} />
+            <div style={{ width: "12px", height: "3px", borderRadius: "var(--r-pill)", background: theme.border }} />
           </div>
         </div>
         {/* Content rows */}
         <div style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "5px 5px 3px" }}>
           {/* Accent strip */}
-          <div style={{ height: "2px", borderRadius: "1px", background: theme.strip, width: "60%" }} />
-          <div style={{ height: "3px", borderRadius: "2px", background: theme.border, width: "85%" }} />
-          <div style={{ height: "3px", borderRadius: "2px", background: theme.border, width: "70%", opacity: 0.6 }} />
-          <div style={{ height: "3px", borderRadius: "2px", background: theme.accent, width: "40%", opacity: 0.7 }} />
+          <div style={{ height: "2px", borderRadius: "var(--r-pill)", background: theme.strip, width: "60%" }} />
+          <div style={{ height: "3px", borderRadius: "var(--r-pill)", background: theme.border, width: "85%" }} />
+          <div style={{ height: "3px", borderRadius: "var(--r-pill)", background: theme.border, width: "70%", opacity: 0.6 }} />
+          <div style={{ height: "3px", borderRadius: "var(--r-pill)", background: theme.accent, width: "40%", opacity: 0.7 }} />
         </div>
       </div>
       {/* Label */}
@@ -183,9 +186,9 @@ const s = {
     maxWidth:     "var(--app-max-w)",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
     padding:      "20px 18px",
-    boxShadow:    "0 4px 32px rgba(0,0,0,0.15)",
+    boxShadow:    "var(--shadow-card)",
   },
   title: {
     fontSize:     "18px",
@@ -243,7 +246,7 @@ const s = {
     padding:      "10px",
     background:   "var(--surface-2)",
     border:       "2px solid var(--border)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
     cursor:       "pointer",
     transition:   "border-color 0.15s, box-shadow 0.15s",
     minWidth:     "100px",
@@ -255,11 +258,11 @@ const s = {
   themePreviewBox: {
     width:        "80px",
     height:       "54px",
-    borderRadius: "7px",
+    borderRadius: "var(--r-sm)",
     overflow:     "hidden",
     display:      "flex",
     flexDirection:"column",
-    border:       "1px solid rgba(0,0,0,0.08)",
+    border:       "1px solid rgba(32, 35, 50, 0.12)",
   },
   themeTopbar: {
     display:        "flex",
@@ -284,7 +287,7 @@ const s = {
     position:     "relative",
     width:        "44px",
     height:       "24px",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
     border:       "none",
     cursor:       "pointer",
     flexShrink:   0,
@@ -295,7 +298,7 @@ const s = {
     background: "var(--accent)",
   },
   toggleOff: {
-    background: "var(--border)",
+    background: "var(--surface-2)",
   },
   thumb: {
     position:     "absolute",
@@ -303,7 +306,7 @@ const s = {
     width:        "20px",
     height:       "20px",
     borderRadius: "50%",
-    background:   "#fff",
+    background:   "var(--text)",
     transition:   "transform 0.2s",
     display:      "block",
   },
@@ -318,8 +321,8 @@ const s = {
   btnCancel: {
     background:   "transparent",
     color:        "var(--text-muted)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   500,
     fontSize:     "13px",
@@ -329,7 +332,7 @@ const s = {
     background:   "var(--accent)",
     color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 24px",
     fontWeight:   600,
     fontSize:     "13px",

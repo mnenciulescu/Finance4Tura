@@ -84,7 +84,20 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - PWA: `vite-plugin-pwa`, service worker, offline support
 - `vite.config.js` requires `define: { global: 'globalThis' }` for `amazon-cognito-identity-js`
 - `ErrorBoundary` wraps all routes in `App.jsx`; catches render errors and shows a dismissable fallback
-- Shared color constants in `frontend/src/utils/colors.js` (PRIORITY_COLORS, HTTP_METHOD_COLORS, CHART_COLORS, BAR_COLORS)
+- **Design tokens live in `frontend/src/index.css`** — colour, radius,
+  elevation, spacing and type, as CSS custom properties. Pages read them; they
+  do not hold raw values. `src/test/designTokens.test.js` enforces this by
+  scanning the source, so a stray hex or an off-scale radius fails the build.
+- `frontend/src/components/tokens.js` mirrors the most-used tokens as strings
+  (`T`, `TYPE`) for inline styles, which cannot put a CSS variable inside a
+  shorthand. `frontend/src/components/ui.jsx` holds the shared primitives:
+  `Card`, `HeroHeader`, `StatTile`, `SectionHeader`, `Pill`, `StatusDot`,
+  `Checkbox`, `ProgressBar`, `Button`, `IconButton`, `Input`, `Sheet`,
+  `Skeleton`.
+- Categorical series colours in `frontend/src/utils/colors.js` — the palette
+  anchors (`DUSK`), `PRIORITY_COLORS`, `HTTP_METHOD_COLORS`, `CHART_COLORS`,
+  `BAR_COLORS`, `PLATFORM_COLORS`, `TYPE_COLORS` and the `alpha()` tint helper.
+  This is the one file allowed to hold hex literals.
 
 ### Books & Development Module
 
@@ -216,7 +229,7 @@ Route: `/statistics` — Finance group in the bottom bar. Centred phone-width co
 
 Route: `/` — the main landing page after login. Finance Dashboard moved to `/finance`.
 
-**Layout**: 2-column grid (`1fr 1fr`), 4 section cards.
+**Layout**: a single phone-width column of 4 section cards.
 
 **Section 1 — Pending Expenses (top-left)**:
 - Calls `listIncomes()` and `listExpenses()`
@@ -366,9 +379,9 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
-| Frontend pages | `Investments`, `Statistics`, `Dashboard` (render tests against mocked APIs) | 18 |
-| Frontend components | `MobileLayout` (tab bar), `IncomeCard` (row icon sizing) | 7 |
-| Frontend regression | `noZoom` (16px form controls on mobile) | 3 |
+| Frontend pages | `Investments`, `Statistics`, `Dashboard`, `HomeOverview`, `BooksAndDev`, `Headquarters` (render tests against mocked APIs) | 39 |
+| Frontend components | `MobileLayout` (tab bar), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 25 |
+| Frontend regression | `noZoom` (16px form controls on mobile), `appWidth`, `designTokens` (no raw colours, radii or shadows outside the token files) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 27 |
 | Backend lib | `expandDates`, `resolveIncome` | 21 |
 
@@ -405,8 +418,10 @@ Backend and frontend-utils tests are pure-function or context tests. `Investment
 | Admin menu | Restricted to user `nenciulescu` both locally and in AWS |
 | Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only; `USER_PASSWORD_AUTH` is off. Note this narrows the surface but is **not** a defence against a known password — SRP authenticates with the password too. The real protection is that no password is derivable (see Google Sign-In below) |
 | `sam build` on macOS | Prefix with `ulimit -n 10240 &&` to avoid "too many open files" OS error |
-| Themes | **Ember** (default, defined on `:root`): a light blue-grey base `#dce6ec` with white cards, strong `#9db2c0` borders for block separation, and a burnt-orange `#c2410c` accent — drawn from a navy/sand/slate reference palette, inverted to a light ground. Plus Light and Amber via `data-theme`. `main.jsx` and Settings share one resolver; legacy `"dark"` and `"prism"` map to Ember. |
-| Colors | Categorical constants in `frontend/src/utils/colors.js`; theme-aware values use CSS vars from `index.css` |
+| Themes | **Dusk** (default, defined on `:root`): a mid-dark warm grey canvas `#4a4e57` carrying deep navy cards `#2d3343`, a single sandy tan accent `#bc9876` and muted blue-grey secondaries. Deliberately not a black dark mode — the canvas is *lighter* than the cards. Nothing is pure white or pure black; status colours are desaturated to sage / tan / dusty terracotta. Cards carry no stroke: separation comes from surface and shadow, and `--border` is a 7% hairline used only for separators. Plus Light and Amber via `data-theme`. `main.jsx` and Settings share one resolver; legacy `"dark"`, `"prism"` and `"ember"` map to Dusk. |
+| Shape and type | Five radii (`--r-sm/md/lg/xl/pill`), three elevations (`--shadow-card/raised/sheet`), a 4pt spacing scale (`--sp-*`) and a nine-step type scale (`--fs-*` / `--lh-*`). Set in **Nunito**, with tabular numerals globally so amounts align. |
+| Colors | Theme surfaces come from CSS vars in `index.css`; categorical series colours from `frontend/src/utils/colors.js`. `designTokens.test.js` fails the build on a raw value anywhere else |
+| `color-scheme` | Set per theme (`dark` on Dusk, `light` on the others) so native checkboxes, select popups, date pickers and scrollbars render against the right surface rather than in the platform's light default |
 | Error boundary | `ErrorBoundary` class component wraps all routes; catches render errors, logs to console, shows retry UI |
 | iOS zoom on focus | `.zoom-safe-form` class on the Add Expense / Add Income `<form>`, with a `@media (max-width: 767px)` rule forcing `font-size: 16px !important` on inputs/selects/textareas (`index.css`) | iOS Safari zooms the viewport for controls under 16px and never zooms back; the pages set 13px inline, so the override needs `!important`. Suppressing zoom via the viewport meta was rejected — it breaks pinch-zoom accessibility |
 | Amount validation | Backend rejects `amount <= 0` with HTTP 400; frontend validates before submit |

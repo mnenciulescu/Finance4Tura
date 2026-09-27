@@ -170,6 +170,7 @@ export default function AddIncome() {
             <label style={s.checkLabel}>
               <input
                 type="checkbox"
+                style={{ accentColor: "var(--accent)", width: 20, height: 20 }}
                 checked={form.isRepeatable}
                 onChange={e => {
                   const checked = e.target.checked;
@@ -272,9 +273,9 @@ const s = {
     maxWidth:     "var(--app-max-w)",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
     padding:      "20px 18px",
-    boxShadow:    "0 4px 32px rgba(0,0,0,0.3)",
+    boxShadow:    "var(--shadow-sheet)",
   },
   title:      { fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "20px" },
   muted:      { color: "var(--text-muted)" },
@@ -282,7 +283,7 @@ const s = {
   input: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     padding:      "8px 11px",
     fontSize:     "13px",
@@ -306,7 +307,7 @@ const s = {
     background:   "var(--accent)",
     color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   600,
     fontSize:     "13px",
@@ -314,8 +315,8 @@ const s = {
   btnSecondary: {
     background:   "transparent",
     color:        "var(--text-muted)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   500,
     fontSize:     "13px",
@@ -323,7 +324,7 @@ const s = {
   errorBox: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     padding:      "10px 14px",
     fontSize:     "12px",

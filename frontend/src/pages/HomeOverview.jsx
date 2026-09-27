@@ -7,18 +7,20 @@ import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
 import { listSnapshots } from "../api/investments";
 import { getFxRates } from "../api/fxRates";
-import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
+import {
+  PRIORITY_COLORS as PRIORITY_COLOR,
+  PRIORITY_FALLBACK,
+  BAR_COLORS as BAR_COLOR,
+  PLATFORM_COLORS as PLATFORM_COLOR,
+  TYPE_COLORS,
+} from "../utils/colors";
+import { T, TYPE } from "../components/tokens";
+import {
+  Card, SectionHeader, StatTile, Pill, StatusDot, Checkbox, ProgressBar,
+} from "../components/ui";
 
 // ── Investment constants (shared with Investments page) ────────────────────────
 const PLATFORMS = ["eToro", "Binance", "Fidelity", "Tradeville", "ING Funds RON", "ING Funds EUR"];
-const PLATFORM_COLOR = {
-  "eToro":         "#22c55e",
-  "Binance":       "#f59e0b",
-  "Fidelity":      "#3b82f6",
-  "Tradeville":    "#a855f7",
-  "ING Funds RON": "#ef4444",
-  "ING Funds EUR": "#f97316",
-};
 function toEUR(amount, currency, rates) {
   if (!rates || currency === "EUR") return amount;
   const row = rates[currency];
@@ -41,54 +43,13 @@ const getDow = (dateStr) =>
 const fmtDec = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n) => Math.round(n).toLocaleString("ro-RO");
 
-const TYPE_COLORS = {
-  Audiobook: { bg: "rgba(168,85,247,0.18)", text: "#a855f7" },
-  Training:  { bg: "rgba(20,184,166,0.18)", text: "#0d9488" },
-  Book:      { bg: "rgba(120,120,140,0.15)", text: "var(--text-muted)" },
-  Other:     { bg: "rgba(120,120,140,0.15)", text: "var(--text-muted)" },
-};
-
 // ── Small reusable pieces ──────────────────────────────────────────────────────
-
-function SectionHeader({ children }) {
-  return (
-    <div style={{
-      fontSize: "11px", fontWeight: 700, color: "var(--text-muted)",
-      textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px",
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function Card({ children, style }) {
-  return (
-    <div style={{
-      background: "var(--surface)", border: "1px solid var(--border)",
-      borderRadius: "12px", padding: "16px 20px", ...style,
-    }}>
-      {children}
-    </div>
-  );
-}
 
 function EmptyState({ children }) {
   return (
-    <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "12px 0" }}>
+    <div style={{ ...TYPE.label, color: T.muted, padding: "var(--sp-3) 0" }}>
       {children}
     </div>
-  );
-}
-
-function ReadOnlyStars({ value }) {
-  return (
-    <span style={{ display: "inline-flex", gap: "2px" }}>
-      {[1, 2, 3, 4, 5].map(n => (
-        <span key={n} style={{ fontSize: "13px", color: n <= (value ?? 0) ? "#f59e0b" : "var(--border)", lineHeight: 1 }}>
-          ★
-        </span>
-      ))}
-    </span>
   );
 }
 
@@ -131,9 +92,9 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
   if (!currentIncome) {
     return (
-      <div style={{ border: "1px solid var(--border)", borderRadius: "12px", padding: "16px", color: "var(--text-muted)", fontSize: "13px" }}>
-        No current income period found.
-      </div>
+      <Card>
+        <span style={{ ...TYPE.label, color: T.muted }}>No current income period found.</span>
+      </Card>
     );
   }
 
@@ -142,84 +103,64 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
   const cur = items[0]?.currency || "";
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "12px", overflow: "hidden", background: "var(--surface)", display: "flex", flexDirection: "column", flex: 1 }}>
+    <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }}>
 
-      {/* Header — matches IncomeCard headerCurrent */}
-      <div style={{ background: "var(--header-current-bg)", borderBottom: "1px solid var(--header-current-border)", overflow: "hidden" }}>
-        <div style={{ height: "3px", background: "linear-gradient(90deg, var(--accent), var(--accent-grad-end))" }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px 12px" }}>
-          {/* Date badge + title */}
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", lineHeight: 1 }}>
-            <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--badge-text)", letterSpacing: "0.08em" }}>{month}</span>
-            <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--badge-text)", letterSpacing: "0.04em" }}>{day}</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--badge-text)", opacity: 0.7 }}>{year}</span>
-            <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>·</span>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--badge-text)", opacity: 0.7 }}>{dow}</span>
-            <span style={{ flex: 1 }} />
-            <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--badge-text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Expenses
-            </span>
-          </div>
-          {/* Income summary */}
-          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {currentIncome.summary}
-          </span>
+      {/* Hero header — the one gradient element on the screen. No stripe and no
+          divider rule: the gradient itself separates it from the list. */}
+      <div style={st.hero}>
+        <div style={st.heroTop}>
+          <span style={st.heroDate}>{month} {day} {year} · {dow}</span>
+          <Pill>Expenses</Pill>
         </div>
+        <span style={st.heroTitle}>{currentIncome.summary}</span>
       </div>
 
       {/* Expense list */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, padding: "var(--sp-2) var(--sp-2)" }}>
         {items.length === 0 ? (
-          <div style={{ color: "var(--text-muted)", fontSize: "12px", padding: "12px 16px" }}>
+          <div style={{ ...TYPE.label, color: T.muted, padding: "var(--sp-3) var(--sp-2)" }}>
             No expenses for this period.
           </div>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--sp-1)" }}>
             {items.map(exp => {
               const isDone = exp.status === "Completed";
               return (
                 <li key={exp.expenseId} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "7px 16px", borderBottom: "1px solid var(--border)",
-                  ...(exp.special && !isDone ? { background: "rgba(239,68,68,0.07)" } : {}),
-                  ...(isDone ? { opacity: 0.55 } : {}),
+                  ...st.row,
+                  // A special expense keeps its own tint, now a dusty terracotta
+                  // wash rather than the previous alarm red.
+                  ...(exp.special && !isDone ? { background: "var(--error-bg)" } : {}),
+                  ...(isDone ? { opacity: 0.6 } : {}),
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
-                    {/* Status box — click to flip between Pending and Completed */}
-                    <span
-                      title={isDone ? "Mark as Pending" : "Mark as Completed"}
-                      onClick={() => onToggle?.(exp)}
-                      style={{
-                        width: "14px", height: "14px", flexShrink: 0, borderRadius: "3px",
-                        border: isDone ? "1.5px solid var(--success)" : "1.5px dashed var(--text-muted)",
-                        background: isDone ? "var(--success)" : "transparent",
-                        color: "#fff", fontSize: "10px", lineHeight: 1,
-                        display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        cursor: "pointer",
-                      }}
-                    >{isDone ? "✓" : ""}</span>
-                    {/* Priority dot */}
-                    <span style={{
-                      width: "7px", height: "7px", flexShrink: 0, borderRadius: "50%",
-                      background: PRIORITY_COLOR[exp.priority] ?? "#6b7194",
-                    }} />
-                    {exp.special && <span style={{ fontSize: "10px", color: "#ef4444", flexShrink: 0 }}>★</span>}
-                    <span
-                      title={exp.summary}
-                      style={{
-                        fontSize: "12px", color: "var(--text)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        textDecoration: isDone ? "line-through" : "none",
-                      }}
-                    >
-                      {exp.summary}
-                    </span>
-                    <span style={{ fontSize: "10px", color: "var(--text-muted)", flexShrink: 0 }}>{exp.date.slice(5)}</span>
+                  <Checkbox
+                    checked={isDone}
+                    onChange={() => onToggle?.(exp)}
+                    title={isDone ? "Mark as Pending" : "Mark as Completed"}
+                  />
+                  <div style={st.rowMain}>
+                    <div style={st.rowTop}>
+                      <StatusDot color={PRIORITY_COLOR[exp.priority] ?? PRIORITY_FALLBACK} />
+                      {exp.special && <span style={st.star}>★</span>}
+                      <span
+                        title={exp.summary}
+                        style={{
+                          ...st.name,
+                          ...(isDone
+                            ? { color: T.dim, textDecoration: "line-through", textDecorationColor: T.dim }
+                            : { textDecoration: "none" }),
+                        }}
+                      >
+                        {exp.summary}
+                      </span>
+                    </div>
+                    <span style={st.rowDate}>{exp.date.slice(5)}</span>
                   </div>
                   <span style={{
-                    fontSize: "12px", fontVariantNumeric: "tabular-nums", color: "var(--text)",
-                    fontWeight: 500, flexShrink: 0, marginLeft: "8px",
-                    textDecoration: isDone ? "line-through" : "none",
+                    ...st.amount,
+                    ...(isDone
+                      ? { color: T.dim, textDecoration: "line-through", textDecorationColor: T.dim }
+                      : { textDecoration: "none" }),
                   }}>
                     {fmtDec(exp.amount ?? 0)}
                   </span>
@@ -230,54 +171,133 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
         )}
       </div>
 
-      {/* Footer — done vs pending, split in proportion to the amounts */}
+      {/* Footer — the bar carries proportion only; the figures sit in tiles
+          below it, where they are legible regardless of segment width. */}
       {total > 0 && (
-        <div style={{ padding: "8px 12px 10px", borderTop: "1px solid var(--border)" }}>
-          <div style={{ height: "34px", borderRadius: "6px", overflow: "hidden", display: "flex" }}>
-            {doneTotal > 0 && (
-              <div style={{
-                flex: doneTotal, background: BAR_COLOR.done, minWidth: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--bar-label)", fontVariantNumeric: "tabular-nums" }}>
-                  {fmtInt(doneTotal)}
-                </span>
-              </div>
-            )}
-            {pendingTotal > 0 && (
-              <div style={{
-                flex: pendingTotal, background: BAR_COLOR.pending, minWidth: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--bar-label)", fontVariantNumeric: "tabular-nums" }}>
-                  {fmtInt(pendingTotal)}
-                </span>
-              </div>
-            )}
+        <div style={st.footer}>
+          <ProgressBar
+            height={12}
+            segments={[
+              { key: "done",    value: doneTotal,    color: BAR_COLOR.done,    title: `Done ${fmtDec(doneTotal)}` },
+              { key: "pending", value: pendingTotal, color: BAR_COLOR.pending, title: `Pending ${fmtDec(pendingTotal)}` },
+            ]}
+          />
+          <div style={st.tiles}>
+            <StatTile
+              value={fmtInt(doneTotal)}
+              label="Done"
+              tone="raised"
+              dot={BAR_COLOR.done}
+              style={{ flex: 1 }}
+            />
+            <StatTile
+              value={fmtInt(pendingTotal)}
+              label="Pending"
+              tone="accent"
+              style={{ flex: 1 }}
+            />
           </div>
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 10px", marginTop: "5px" }}>
-            {doneTotal > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10px", color: "var(--text-muted)" }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.done, flexShrink: 0 }} />
-                Done — <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDec(doneTotal)}</span>
-              </span>
-            )}
-            {pendingTotal > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10px", color: "var(--text-muted)" }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: BAR_COLOR.pending, flexShrink: 0 }} />
-                Pending — <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDec(pendingTotal)}</span>
-              </span>
-            )}
-            <span style={{ flex: 1 }} />
-            <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
-              {fmtDec(total)} {cur}
-            </span>
+          <div style={st.totalRow}>
+            <span style={{ ...TYPE.caption, color: T.muted }}>Total</span>
+            <span style={st.totalValue}>{fmtDec(total)} {cur}</span>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
+
+const st = {
+  hero: {
+    background: T.heroGrad,
+    padding:    "var(--sp-4) var(--sp-4) var(--sp-5)",
+    display:        "flex",
+    flexDirection:  "column",
+    gap:            "var(--sp-2)",
+  },
+  heroTop: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    gap:            "var(--sp-2)",
+  },
+  heroDate: {
+    ...TYPE.overline,
+    color: "var(--on-hero)",
+  },
+  heroTitle: {
+    ...TYPE.h2,
+    color:        "var(--on-hero)",
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+  },
+  row: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "var(--sp-3)",
+    minHeight:    "52px",
+    padding:      "var(--sp-2) var(--sp-3)",
+    borderRadius: "var(--r-md)",
+  },
+  rowMain: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "1px",
+    flex:          1,
+    minWidth:      0,
+  },
+  rowTop: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "var(--sp-2)",
+    minWidth:   0,
+  },
+  name: {
+    ...TYPE.body,
+    fontWeight:   500,
+    color:        T.text,
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+  },
+  rowDate: {
+    ...TYPE.caption,
+    color: T.muted,
+  },
+  star: {
+    fontSize:   "11px",
+    color:      T.overdue,
+    flexShrink: 0,
+    lineHeight: 1,
+  },
+  amount: {
+    ...TYPE.bodyNum,
+    color:      T.text,
+    flexShrink: 0,
+    marginLeft: "var(--sp-2)",
+  },
+  footer: {
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "var(--sp-3)",
+    padding:       "var(--sp-3) var(--sp-4) var(--sp-4)",
+  },
+  tiles: {
+    display: "flex",
+    gap:     "var(--sp-3)",
+  },
+  totalRow: {
+    display:        "flex",
+    alignItems:     "baseline",
+    justifyContent: "space-between",
+  },
+  totalValue: {
+    ...TYPE.h3,
+    color:              T.text,
+    fontVariantNumeric: "tabular-nums",
+  },
+};
 
 // ── Section 2: Split Payments ──────────────────────────────────────────────────
 
@@ -313,64 +333,51 @@ function SplitPaymentsTable({ payments, onUpdate }) {
   if (latest3.length === 0) return <EmptyState>No pending split payments.</EmptyState>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
       {latest3.map(entry => {
         const isAmount  = entry.occurrenceType === "amount";
         const occs      = entry.occurrences || [];
         const paidCount = occs.filter(o => o.value !== "" && o.value != null).length;
         const isFull    = paidCount === entry.occurrenceCount;
         return (
-          <div key={entry.splitPaymentId} style={{
-            border: "1px solid var(--border)", borderRadius: "8px",
-            padding: "8px 10px", background: "var(--surface-2, rgba(0,0,0,0.03))",
-          }}>
-            {/* Header: title · date · amount + coverage badge */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "7px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>
-                {entry.title}
-              </span>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{entry.createdDate}</span>
-              <span style={{ fontSize: "11px", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                {Number(entry.totalAmount).toLocaleString("ro-RO")} {entry.currency}
-              </span>
-              <span style={{ flex: 1 }} />
-              <span style={{
-                flexShrink: 0, display: "inline-block", padding: "1px 7px", borderRadius: "9px",
-                fontSize: "10px", fontWeight: 600, whiteSpace: "nowrap",
-                ...(isFull
-                  ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
-                  : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }
-                ),
-              }}>
+          // A nested tile on the card, carrying no stroke of its own.
+          <div key={entry.splitPaymentId} style={sp.tile}>
+            <div style={sp.head}>
+              <span style={sp.title}>{entry.title}</span>
+              <Pill tone={isFull ? "done" : "default"}>
                 {paidCount}/{entry.occurrenceCount}{isFull ? " ✓" : ""}
+              </Pill>
+            </div>
+            <div style={sp.meta}>
+              <span style={{ ...TYPE.label, color: T.muted }}>{entry.createdDate}</span>
+              <span style={sp.amount}>
+                {Number(entry.totalAmount).toLocaleString("ro-RO")} {entry.currency}
               </span>
             </div>
 
-            {/* Occurrence inputs — wrap onto multiple rows */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+            {/* Installment slots */}
+            <div style={sp.slots}>
               {Array.from({ length: entry.occurrenceCount || occs.length }, (_, i) => {
                 const occ = occs[i];
                 if (!occ) return null;
                 const hasPaid = occ.value !== "" && occ.value != null;
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", flexShrink: 0 }}>#{i + 1}</span>
+                  <div key={i} style={sp.slot}>
+                    <span style={sp.slotIdx}>#{i + 1}</span>
                     <input
                       type={isAmount ? "number" : "date"}
                       value={occ.value ?? ""}
                       min={isAmount ? "0" : undefined}
                       step={isAmount ? "any" : undefined}
                       placeholder={isAmount ? "0.00" : undefined}
+                      aria-label={`${entry.title} — installment ${i + 1}`}
                       onChange={e => updateOcc(entry, i, e.target.value)}
                       style={{
-                        width: isAmount ? "76px" : "124px",
-                        padding: "4px 6px", borderRadius: "5px", fontSize: "12px",
-                        border: `1px solid ${hasPaid ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
-                        background: hasPaid ? "rgba(34,197,94,0.10)" : "rgba(255,255,255,0.04)",
-                        color: hasPaid ? "#16a34a" : "var(--text)",
-                        outline: "none", fontFamily: "inherit",
-                        fontVariantNumeric: "tabular-nums", boxSizing: "border-box",
-                        transition: "border-color 0.15s, background 0.15s",
+                        ...sp.slotInput,
+                        width:      isAmount ? "78px" : "132px",
+                        background: hasPaid ? T.accent : T.raisedHi,
+                        color:      hasPaid ? T.onAccent : T.text,
+                        fontWeight: hasPaid ? 700 : 500,
                       }}
                     />
                   </div>
@@ -383,6 +390,70 @@ function SplitPaymentsTable({ payments, onUpdate }) {
     </div>
   );
 }
+
+const sp = {
+  tile: {
+    background:    T.raised,
+    borderRadius:  T.rMd,
+    padding:       "var(--sp-3)",
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "var(--sp-2)",
+  },
+  head: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    gap:            "var(--sp-2)",
+  },
+  title: {
+    ...TYPE.h3,
+    color:        T.text,
+    overflow:     "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace:   "nowrap",
+    minWidth:     0,
+  },
+  meta: {
+    display:        "flex",
+    alignItems:     "baseline",
+    justifyContent: "space-between",
+    gap:            "var(--sp-2)",
+  },
+  amount: {
+    ...TYPE.label,
+    fontWeight:         700,
+    color:              T.accent,
+    fontVariantNumeric: "tabular-nums",
+  },
+  slots: {
+    display:  "flex",
+    flexWrap: "wrap",
+    gap:      "var(--sp-2)",
+  },
+  slot: {
+    display:    "flex",
+    alignItems: "center",
+    gap:        "var(--sp-1)",
+  },
+  slotIdx: {
+    ...TYPE.caption,
+    fontWeight: 700,
+    color:      T.muted,
+    flexShrink: 0,
+  },
+  slotInput: {
+    height:             "36px",
+    padding:            "0 var(--sp-2)",
+    borderRadius:       T.rSm,
+    border:             "none",
+    fontSize:           "13px",
+    fontFamily:         "inherit",
+    fontVariantNumeric: "tabular-nums",
+    boxSizing:          "border-box",
+    transition:         "background 150ms ease-out, color 150ms ease-out",
+  },
+};
 
 // ── Section 3: Current Holdings ───────────────────────────────────────────────
 
@@ -433,18 +504,18 @@ function CurrentHoldings({ snapshots, fxRates, fxUpdatedAt }) {
     <div>
       {/* Total card */}
       <div style={{
-        background: "var(--surface-2, rgba(0,0,0,0.04))", border: "1px solid var(--border)",
-        borderRadius: "8px", padding: "10px 14px", marginBottom: "10px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: T.raised, borderRadius: T.rMd,
+        padding: "var(--sp-3) var(--sp-4)", marginBottom: "var(--sp-3)",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--sp-3)",
       }}>
-        <div>
-          <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "2px" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...TYPE.caption, color: T.muted, textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "2px" }}>
             Total Portfolio
           </div>
-          <div style={{ fontSize: "18px", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "var(--text)", letterSpacing: "-0.01em" }}>
+          <div style={{ ...TYPE.h2, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: T.text }}>
             {revealed ? fmtAmt(totalEUR) : mask}
           </div>
-          <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
+          <div style={{ ...TYPE.caption, color: T.muted, marginTop: "1px" }}>
             EUR
             {fxUpdatedAt
               ? <span style={{ marginLeft: "4px", opacity: 0.7 }}>· FX {dayjs(fxUpdatedAt).format("YYYY-MM-DD")}</span>
@@ -460,12 +531,11 @@ function CurrentHoldings({ snapshots, fxRates, fxUpdatedAt }) {
           onTouchEnd={() => setRevealed(false)}
           title="Hold to reveal amounts"
           style={{
-            background: revealed ? "var(--accent-reveal-bg)" : "var(--surface)",
-            border: `1px solid ${revealed ? "var(--accent)" : "var(--border)"}`,
-            borderRadius: "6px", cursor: "pointer",
-            color: revealed ? "var(--accent)" : "var(--text-muted)",
-            padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.1s, border-color 0.1s, color 0.1s",
+            width: "44px", height: "44px", flexShrink: 0,
+            background: revealed ? T.accent : T.surface,
+            border: "none", borderRadius: "50%",
+            color: revealed ? T.onAccent : T.muted,
+            display: "flex", alignItems: "center", justifyContent: "center",
             userSelect: "none",
           }}
         >
@@ -490,9 +560,9 @@ function CurrentHoldings({ snapshots, fxRates, fxUpdatedAt }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>Platform</th>
-            <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>EUR</th>
-            <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--text-muted)", fontWeight: 600, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--border)" }}>Updated</th>
+            <th style={{ ...TYPE.caption, textAlign: "left", padding: "var(--sp-1) var(--sp-2)", color: T.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.2px", borderBottom: `1px solid ${T.line}` }}>Platform</th>
+            <th style={{ ...TYPE.caption, textAlign: "right", padding: "var(--sp-1) var(--sp-2)", color: T.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.2px", borderBottom: `1px solid ${T.line}` }}>EUR</th>
+            <th style={{ ...TYPE.caption, textAlign: "right", padding: "var(--sp-1) var(--sp-2)", color: T.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.2px", borderBottom: `1px solid ${T.line}` }}>Updated</th>
           </tr>
         </thead>
         <tbody>
@@ -569,9 +639,9 @@ function BooksSnippet({ books }) {
   }
 
   const thStyle = {
-    padding: "4px 8px", fontSize: "10px", fontWeight: 700,
-    color: "var(--text-muted)", textTransform: "uppercase",
-    letterSpacing: "0.05em", borderBottom: "1px solid var(--border)",
+    ...TYPE.caption, padding: "var(--sp-1) var(--sp-2)", fontWeight: 700,
+    color: T.muted, textTransform: "uppercase",
+    letterSpacing: "1.2px", borderBottom: `1px solid ${T.line}`,
     textAlign: "center", whiteSpace: "nowrap",
   };
   const tdTypeStyle = {
@@ -604,8 +674,8 @@ function BooksSnippet({ books }) {
                 {/* Row header — type badge */}
                 <td style={tdTypeStyle}>
                   <span style={{
-                    fontSize: "10px", fontWeight: 600, padding: "2px 6px",
-                    borderRadius: "4px", background: typeColor.bg, color: typeColor.text,
+                    ...TYPE.caption, fontWeight: 700, padding: "3px 9px",
+                    borderRadius: T.rPill, background: typeColor.bg, color: typeColor.text,
                     display: "inline-block",
                   }}>
                     {type}
@@ -700,7 +770,7 @@ export default function HomeOverview() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: "14px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: T.muted, ...TYPE.body }}>
         Loading…
       </div>
     );
@@ -708,7 +778,7 @@ export default function HomeOverview() {
 
   if (error) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#ef4444", fontSize: "14px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: T.overdue, ...TYPE.body }}>
         {error}
       </div>
     );
@@ -718,8 +788,8 @@ export default function HomeOverview() {
     // Mobile-width single-column layout, rendered even on desktop. Blocks stack
     // one after another in a centered, phone-width column at their natural
     // content height; the surrounding page (main) scrolls to reveal them.
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "16px" }}>
-      <div style={{ width: "100%", maxWidth: "var(--app-max-w)", display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "var(--sp-4)" }}>
+      <div style={{ width: "100%", maxWidth: "var(--app-max-w)", display: "flex", flexDirection: "column", gap: "var(--sp-4)" }}>
 
         {/* Section 1 — Pending Expenses */}
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -728,14 +798,15 @@ export default function HomeOverview() {
 
         {/* Section 2 — Split Payments */}
         <Card style={{ boxSizing: "border-box", overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Split Payments — Last 3
-            </span>
-            <Link to="/split-payments" style={{ fontSize: "11px", color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>
-              View all →
-            </Link>
-          </div>
+          <SectionHeader
+            action={
+              <Link to="/split-payments" style={{ ...TYPE.label, color: T.accent, fontWeight: 700, whiteSpace: "nowrap" }}>
+                View all →
+              </Link>
+            }
+          >
+            Split Payments — Last 3
+          </SectionHeader>
           <SplitPaymentsTable
             payments={payments}
             onUpdate={updated => setPayments(prev => prev.map(p => p.splitPaymentId === updated.splitPaymentId ? updated : p))}

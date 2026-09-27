@@ -119,7 +119,7 @@ export default function Login() {
     <div style={s.root}>
       <form style={s.card} onSubmit={handleSubmit}>
         <div style={s.brand}>
-          <img src="/app-icon.svg" alt="" style={{ height: 76, width: 76, display: "block", borderRadius: 18, boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }} />
+          <img src="/app-icon.svg" alt="" style={{ height: 76, width: 76, display: "block", borderRadius: "var(--r-lg)", boxShadow: "var(--shadow-card)" }} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
 
@@ -219,17 +219,17 @@ const s = {
     `,
   },
   card: {
-    width:         "100%",
-    maxWidth:      "360px",
-    background:    "var(--surface)",
-    border:        "1px solid var(--border)",
-    borderRadius:  "20px",
-    padding:       "32px 28px",
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "18px",
-    position:      "relative",
-    boxShadow:     "0 24px 70px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.25)",
+    width:          "100%",
+    maxWidth:       "360px",
+    background:     "var(--surface)",
+    border:         "none",
+    borderRadius:   "var(--r-xl)",
+    padding:        "var(--sp-8) var(--sp-6)",
+    display:        "flex",
+    flexDirection:  "column",
+    gap:            "var(--sp-5)",
+    position:       "relative",
+    boxShadow:      "var(--shadow-sheet)",
     backdropFilter: "blur(10px)",
   },
   brand: {
@@ -241,14 +241,17 @@ const s = {
     marginBottom:   "10px",
   },
   brandText: {
-    fontSize:   "22px",
-    fontWeight: 400,
-    color:      "var(--text-muted)",
+    fontFamily:    "var(--font-display)",
+    fontSize:      "var(--fs-h1)",
+    lineHeight:    "var(--lh-h1)",
+    fontWeight:    700,
+    color:         "var(--text)",
+    letterSpacing: "-0.02em",
   },
   brandAccent: {
-    fontWeight: 700,
-    color:      "var(--badge-text)",
-    marginLeft: "2px",
+    fontWeight: 800,
+    color:      "var(--accent)",
+    marginLeft: "3px",
   },
   googleBtnWrap: {
     display:        "flex",
@@ -263,7 +266,7 @@ const s = {
   dividerLine: {
     flex:       1,
     height:     "1px",
-    background: "var(--border)",
+    background: "var(--border-strong)",
   },
   dividerText: {
     fontSize:  "11px",
@@ -272,16 +275,16 @@ const s = {
   },
   error: {
     background:   "var(--error-bg)",
-    border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     fontSize:     "12px",
     padding:      "8px 12px",
   },
   successBox: {
     background:   "var(--success-bg)",
-    border:       "1px solid var(--accent)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--success-text)",
     fontSize:     "12px",
     padding:      "8px 12px",
@@ -289,22 +292,22 @@ const s = {
   field: {
     display:       "flex",
     flexDirection: "column",
-    gap:           "5px",
+    gap:           "6px",
   },
   label: {
-    fontSize:      "11px",
-    fontWeight:    600,
-    color:         "var(--text-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
+    fontSize:   "var(--fs-label)",
+    lineHeight: "var(--lh-label)",
+    fontWeight: 500,
+    color:      "var(--text-muted)",
   },
   input: {
     background:   "var(--surface-2)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",
-    padding:      "9px 12px",
+    height:       "48px",
+    padding:      "0 var(--sp-3)",
     outline:      "none",
     width:        "100%",
     boxSizing:    "border-box",
@@ -312,13 +315,14 @@ const s = {
   btn: {
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-pill)",
     color:        "var(--on-accent)",
-    fontSize:     "14px",
+    fontSize:     "var(--fs-h3)",
     fontWeight:   600,
-    padding:      "10px",
+    minHeight:    "48px",
+    padding:      "0 var(--sp-5)",
     cursor:       "pointer",
-    marginTop:    "4px",
+    marginTop:    "var(--sp-1)",
   },
   switchRow: {
     display:        "flex",
@@ -332,13 +336,13 @@ const s = {
     color:    "var(--text-muted)",
   },
   switchBtn: {
-    background:     "none",
-    border:         "none",
-    color:          "var(--accent)",
-    fontSize:       "12px",
-    cursor:         "pointer",
-    padding:        0,
-    fontWeight:     500,
+    background: "none",
+    border:     "none",
+    color:      "var(--accent)",
+    fontSize:   "var(--fs-label)",
+    cursor:     "pointer",
+    padding:    "var(--sp-2) var(--sp-1)",
+    fontWeight: 700,
   },
   spinner: {
     width:       "44px",

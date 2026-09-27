@@ -1,3 +1,5 @@
+import { DUSK, alpha } from "../../utils/colors";
+
 const COL_WIDTH = "var(--app-max-w)";
 
 const s = {
@@ -44,7 +46,7 @@ const s = {
     outline:        "none",
     boxShadow:      "none",
     textDecoration: "none",
-    borderRadius:   "16px",
+    borderRadius:   "var(--r-lg)",
     padding:        "7px 14px",
     fontSize:       "12px",
     fontWeight:     600,
@@ -71,7 +73,7 @@ const s = {
   entryCard: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "11px",
+    borderRadius: "var(--r-md)",
     overflow:     "hidden",
   },
   entryCardEditing: {
@@ -197,7 +199,7 @@ const s = {
   fieldInput: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",
     padding:      "9px 11px",
@@ -213,7 +215,7 @@ const s = {
   btnPrimarySm: {
     background:   "var(--accent)",
     border:       "1px solid var(--accent)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -223,8 +225,8 @@ const s = {
   },
   btnGhost: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -261,7 +263,7 @@ const s = {
   count: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "10px",
+    borderRadius: "var(--r-md)",
     padding:      "1px 7px",
     fontSize:     "11px",
     fontWeight:   500,
@@ -302,7 +304,8 @@ const s = {
   card: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "12px",
+    borderRadius:  "var(--r-lg)",
+    boxShadow:     "var(--shadow-card)",
     padding:       "14px 16px",
     display:       "flex",
     flexDirection: "column",
@@ -337,7 +340,7 @@ const s = {
   metaBadge: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-pill)",
     padding:      "2px 8px",
     fontSize:     "11px",
     color:        "var(--text-muted)",
@@ -345,7 +348,7 @@ const s = {
   // Table
   tableWrap: {
     overflowX:    "auto",
-    borderRadius: "10px",
+    borderRadius: "var(--r-md)",
     border:       "1px solid var(--border)",
   },
   table: {
@@ -403,7 +406,7 @@ const s = {
   inlineInput: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "5px",
+    borderRadius: "var(--r-sm)",
     color:        "var(--text)",
     fontSize:     "12px",
     padding:      "4px 6px",
@@ -416,7 +419,7 @@ const s = {
   overlay: {
     position:       "fixed",
     inset:          0,
-    background:     "rgba(0,0,0,0.55)",
+    background:     "var(--backdrop)",
     zIndex:         500,
     display:        "flex",
     alignItems:     "center",
@@ -426,13 +429,13 @@ const s = {
   modal: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "14px",
+    borderRadius:  "var(--r-lg)",
     width:         "100%",
     maxWidth: "var(--app-max-w)",
     maxHeight:     "90vh",
     display:       "flex",
     flexDirection: "column",
-    boxShadow:     "0 30px 60px rgba(0,0,0,0.4)",
+    boxShadow:     "var(--shadow-sheet)",
   },
   modalHeader: {
     display:        "flex",
@@ -473,9 +476,9 @@ const s = {
     borderTop:      "1px solid var(--border)",
   },
   formError: {
-    background:   "var(--error-bg, rgba(239,68,68,0.1))",
+    background:   "var(--error-bg, var(--error-bg))",
     border:       "1px solid var(--danger)",
-    borderRadius: "7px",
+    borderRadius: "var(--r-sm)",
     color:        "var(--danger)",
     fontSize:     "12px",
     padding:      "7px 12px",
@@ -495,7 +498,7 @@ const s = {
   input: {
     background:  "var(--surface-2)",
     border:      "1px solid var(--border)",
-    borderRadius:"7px",
+    borderRadius: "var(--r-sm)",
     color:       "var(--text)",
     fontSize:    "13px",
     padding:     "7px 10px",
@@ -508,7 +511,7 @@ const s = {
   select: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "7px",
+    borderRadius: "var(--r-sm)",
     color:        "var(--text)",
     fontSize:     "13px",
     padding:      "7px 10px",
@@ -523,7 +526,7 @@ const s = {
     background:   "var(--accent)",
     color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "7px 16px",
     fontSize:     "13px",
     fontWeight:   600,
@@ -533,8 +536,8 @@ const s = {
   },
   btnSecondary: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     padding:      "7px 16px",
     fontSize:     "13px",
@@ -544,8 +547,8 @@ const s = {
   },
   btnSm: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "6px",
+    border:       "none",
+    borderRadius: "var(--r-sm)",
     color:        "var(--text-muted)",
     padding:      "4px 10px",
     fontSize:     "11px",
@@ -560,7 +563,7 @@ const s = {
     fontSize:     "14px",
     cursor:       "pointer",
     padding:      "3px 5px",
-    borderRadius: "5px",
+    borderRadius: "var(--r-sm)",
     lineHeight:   1,
     transition:   "color 0.15s",
   },
@@ -571,7 +574,7 @@ const s = {
     fontSize:     "12px",
     cursor:       "pointer",
     padding:      "2px 4px",
-    borderRadius: "4px",
+    borderRadius: "var(--r-sm)",
     lineHeight:   1,
   },
   // Settings section
@@ -595,7 +598,7 @@ const s = {
     padding:        "10px 14px",
     background:     "var(--surface)",
     border:         "1px solid var(--border)",
-    borderRadius:   "9px",
+    borderRadius:   "var(--r-md)",
   },
   locationRowName: {
     fontSize:   "13px",
@@ -612,9 +615,9 @@ const s = {
     textAlign:    "right",
     fontWeight:   600,
     color:        "var(--text-muted)",
-    background:   "rgba(56,189,248,0.08)",
+    background:   alpha(DUSK.slate, 0.12),
     borderBottom: "1px solid var(--border)",
-    borderLeft:   "2px solid rgba(56,189,248,0.25)",
+    borderLeft:   `2px solid ${alpha(DUSK.slate, 0.30)}`,
     whiteSpace:   "nowrap",
     fontSize:     "11px",
   },
@@ -623,8 +626,8 @@ const s = {
     textAlign:  "right",
     whiteSpace: "nowrap",
     color:      "var(--text)",
-    background: "rgba(56,189,248,0.08)",
-    borderLeft: "2px solid rgba(56,189,248,0.25)",
+    background: alpha(DUSK.slate, 0.12),
+    borderLeft: `2px solid ${alpha(DUSK.slate, 0.30)}`,
     fontWeight: 600,
   },
   // Dashboard cards
@@ -636,7 +639,8 @@ const s = {
   dashCard: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "12px",
+    borderRadius:  "var(--r-lg)",
+    boxShadow:     "var(--shadow-card)",
     padding:       "16px",
     display:       "flex",
     flexDirection: "column",
@@ -674,7 +678,7 @@ const s = {
   dashParamChip: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "6px",
+    borderRadius: "var(--r-pill)",
     padding:      "2px 8px",
     fontSize:     "11px",
     color:        "var(--text-muted)",

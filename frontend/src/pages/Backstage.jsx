@@ -11,9 +11,9 @@ const COL_WIDTH = "var(--app-max-w)";
 const PAGE = 10;
 
 const STATUS_COLOR = (s) => {
-  if (s >= 200 && s < 300) return "#22c55e";
-  if (s >= 400)            return "#ef4444";
-  return "#f59e0b";
+  if (s >= 200 && s < 300) return "var(--success)";
+  if (s >= 400)            return "var(--danger)";
+  return "var(--warning)";
 };
 
 // Each table describes how to identify, label and summarise one of its records.
@@ -261,7 +261,7 @@ export default function Backstage() {
                 {log.map(entry => (
                   <div key={entry.id} style={s.logRow}>
                     <div style={s.logTop}>
-                      <span style={{ ...s.method, color: METHOD_COLOR[entry.method] ?? "#6b7194" }}>
+                      <span style={{ ...s.method, color: METHOD_COLOR[entry.method] ?? "var(--text-dim)" }}>
                         {entry.method}
                       </span>
                       <span style={{ ...s.statusBadge, color: STATUS_COLOR(entry.status) }}>{entry.status}</span>
@@ -321,7 +321,7 @@ const s = {
   pickerBtn: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "16px",
+    borderRadius: "var(--r-lg)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -340,7 +340,7 @@ const s = {
   input: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",
     padding:      "9px 11px",
@@ -360,7 +360,7 @@ const s = {
   card: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "11px",
+    borderRadius: "var(--r-md)",
     overflow:     "hidden",
   },
   cardHead: {
@@ -425,8 +425,8 @@ const s = {
   },
   expandBtn: {
     background:   "transparent",
-    border:       "1px dashed var(--border)",
-    borderRadius: "9px",
+    border:       "1px dashed var(--border-strong)",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     padding:      "9px",
@@ -435,8 +435,8 @@ const s = {
   },
   btnGhost: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -448,7 +448,7 @@ const s = {
   btnArmed: {
     background:  "var(--danger)",
     borderColor: "var(--danger)",
-    color:       "#fff",
+    color:       "var(--on-accent)",
   },
   empty: {
     padding:   "30px 0",
@@ -459,7 +459,7 @@ const s = {
   errorBox: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     padding:      "9px 12px",
     fontSize:     "12px",
@@ -470,7 +470,7 @@ const s = {
     marginTop:    "14px",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "11px",
+    borderRadius: "var(--r-md)",
     overflow:     "hidden",
   },
   logHead: {

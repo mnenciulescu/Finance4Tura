@@ -166,11 +166,11 @@ function TemplateSection({ template, entries, hqId, onEntryCreated, onEntryUpdat
       {smsOpen && (
         <div
           onClick={() => { setSmsOpen(false); setCopied(false); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
+          style={{ position: "fixed", inset: 0, background: "var(--backdrop)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", width: "100%", maxWidth: "360px", boxShadow: "0 20px 50px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column" }}
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", width: "100%", maxWidth: "360px", boxShadow: "var(--shadow-card)", display: "flex", flexDirection: "column" }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
               <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>SMS Text</span>
@@ -182,7 +182,18 @@ function TemplateSection({ template, entries, hqId, onEntryCreated, onEntryUpdat
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button
                 onClick={handleCopy}
-                style={{ background: copied ? "rgba(34,197,94,0.15)" : "var(--accent)", color: copied ? "#16a34a" : "#000", border: copied ? "1px solid rgba(34,197,94,0.4)" : "none", borderRadius: "8px", padding: "6px 16px", fontSize: "12px", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                style={{
+                  background:   copied ? "var(--success-bg)" : "var(--accent)",
+                  color:        copied ? "var(--success)"    : "var(--on-accent)",
+                  border:       "none",
+                  borderRadius: "var(--r-pill)",
+                  minHeight:    "44px",
+                  padding:      "0 20px",
+                  fontSize:     "13px",
+                  fontWeight:   600,
+                  cursor:       "pointer",
+                  fontFamily:   "inherit",
+                }}
               >
                 {copied ? "Copied ✓" : "Copy"}
               </button>

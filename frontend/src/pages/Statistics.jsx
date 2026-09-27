@@ -7,7 +7,7 @@ import {
 import { listIncomes } from "../api/incomes";
 import { listExpenses } from "../api/expenses";
 import { useYear } from "../context/YearContext";
-import { CHART_COLORS as C } from "../utils/colors";
+import { CHART_COLORS as C, DUSK } from "../utils/colors";
 
 // The whole page is a single phone-width column, rendered the same way on
 // desktop and on mobile — same widths, paddings and font sizes everywhere.
@@ -15,7 +15,7 @@ const COL_WIDTH = "var(--app-max-w)";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-const SPECIAL_COLOR = "#a855f7";
+const SPECIAL_COLOR = DUSK.lilac;
 
 // Living-cost baseline used by the Survival / Month figure
 const SURVIVAL_BASELINE = 7000;
@@ -203,21 +203,21 @@ export default function Statistics() {
                   ) : (
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart data={monthlyData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <CartesianGrid stroke="var(--border)" vertical={false} />
                         <XAxis
                           dataKey="label"
-                          tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                          tick={{ fill: "var(--text-dim)", fontSize: 11 }}
                           tickLine={false}
                           interval={0}
                         />
                         <YAxis
-                          tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                          tick={{ fill: "var(--text-dim)", fontSize: 11 }}
                           tickFormatter={fmtAxis}
                           tickLine={false}
                           axisLine={false}
                           width={44}
                         />
-                        <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<MonthTooltip />} />
+                        <Tooltip cursor={{ fill: "var(--surface-2)", radius: 6 }} content={<MonthTooltip />} />
                         {currentMonthLabel && (
                           <ReferenceLine
                             x={currentMonthLabel}
@@ -227,8 +227,8 @@ export default function Statistics() {
                             label={{ value: "now", position: "top", fontSize: 9, fill: "var(--accent)" }}
                           />
                         )}
-                        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-                        <Bar dataKey="free" name="Free" radius={[3, 3, 0, 0]}>
+                        <ReferenceLine y={0} stroke="var(--border-strong)" strokeWidth={1.5} />
+                        <Bar dataKey="free" name="Free" radius={[6, 6, 0, 0]}>
                           {monthlyData.map((entry, idx) => (
                             <Cell
                               key={idx}
@@ -389,7 +389,7 @@ const s = {
     flexShrink:   0,
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     padding:      "3px",
   },
   yearBtn: {
@@ -400,7 +400,7 @@ const s = {
     justifyContent: "center",
     background:     "transparent",
     border:         "none",
-    borderRadius:   "7px",
+    borderRadius:   "var(--r-sm)",
     color:          "var(--text)",
     fontSize:       "17px",
     lineHeight:     1,
@@ -434,7 +434,8 @@ const s = {
   empty: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     padding:      "34px 20px",
     color:        "var(--text-muted)",
     fontSize:     "13px",
@@ -448,7 +449,7 @@ const s = {
   errorBox: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "10px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     padding:      "12px 16px",
     fontSize:     "13px",
@@ -458,7 +459,8 @@ const s = {
   block: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     overflow:     "hidden",
     flexShrink:   0,
   },
@@ -507,7 +509,7 @@ const s = {
     gap:           "3px",
     background:    "var(--surface-2)",
     border:        "1px solid var(--border)",
-    borderRadius:  "10px",
+    borderRadius:  "var(--r-md)",
     padding:       "10px 11px",
     minWidth:      0,
   },
@@ -561,11 +563,11 @@ const s = {
   tooltip: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     padding:      "9px 12px",
     fontSize:     "12px",
     minWidth:     "175px",
-    boxShadow:    "0 4px 18px rgba(0,0,0,0.28)",
+    boxShadow:    "var(--shadow-card)",
   },
   tooltipDate: {
     fontSize:     "11px",
@@ -600,7 +602,7 @@ const s = {
     gap:        "10px",
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "10px",
+    borderRadius: "var(--r-md)",
     padding:      "9px 11px",
   },
   specialSummary: {

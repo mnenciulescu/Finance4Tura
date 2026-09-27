@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DUSK } from "../../utils/colors";
 import { LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import s from "./styles";
 
@@ -97,7 +98,7 @@ function DotLabel({ x, y, value, color }) {
 function WaterTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", color: "var(--text)" }}>
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--r-md)", padding: "8px 12px", fontSize: "12px", color: "var(--text)" }}>
       <div style={{ fontWeight: 700, marginBottom: "4px" }}>{label}</div>
       {payload.map(p => (
         <div key={p.dataKey} style={{ color: p.color, display: "flex", gap: "6px" }}>
@@ -124,25 +125,25 @@ function WaterChart({ template, entries }) {
   return (
     <ResponsiveContainer width="100%" height={210}>
       <LineChart data={data} margin={{ top: 32, right: 48, bottom: 0, left: 0 }}>
-        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} width={36} />
+        <CartesianGrid stroke="var(--border)" vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--text-dim)" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: "var(--text-dim)" }} axisLine={false} tickLine={false} width={36} />
         <Tooltip content={<WaterTooltip />} />
         <Legend
           wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
           formatter={v => v === "apaRece" ? "Consum Apa Rece" : "Consum Apa Calda"}
         />
-        <Line type="linear" dataKey="apaRece" name="apaRece" stroke="#60a5fa" strokeWidth={2}
-          dot={{ r: 3, fill: "#60a5fa", strokeWidth: 0 }} activeDot={{ r: 5 }} label={<DotLabel color="#60a5fa" />} />
-        <Line type="linear" dataKey="apaCalda" name="apaCalda" stroke="#f97316" strokeWidth={2}
-          dot={{ r: 3, fill: "#f97316", strokeWidth: 0 }} activeDot={{ r: 5 }} label={<DotLabel color="#f97316" />} />
+        <Line type="linear" dataKey="apaRece" name="apaRece" stroke={DUSK.slate} strokeWidth={2}
+          dot={{ r: 3, fill: DUSK.slate, strokeWidth: 0 }} activeDot={{ r: 5 }} label={<DotLabel color={DUSK.slate} />} />
+        <Line type="linear" dataKey="apaCalda" name="apaCalda" stroke={DUSK.tan} strokeWidth={2}
+          dot={{ r: 3, fill: DUSK.tan, strokeWidth: 0 }} activeDot={{ r: 5 }} label={<DotLabel color={DUSK.tan} />} />
         {avgRece != null && (
-          <ReferenceLine y={avgRece} stroke="#60a5fa" strokeDasharray="5 4" strokeWidth={1.5} opacity={0.6}
-            label={{ value: `avg ${avgRece}`, position: "insideTopRight", fontSize: 11, fill: "#60a5fa", fontWeight: 600 }} />
+          <ReferenceLine y={avgRece} stroke={DUSK.slate} strokeDasharray="5 4" strokeWidth={1.5} opacity={0.6}
+            label={{ value: `avg ${avgRece}`, position: "insideTopRight", fontSize: 11, fill: DUSK.slate, fontWeight: 600 }} />
         )}
         {avgCalda != null && (
-          <ReferenceLine y={avgCalda} stroke="#f97316" strokeDasharray="5 4" strokeWidth={1.5} opacity={0.6}
-            label={{ value: `avg ${avgCalda}`, position: "insideBottomRight", fontSize: 11, fill: "#f97316", fontWeight: 600 }} />
+          <ReferenceLine y={avgCalda} stroke={DUSK.tan} strokeDasharray="5 4" strokeWidth={1.5} opacity={0.6}
+            label={{ value: `avg ${avgCalda}`, position: "insideBottomRight", fontSize: 11, fill: DUSK.tan, fontWeight: 600 }} />
         )}
       </LineChart>
     </ResponsiveContainer>

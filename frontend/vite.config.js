@@ -18,8 +18,8 @@ export default defineConfig({
         name: '4TURA Home',
         short_name: '4TURA Home',
         description: 'Personal budgeting app',
-        theme_color: '#c2410c',
-        background_color: '#dce6ec',
+        theme_color: '#40444c',
+        background_color: '#40444c',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -33,7 +33,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg}'],
+        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         runtimeCaching: [
           {
             // Admin endpoints — never cache, bypass SW caching entirely

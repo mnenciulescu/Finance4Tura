@@ -260,6 +260,7 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
               <label key={p.parameterId} style={s.fieldCheck}>
                 <input
                   type="checkbox"
+                  style={{ accentColor: "var(--accent)", width: 20, height: 20 }}
                   checked={!!val}
                   onChange={e => onValue(p.parameterId, e.target.checked)}
                 />
@@ -400,7 +401,7 @@ export default function EntryTable({ template, entries, hqId, externalNewRow, on
                     style={{
                       ...s.btnGhost,
                       ...(confirmDeleteId === entry.entryId
-                        ? { background: "var(--danger)", borderColor: "var(--danger)", color: "#fff" }
+                        ? { background: "var(--danger)", borderColor: "var(--danger)", color: "var(--on-accent)" }
                         : { color: "var(--danger)" }),
                     }}
                     onClick={() => handleDelete(entry.entryId)}

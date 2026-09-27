@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { listBooks, createBook, updateBook, deleteBook } from "../api/booksAndDev";
+import { TYPE_COLORS } from "../utils/colors";
 
 const COL_WIDTH = "var(--app-max-w)";
 
@@ -18,7 +19,7 @@ function Stars({ value, onChange, readOnly, size = 15 }) {
             e.stopPropagation();
             onChange(n === value ? null : n);
           }}
-          style={{ fontSize: `${size}px`, color: n <= (value ?? 0) ? "#f59e0b" : "var(--border)", lineHeight: 1 }}
+          style={{ fontSize: `${size}px`, color: n <= (value ?? 0) ? "var(--warning)" : "var(--border)", lineHeight: 1 }}
         >★</span>
       ))}
     </span>
@@ -26,9 +27,8 @@ function Stars({ value, onChange, readOnly, size = 15 }) {
 }
 
 function typeBadge(type) {
-  if (type === "Audiobook") return { background: "#7c3aed22", color: "#7c3aed" };
-  if (type === "Training")  return { background: "#0891b222", color: "#0891b2" };
-  return { background: "var(--surface-2)", color: "var(--text-muted)" };
+  const c = TYPE_COLORS[type] ?? TYPE_COLORS.Other;
+  return { background: c.bg, color: c.text };
 }
 
 function defaultForm() {
@@ -514,7 +514,7 @@ const s = {
     gap:          "6px",
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "13px",
     fontWeight:   500,
@@ -528,7 +528,7 @@ const s = {
     justifyContent: "center",
     minWidth:       "17px",
     height:         "17px",
-    borderRadius:   "9px",
+    borderRadius:   "var(--r-md)",
     background:     "var(--accent)",
     color:          "var(--on-accent)",
     fontSize:       "10px",
@@ -575,7 +575,7 @@ const s = {
     color:        "var(--text-muted)",
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "10px",
+    borderRadius: "var(--r-md)",
     padding:      "1px 7px",
   },
   statsBlock: {
@@ -584,7 +584,8 @@ const s = {
     gap:           "9px",
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "12px",
+    borderRadius:  "var(--r-lg)",
+    boxShadow:     "var(--shadow-card)",
     padding:       "11px 13px",
   },
   statsLabel: {
@@ -604,7 +605,7 @@ const s = {
     flexDirection: "column",
     gap:           "2px",
     background:    "var(--surface-2)",
-    borderRadius:  "9px",
+    borderRadius:  "var(--r-md)",
     padding:       "8px 10px",
   },
   statValue: {
@@ -637,8 +638,8 @@ const s = {
     justifyContent: "center",
     gap:            "8px",
     background:     "transparent",
-    border:         "1px dashed var(--border)",
-    borderRadius:   "9px",
+    border:         "1px dashed var(--border-strong)",
+    borderRadius:   "var(--r-md)",
     color:          "var(--text-muted)",
     fontSize:       "12px",
     fontWeight:     600,
@@ -655,7 +656,8 @@ const s = {
   card: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     overflow:     "hidden",
   },
   cardHead: {
@@ -726,7 +728,7 @@ const s = {
     color:        "var(--text-muted)",
     lineHeight:   1.5,
     background:   "var(--surface-2)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 10px",
     whiteSpace:   "pre-wrap",
   },
@@ -741,7 +743,7 @@ const s = {
     fontSize:     "10px",
     fontWeight:   600,
     padding:      "2px 7px",
-    borderRadius: "5px",
+    borderRadius: "var(--r-pill)",
     flexShrink:   0,
   },
   empty: {
@@ -754,7 +756,7 @@ const s = {
   btnPrimary: {
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -766,7 +768,7 @@ const s = {
   btnSecondary: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -776,8 +778,8 @@ const s = {
   },
   btnGhost: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -788,14 +790,14 @@ const s = {
   btnArmed: {
     background:  "var(--danger)",
     borderColor: "var(--danger)",
-    color:       "#fff",
+    color:       "var(--on-accent)",
   },
 
   // ── Sheets ────────────────────────────────────────────────────────────────
   overlay: {
     position:       "fixed",
     inset:          0,
-    background:     "rgba(0,0,0,0.55)",
+    background:     "var(--backdrop)",
     display:        "flex",
     alignItems:     "flex-end",
     justifyContent: "center",
@@ -804,21 +806,21 @@ const s = {
   sheet: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "16px 16px 0 0",
+    borderRadius:  "var(--r-lg) var(--r-lg) 0 0",
     width:         "100%",
     maxWidth:      COL_WIDTH,
     maxHeight:     "92dvh",
     display:       "flex",
     flexDirection: "column",
     overflow:      "hidden",
-    boxShadow:     "0 -6px 40px rgba(0,0,0,0.45)",
+    boxShadow:     "var(--shadow-sheet)",
   },
   grabber: {
-    width:        "38px",
+    width:        "36px",
     height:       "4px",
-    borderRadius: "2px",
-    background:   "var(--border)",
-    margin:       "8px auto 0",
+    borderRadius: "var(--r-pill)",
+    background:   "var(--text-dim)",
+    margin:       "var(--sp-2) auto 0",
     flexShrink:   0,
   },
   sheetHead: {
@@ -871,7 +873,7 @@ const s = {
   input: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",
     padding:      "9px 11px",
@@ -881,9 +883,9 @@ const s = {
     fontFamily:   "inherit",
   },
   formError: {
-    background:   "var(--error-bg, #fee2e2)",
+    background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--danger)",
     fontSize:     "12px",
     padding:      "8px 12px",

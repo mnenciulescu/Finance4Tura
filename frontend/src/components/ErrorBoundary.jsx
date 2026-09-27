@@ -48,7 +48,7 @@ const s = {
   card: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
     padding:      "28px 32px",
     maxWidth:     "480px",
     textAlign:    "center",
@@ -68,9 +68,9 @@ const s = {
   },
   btn: {
     background:   "var(--danger)",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     cursor:       "pointer",
     fontSize:     "13px",

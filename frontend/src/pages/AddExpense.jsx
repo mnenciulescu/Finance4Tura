@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { getExpense, createExpense, updateExpense, updateExpenseSeries, resolveIncome } from "../api/expenses";
 import Field from "../components/Field";
 import dayjs from "dayjs";
-
-const PRIORITY_COLORS = { High: "#ef4444", Medium: "#f59e0b", Low: "#22c55e" };
+// Shared with the Dashboard and Home Overview, so a priority reads the same
+// colour wherever it appears.
+import { PRIORITY_COLORS, DUSK } from "../utils/colors";
 
 const EMPTY = {
   summary:         "",
@@ -262,6 +263,7 @@ export default function AddExpense() {
             <label style={s.checkLabel}>
               <input
                 type="checkbox"
+                style={{ accentColor: "var(--accent)", width: 20, height: 20 }}
                 checked={form.isRepeatable}
                 onChange={e => {
                   const checked = e.target.checked;
@@ -387,9 +389,9 @@ const s = {
     maxWidth:     "var(--app-max-w)",
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
     padding:      "20px 18px",
-    boxShadow:    "0 4px 32px rgba(0,0,0,0.3)",
+    boxShadow:    "var(--shadow-sheet)",
   },
   title:   { fontSize: "16px", fontWeight: 700, color: "var(--text)", marginBottom: "14px" },
   muted:   { color: "var(--text-muted)", fontSize: "12px" },
@@ -397,7 +399,7 @@ const s = {
   input: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     padding:      "6px 10px",
     fontSize:     "13px",
@@ -409,42 +411,45 @@ const s = {
   checkLabel: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" },
   radioGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   radioLabel: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" },
-  pillGroup:  { display: "flex", gap: "8px" },
+  pillGroup: {
+    display:      "inline-flex",
+    gap:          "4px",
+    padding:      "4px",
+    background:   "var(--surface-2)",
+    borderRadius: "var(--r-pill)",
+  },
   pill: {
-    padding:      "5px 14px",
-    borderRadius: "20px",
-    border:       "1px solid var(--border)",
+    minHeight:    "36px",
+    padding:      "0 16px",
+    borderRadius: "var(--r-pill)",
+    border:       "none",
     background:   "transparent",
     color:        "var(--text-muted)",
-    fontSize:     "12px",
-    fontWeight:   500,
-    transition:   "all 0.15s",
+    fontSize:     "13px",
+    fontWeight:   600,
+    transition:   "background 120ms ease-out, color 120ms ease-out",
   },
   pillActive: (priority) => ({
-    background:  PRIORITY_COLORS[priority] + "22",
-    borderColor: PRIORITY_COLORS[priority],
-    color:       PRIORITY_COLORS[priority],
+    background: PRIORITY_COLORS[priority],
+    color:      "var(--on-accent)",
   }),
   pillStatusActive: {
-    background:  "var(--accent)" + "22",
-    borderColor: "var(--accent)",
-    color:       "var(--accent)",
+    background: "var(--accent)",
+    color:      "var(--on-accent)",
   },
   pillSpecialActive: (val) => val ? {
-    background:  "rgba(168,85,247,0.12)",
-    borderColor: "#a855f7",
-    color:       "#a855f7",
+    background: DUSK.lilac,
+    color:      "var(--on-accent)",
   } : {
-    background:  "rgba(107,114,148,0.12)",
-    borderColor: "var(--border)",
-    color:       "var(--text-muted)",
+    background: "var(--surface-3)",
+    color:      "var(--text)",
   },
   previewBox: {
     display:      "flex",
     alignItems:   "center",
     gap:          "8px",
     padding:      "8px 12px",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     fontSize:     "12px",
     border:       "1px solid var(--border)",
     background:   "var(--surface-2)",
@@ -473,7 +478,7 @@ const s = {
     background:   "var(--accent)",
     color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   600,
     fontSize:     "13px",
@@ -481,8 +486,8 @@ const s = {
   btnSecondary: {
     background:   "transparent",
     color:        "var(--text-muted)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   500,
     fontSize:     "13px",
@@ -490,7 +495,7 @@ const s = {
   errorBox: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     padding:      "10px 14px",
     fontSize:     "12px",

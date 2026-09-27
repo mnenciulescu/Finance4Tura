@@ -627,8 +627,8 @@ function Field({ label, error, children }) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const GREEN_BG     = "rgba(34,197,94,0.10)";
-const GREEN_BORDER = "rgba(34,197,94,0.35)";
+const GREEN_BG     = "var(--success-bg)";
+const GREEN_BORDER = "var(--accent-tint-border)";
 
 const s = {
   // Centered phone-width column — identical on desktop and mobile
@@ -675,7 +675,7 @@ const s = {
     flexShrink:   0,
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -691,7 +691,7 @@ const s = {
     background:   "var(--error-bg)",
     color:        "var(--error-text)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "9px 12px",
     fontSize:     "12px",
     cursor:       "pointer",
@@ -711,7 +711,8 @@ const s = {
   empty: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     padding:      "34px 20px",
     color:        "var(--text-muted)",
     fontSize:     "13px",
@@ -749,7 +750,8 @@ const s = {
   card: (done) => ({
     background:   "var(--surface)",
     border:       `1px solid ${done ? GREEN_BORDER : "var(--border)"}`,
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     overflow:     "hidden",
     flexShrink:   0,
   }),
@@ -792,7 +794,7 @@ const s = {
   badge: (done) => ({
     flexShrink:   0,
     padding:      "2px 8px",
-    borderRadius: "10px",
+    borderRadius: "var(--r-pill)",
     fontSize:     "11px",
     fontWeight:   700,
     whiteSpace:   "nowrap",
@@ -831,18 +833,20 @@ const s = {
     display:      "flex",
     alignItems:   "center",
     gap:          "6px",
-    background:   filled ? GREEN_BG : "var(--surface-2)",
-    border:       `1px solid ${filled ? GREEN_BORDER : "var(--border)"}`,
-    borderRadius: "9px",
-    padding:      "4px 5px 4px 7px",
+    minHeight:    "44px",
+    background:   filled ? "var(--accent)" : "var(--surface-3)",
+    border:       "none",
+    borderRadius: "var(--r-sm)",
+    padding:      "0 5px 0 7px",
   }),
   occIdx: (filled) => ({
     flexShrink: 0,
-    fontSize:   "10px",
+    fontSize:   "var(--fs-caption)",
     fontWeight: 700,
     minWidth:   "16px",
     textAlign:  "center",
-    color:      filled ? "var(--success-text)" : "var(--text-muted)",
+    color:      filled ? "var(--on-accent)" : "var(--text-muted)",
+    opacity:    filled ? 0.7 : 1,
   }),
   occInput: (filled) => ({
     flex:       1,
@@ -851,9 +855,9 @@ const s = {
     background: "transparent",
     border:     "none",
     outline:    "none",
-    color:      filled ? "var(--text)" : "var(--text-muted)",
+    color:      filled ? "var(--on-accent)" : "var(--text-muted)",
     fontSize:   "16px",   // 16px keeps iOS from zooming on focus
-    fontWeight: 600,
+    fontWeight: filled ? 700 : 500,
     padding:    "7px 0",
     fontVariantNumeric: "tabular-nums",
   }),
@@ -866,8 +870,8 @@ const s = {
     justifyContent: "center",
     background:     "transparent",
     border:         "none",
-    borderRadius:   "7px",
-    color:          filled ? "var(--text-muted)" : "var(--accent)",
+    borderRadius:   "var(--r-sm)",
+    color:          filled ? "var(--on-accent)" : "var(--accent)",
     fontSize:       filled ? "12px" : "17px",
     lineHeight:     1,
     cursor:         "pointer",
@@ -881,8 +885,8 @@ const s = {
   },
   action: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -892,7 +896,7 @@ const s = {
   actionPrimary: {
     background:   "var(--accent-tint-bg)",
     border:       "1px solid var(--accent-tint-border)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--badge-text)",
     fontSize:     "12px",
     fontWeight:   700,
@@ -901,8 +905,8 @@ const s = {
   },
   actionDanger: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -912,7 +916,7 @@ const s = {
   actionDangerActive: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     fontSize:     "12px",
     fontWeight:   700,
@@ -931,7 +935,7 @@ const s = {
   overlay: {
     position:       "fixed",
     inset:          0,
-    background:     "rgba(0,0,0,0.55)",
+    background:     "var(--backdrop)",
     display:        "flex",
     alignItems:     "flex-end",
     justifyContent: "center",
@@ -945,9 +949,9 @@ const s = {
     margin:        "0 16px",
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "14px",
+    borderRadius:  "var(--r-lg)",
     padding:       "20px 18px 16px",
-    boxShadow:     "0 18px 60px rgba(0,0,0,0.35)",
+    boxShadow:     "var(--shadow-sheet)",
   },
   dialogTitle: {
     fontSize:     "15px",
@@ -969,21 +973,21 @@ const s = {
   sheet: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "16px 16px 0 0",
+    borderRadius:  "var(--r-lg) var(--r-lg) 0 0",
     width:         "100%",
     maxWidth:      COL_WIDTH,
     maxHeight:     "92dvh",
     display:       "flex",
     flexDirection: "column",
     overflow:      "hidden",
-    boxShadow:     "0 -6px 40px rgba(0,0,0,0.45)",
+    boxShadow:     "var(--shadow-sheet)",
   },
   grabber: {
-    width:        "38px",
+    width:        "36px",
     height:       "4px",
-    borderRadius: "2px",
-    background:   "var(--border)",
-    margin:       "8px auto 0",
+    borderRadius: "var(--r-pill)",
+    background:   "var(--text-dim)",
+    margin:       "var(--sp-2) auto 0",
     flexShrink:   0,
   },
   sheetHead: {
@@ -1037,7 +1041,7 @@ const s = {
   input: (err) => ({
     background:   "var(--surface-2)",
     border:       `1px solid ${err ? "var(--danger)" : "var(--border)"}`,
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",
     padding:      "11px 12px",
@@ -1051,8 +1055,8 @@ const s = {
   },
   cancelBtn: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -1062,7 +1066,7 @@ const s = {
   saveBtn: {
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "13px",
     fontWeight:   700,

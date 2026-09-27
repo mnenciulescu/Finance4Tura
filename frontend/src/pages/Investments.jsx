@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import dayjs from "dayjs";
 import {
-  LineChart, Line,
-  XAxis, YAxis, CartesianGrid,
+  ComposedChart, Line,
+  Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
@@ -10,6 +10,7 @@ import {
   listSnapshots, createSnapshot, updateSnapshot, deleteSnapshot,
 } from "../api/investments";
 import { getFxRates } from "../api/fxRates";
+import { PLATFORM_COLORS, DUSK } from "../utils/colors";
 
 // The whole page is a single phone-width column, rendered the same way on
 // desktop and on mobile — same widths, paddings and font sizes everywhere.
@@ -34,19 +35,14 @@ const PLATFORM_CURRENCY = {
   "ING Funds EUR": "EUR",
 };
 
-const PLATFORM_COLOR = {
-  "eToro":         "#22c55e",
-  "Binance":       "#f59e0b",
-  "Fidelity":      "#3b82f6",
-  "Tradeville":    "#a855f7",
-  "ING Funds RON": "#ef4444",
-  "ING Funds EUR": "#f97316",
-};
+// Six distinct hues, defined once in utils/colors.js. Status tokens cannot be
+// reused here: --success and --warning would give two platforms the same dot.
+const PLATFORM_COLOR = PLATFORM_COLORS;
 
 const CURRENCIES = ["USD", "EUR", "RON"];
 
 const TOTAL_KEY   = "Total";
-const TOTAL_COLOR = "#94a3b8";
+const TOTAL_COLOR = DUSK.slate;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -532,20 +528,20 @@ export default function Investments() {
                       </div>
 
                       <ResponsiveContainer width="100%" height={210}>
-                        <LineChart data={chartData} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <ComposedChart data={chartData} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid stroke="var(--border)" vertical={false} />
                           <XAxis
                             dataKey="x"
                             type="number"
                             domain={[0, chartXMax]}
                             ticks={chartYears.map((_, i) => i)}
                             tickFormatter={i => chartYears[i] ?? ""}
-                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                            tick={{ fontSize: 11, fill: "var(--text-dim)" }}
                             tickLine={false}
-                            axisLine={{ stroke: "var(--border)" }}
+                            axisLine={false}
                           />
                           <YAxis
-                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                            tick={{ fontSize: 11, fill: "var(--text-dim)" }}
                             tickLine={false}
                             axisLine={false}
                             width={40}
@@ -553,6 +549,25 @@ export default function Investments() {
                             tickFormatter={v => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : fmtNum(v))}
                           />
                           <Tooltip content={<ChartTooltip />} />
+                          <defs>
+                            <linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%"   stopColor="var(--chart-from)" />
+                              <stop offset="100%" stopColor="var(--chart-to)" />
+                            </linearGradient>
+                          </defs>
+                          <Area
+                            type="monotone"
+                            dataKey="portfolio"
+                            stroke="none"
+                            fill="url(#portfolioFill)"
+                            fillOpacity={1}
+                            isAnimationActive={false}
+                            activeDot={false}
+                            legendType="none"
+                            tooltipType="none"
+                            hide={hiddenLines.has(TOTAL_KEY)}
+                            connectNulls
+                          />
                           {activePlatforms.map(p => (
                             <Line
                               key={p}
@@ -583,7 +598,7 @@ export default function Investments() {
                             hide={hiddenLines.has(TOTAL_KEY)}
                             connectNulls
                           />
-                        </LineChart>
+                        </ComposedChart>
                       </ResponsiveContainer>
 
                       <div style={s.chartNote}>Dots mark months with operations. Tap a point for details.</div>
@@ -719,7 +734,7 @@ export default function Investments() {
                                 <div style={s.entryMeta}>
                                   <span>{fmtDate(op.date)}</span>
                                   <span style={s.dot}>·</span>
-                                  <span style={{ ...s.entryStrong, color: deposit ? "var(--success-text)" : "#ef4444" }}>
+                                  <span style={{ ...s.entryStrong, color: deposit ? "var(--success-text)" : "var(--danger)" }}>
                                     {deposit ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
                                   </span>
                                 </div>
@@ -895,7 +910,7 @@ export default function Investments() {
 function ChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const { date, portfolio, cashFlow, ops, hasOp } = payload[0].payload;
-  const cfColor = cashFlow == null ? "var(--text-muted)" : cashFlow >= 0 ? "#22c55e" : "#ef4444";
+  const cfColor = cashFlow == null ? "var(--text-muted)" : cashFlow >= 0 ? "var(--success)" : "var(--danger)";
   return (
     <div style={s.tooltip}>
       <div style={s.tooltipDate}>{date}</div>
@@ -909,7 +924,7 @@ function ChartTooltip({ active, payload }) {
         <>
           <div style={s.tooltipDivider} />
           {ops.map((op, i) => (
-            <div key={i} style={{ ...s.tooltipRow, color: op.type === "Deposit" ? "#22c55e" : "#ef4444" }}>
+            <div key={i} style={{ ...s.tooltipRow, color: op.type === "Deposit" ? "var(--success)" : "var(--danger)" }}>
               <span>{op.type} · {op.platform}</span>
               <span style={s.tooltipVal}>
                 {op.type === "Deposit" ? "+" : "−"}{fmtNum(op.amount)} {op.currency}
@@ -988,10 +1003,10 @@ function Field({ label, error, children }) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const GREEN_BG     = "rgba(34,197,94,0.10)";
-const GREEN_BORDER = "rgba(34,197,94,0.35)";
-const RED_BG       = "rgba(239,68,68,0.10)";
-const RED_BORDER   = "rgba(239,68,68,0.35)";
+const GREEN_BG     = "var(--success-bg)";
+const GREEN_BORDER = "var(--accent-tint-border)";
+const RED_BG       = "var(--error-bg)";
+const RED_BORDER   = "var(--error-bg)";
 
 const s = {
   // Centered phone-width column — identical on desktop and mobile
@@ -1038,7 +1053,7 @@ const s = {
     background:   "var(--error-bg)",
     color:        "var(--error-text)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "9px 12px",
     fontSize:     "12px",
     cursor:       "pointer",
@@ -1058,7 +1073,8 @@ const s = {
   empty: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "12px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     padding:      "34px 20px",
     color:        "var(--text-muted)",
     fontSize:     "13px",
@@ -1074,7 +1090,8 @@ const s = {
   block: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
+    boxShadow:    "var(--shadow-card)",
     overflow:     "hidden",
     flexShrink:   0,
   },
@@ -1108,7 +1125,7 @@ const s = {
     flexShrink:   0,
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -1169,7 +1186,7 @@ const s = {
     gap:           "6px",
     background:    "var(--surface-2)",
     border:        "1px solid var(--border)",
-    borderRadius:  "10px",
+    borderRadius:  "var(--r-md)",
     padding:       "10px 11px",
   },
   holdingTop: {
@@ -1201,14 +1218,14 @@ const s = {
     fontVariantNumeric: "tabular-nums",
   },
   holdingTrack: {
-    height:       "3px",
-    borderRadius: "2px",
-    background:   "var(--border)",
+    height:       "4px",
+    borderRadius: "var(--r-pill)",
+    background:   "var(--surface-2)",
     overflow:     "hidden",
   },
   holdingFill: {
     height:       "100%",
-    borderRadius: "2px",
+    borderRadius: "var(--r-pill)",
     transition:   "width 0.25s",
   },
   holdingMeta: {
@@ -1230,7 +1247,7 @@ const s = {
     fontSize:        "11px",
     fontWeight:      600,
     padding:         "5px 10px",
-    borderRadius:    "20px",
+    borderRadius:    "var(--r-pill)",
     border:          `1.5px solid ${hidden ? "var(--border)" : color}`,
     cursor:          "pointer",
     color:           hidden ? "var(--text-muted)" : color,
@@ -1245,11 +1262,11 @@ const s = {
   tooltip: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     padding:      "9px 12px",
     fontSize:     "12px",
     minWidth:     "190px",
-    boxShadow:    "0 4px 18px rgba(0,0,0,0.28)",
+    boxShadow:    "var(--shadow-card)",
   },
   tooltipDate: {
     fontSize:     "11px",
@@ -1276,7 +1293,7 @@ const s = {
   entry: {
     background:   "var(--surface-2)",
     border:       "1px solid var(--border)",
-    borderRadius: "11px",
+    borderRadius: "var(--r-md)",
     overflow:     "hidden",
   },
   entryHead: {
@@ -1326,7 +1343,7 @@ const s = {
   countBadge: {
     flexShrink:   0,
     padding:      "1px 7px",
-    borderRadius: "9px",
+    borderRadius: "var(--r-pill)",
     fontSize:     "11px",
     fontWeight:   700,
     background:   "var(--surface)",
@@ -1343,13 +1360,13 @@ const s = {
   typeBadge: (deposit) => ({
     flexShrink:   0,
     padding:      "1px 8px",
-    borderRadius: "9px",
+    borderRadius: "var(--r-pill)",
     fontSize:     "10px",
     fontWeight:   700,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     background:   deposit ? GREEN_BG : RED_BG,
-    color:        deposit ? "var(--success-text)" : "#ef4444",
+    color:        deposit ? "var(--success-text)" : "var(--danger)",
     border:       `1px solid ${deposit ? GREEN_BORDER : RED_BORDER}`,
   }),
 
@@ -1395,8 +1412,8 @@ const s = {
     alignItems:     "center",
     justifyContent: "center",
     background:     "transparent",
-    border:         "1px solid var(--border)",
-    borderRadius:   "8px",
+    border:         "none",
+    borderRadius:   "var(--r-md)",
     color:          "var(--text-muted)",
     fontSize:       "12px",
     lineHeight:     1,
@@ -1411,7 +1428,7 @@ const s = {
     justifyContent: "center",
     background:     "var(--error-bg)",
     border:         "1px solid var(--danger)",
-    borderRadius:   "8px",
+    borderRadius:   "var(--r-md)",
     color:          "var(--error-text)",
     fontSize:       "13px",
     fontWeight:     700,
@@ -1421,8 +1438,8 @@ const s = {
   ghostBtn: {
     marginTop:    "2px",
     background:   "transparent",
-    border:       "1px dashed var(--border)",
-    borderRadius: "8px",
+    border:       "1px dashed var(--border-strong)",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -1441,8 +1458,8 @@ const s = {
   },
   action: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -1452,7 +1469,7 @@ const s = {
   actionDangerActive: {
     background:   "var(--error-bg)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     color:        "var(--error-text)",
     fontSize:     "12px",
     fontWeight:   700,
@@ -1472,8 +1489,8 @@ const s = {
     justifyContent: "center",
     gap:          "7px",
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "12px",
     fontWeight:   600,
@@ -1490,7 +1507,7 @@ const s = {
   overlay: {
     position:       "fixed",
     inset:          0,
-    background:     "rgba(0,0,0,0.55)",
+    background:     "var(--backdrop)",
     display:        "flex",
     alignItems:     "flex-end",
     justifyContent: "center",
@@ -1499,21 +1516,21 @@ const s = {
   sheet: {
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "16px 16px 0 0",
+    borderRadius:  "var(--r-lg) var(--r-lg) 0 0",
     width:         "100%",
     maxWidth:      COL_WIDTH,
     maxHeight:     "92dvh",
     display:       "flex",
     flexDirection: "column",
     overflow:      "hidden",
-    boxShadow:     "0 -6px 40px rgba(0,0,0,0.45)",
+    boxShadow:     "var(--shadow-sheet)",
   },
   grabber: {
-    width:        "38px",
+    width:        "36px",
     height:       "4px",
-    borderRadius: "2px",
-    background:   "var(--border)",
-    margin:       "8px auto 0",
+    borderRadius: "var(--r-pill)",
+    background:   "var(--text-dim)",
+    margin:       "var(--sp-2) auto 0",
     flexShrink:   0,
   },
   sheetHead: {
@@ -1567,7 +1584,7 @@ const s = {
   input: (err) => ({
     background:   "var(--surface-2)",
     border:       `1px solid ${err ? "var(--danger)" : "var(--border)"}`,
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--text)",
     fontSize:     "16px",   // 16px keeps iOS from zooming on focus
     padding:      "11px 12px",
@@ -1585,19 +1602,19 @@ const s = {
     gap:                 "8px",
   },
   segmentBtn: (active, deposit) => ({
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     fontSize:     "13px",
     fontWeight:   700,
     padding:      "11px 12px",
     cursor:       "pointer",
     background:   active ? (deposit ? GREEN_BG : RED_BG) : "var(--surface-2)",
     border:       `1px solid ${active ? (deposit ? GREEN_BORDER : RED_BORDER) : "var(--border)"}`,
-    color:        active ? (deposit ? "var(--success-text)" : "#ef4444") : "var(--text-muted)",
+    color:        active ? (deposit ? "var(--success-text)" : "var(--danger)") : "var(--text-muted)",
   }),
   cancelBtn: {
     background:   "transparent",
-    border:       "1px solid var(--border)",
-    borderRadius: "9px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     color:        "var(--text-muted)",
     fontSize:     "13px",
     fontWeight:   600,
@@ -1607,7 +1624,7 @@ const s = {
   saveBtn: {
     background:   "var(--accent)",
     border:       "none",
-    borderRadius: "9px",
+    borderRadius: "var(--r-md)",
     color:        "var(--on-accent)",
     fontSize:     "13px",
     fontWeight:   700,

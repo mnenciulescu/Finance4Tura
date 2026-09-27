@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
+import { Checkbox } from "./ui";
 
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -40,11 +41,14 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
   return (
     <div style={{ ...s.card, flex: 1, width: "100%" }}>
       {/* Header */}
-      <div style={{ ...s.header, ...(isCurrent ? s.headerCurrent : {}) }}>
-        {/* Top accent strip */}
-        <div style={s.accentStrip} />
-
-        <div style={{ ...s.headerRow, padding: "7px 10px 9px" }}>
+      <div style={{
+        ...s.header,
+        ...(isCurrent ? s.headerCurrent : {}),
+        // Ink for everything drawn on this header: navy on the tan gradient,
+        // off-white on the plain navy one.
+        "--on-header": isCurrent ? "var(--on-hero)" : "var(--text)",
+      }}>
+        <div style={{ ...s.headerRow, padding: "var(--sp-3) var(--sp-4) var(--sp-4)" }}>
           {/* Row 1: date badge + current pill + add */}
           <div style={s.headerTop}>
             {(() => { const { month, day, year } = monthParts(income.date); return (
@@ -83,7 +87,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
               </svg>
             </Link>
             <span style={{ flex: 1 }} />
-            <span style={{ ...s.headerAmount, fontSize: "14px", color: showAmount ? "var(--header-amount-text)" : "transparent" }}>
+            <span style={{ ...s.headerAmount, fontSize: "14px", color: showAmount ? "var(--on-header)" : "transparent" }}>
               {fmt(income.amount ?? 0)} {cur}
             </span>
           </div>
@@ -104,27 +108,37 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 || a.date.localeCompare(b.date)
               )
               .map(exp => (
-                <li key={exp.expenseId} style={{ ...s.expenseRow, padding: "11px 16px", ...(exp.special ? s.expenseRowSpecial : {}) }}>
+                <li key={exp.expenseId} style={{
+                  ...s.expenseRow,
+                  padding: "var(--sp-3) var(--sp-4)",
+                  ...(exp.special ? s.expenseRowSpecial : {}),
+                  ...(exp.status === "Completed" ? { opacity: 0.6 } : {}),
+                }}>
                   <div style={s.expenseLeft}>
-                    <span
-                      style={{ ...s.statusBadge, ...(exp.status === "Completed" ? s.statusDone : s.statusPending), cursor: "pointer", width: "18px", height: "18px", fontSize: "12px" }}
+                    <Checkbox
+                      checked={exp.status === "Completed"}
+                      onChange={() => onToggleStatus?.(exp)}
                       title={exp.status === "Completed" ? "Mark as Pending" : "Mark as Completed"}
-                      onClick={() => onToggleStatus?.(exp)}
-                    >
-                      {exp.status === "Completed" ? "✓" : ""}
-                    </span>
+                    />
                     <span
-                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "#6b7194", width: "9px", height: "9px" }}
+                      style={{ ...s.priorityDot, background: PRIORITY_COLOR[exp.priority] ?? "var(--text-dim)", width: "9px", height: "9px" }}
                       title={`Priority: ${exp.priority}`}
                     />
                     {exp.special && (
                       <span style={{ ...s.specialStar, fontSize: "12px" }} title="Special">★</span>
                     )}
-                    <span style={{ ...s.expenseSummary, fontSize: "15px" }} title={exp.summary}>{exp.summary}</span>
+                    <span
+                      style={{ ...s.expenseSummary, fontSize: "15px", ...(exp.status === "Completed" ? { color: "var(--text-dim)", textDecoration: "line-through", textDecorationColor: "var(--text-dim)" } : {}) }}
+                      title={exp.summary}
+                    >
+                      {exp.summary}
+                    </span>
                     <span style={{ ...s.expenseDate, fontSize: "12px" }}>{exp.date.slice(5)}</span>
                   </div>
                   <div style={s.expenseRight}>
-                    <span style={{ ...s.expenseAmount, fontSize: "15px" }}>{fmt(exp.amount ?? 0)}</span>
+                    <span style={{ ...s.expenseAmount, fontSize: "15px", ...(exp.status === "Completed" ? { color: "var(--text-dim)", textDecoration: "line-through", textDecorationColor: "var(--text-dim)" } : {}) }}>
+                      {fmt(exp.amount ?? 0)}
+                    </span>
                     <Link to={`/add-expense?id=${exp.expenseId}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.rowIcon, ...s.editLink, fontSize: "20px" }} title="Edit expense">✎</Link>
                     <button style={{ ...s.rowIcon, ...s.deleteBtn, fontSize: "14px" }} title="Delete expense" onClick={() => onDeleteExpense?.(exp)}>🗑</button>
                   </div>
@@ -177,7 +191,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                   {/* Top row: total expenses */}
                   <div style={s.dualBarTop}>
                     <div style={{ ...s.dualBarTotal, width: "100%" }}>
-                      <span style={lbl}>{fmtInt(totalExpenses)}</span>
+                      <span style={{ ...lbl, color: "var(--text)" }}>{fmtInt(totalExpenses)}</span>
                     </div>
                   </div>
                   {/* Bottom row: completed + pending */}
@@ -198,7 +212,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
                 )}
               </div>
               <div style={s.legend}>
-                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.total   }}/> Total</span>
+                <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: "var(--surface-3)" }}/> Total</span>
                 <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.done    }}/> Done</span>
                 <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: BAR_COLOR.pending }}/> Pending</span>
                 <span style={{ ...s.legendItem, fontSize: "12px" }}><span style={{ ...s.legendDot, background: freeColor          }}/> {overBudget ? "Over" : "Free"}</span>
@@ -249,7 +263,8 @@ const s = {
     minWidth:      0,
     background:    "var(--surface)",
     border:        "1px solid var(--border)",
-    borderRadius:  "12px",
+    borderRadius:  "var(--r-lg)",
+    boxShadow:     "var(--shadow-card)",
     display:       "flex",
     flexDirection: "column",
     overflow:      "hidden",
@@ -257,22 +272,18 @@ const s = {
   },
   header: {
     borderBottom: "1px solid var(--border)",
-    background:   "var(--surface-2)",
+    background:   "var(--surface-deep)",
     overflow:     "hidden",
   },
   headerCurrent: {
     background:   "var(--header-current-bg)",
-    borderBottom: "1px solid var(--header-current-border)",
-  },
-  accentStrip: {
-    height:     "3px",
-    background: "linear-gradient(90deg, var(--accent), var(--accent-grad-end))",
+    borderBottom: "none",
   },
   headerRow: {
     display:       "flex",
     flexDirection: "column",
-    gap:           "6px",
-    padding:       "10px 12px 12px",
+    gap:           "var(--sp-2)",
+    padding:       "var(--sp-4) var(--sp-4) var(--sp-5)",
     overflow:      "hidden",
   },
   headerTop: {
@@ -290,44 +301,45 @@ const s = {
   badgeMonth: {
     fontSize:      "13px",
     fontWeight:    800,
-    color:         "var(--badge-text)",
+    color:         "var(--on-header)",
     letterSpacing: "0.08em",
   },
   badgeDay: {
     fontSize:      "13px",
     fontWeight:    800,
-    color:         "var(--badge-text)",
+    color:         "var(--on-header)",
     letterSpacing: "0.04em",
   },
   badgeYear: {
     fontSize:      "12px",
-    fontWeight:    500,
-    color:         "var(--badge-text-muted)",
+    fontWeight:    600,
+    color:         "var(--on-header)",
+    opacity:       0.75,
     letterSpacing: "0.04em",
   },
   badgeSep: {
-    fontSize:  "11px",
-    color:     "var(--badge-text-muted)",
-    opacity:   0.5,
+    fontSize:   "11px",
+    color:      "var(--on-header)",
+    opacity:    0.5,
     lineHeight: 1,
   },
   badgeDow: {
     fontSize:      "11px",
-    fontWeight:    600,
-    color:         "var(--accent)",
+    fontWeight:    700,
+    color:         "var(--on-header)",
     letterSpacing: "0.04em",
     textTransform: "uppercase",
   },
   summary: {
-    fontWeight:   600,
-    fontSize:     "13px",
-    color:        "var(--text)",
+    fontWeight:   700,
+    fontSize:     "var(--fs-h3)",
+    color:        "var(--on-header)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
   },
   iconLink: {
-    color:          "var(--text-muted)",
+    color:          "var(--on-header)",
     textDecoration: "none",
     lineHeight:     1,
     flexShrink:     0,
@@ -342,8 +354,8 @@ const s = {
     overflow:    "hidden",
   },
   headerAmount: {
-    fontSize:           "11px",
-    fontWeight:         600,
+    fontSize:           "13px",
+    fontWeight:         700,
     letterSpacing:      "0.04em",
     textAlign:          "right",
     fontVariantNumeric: "tabular-nums",
@@ -356,13 +368,13 @@ const s = {
     display:        "flex",
     alignItems:     "center",
     gap:            "4px",
-    background:     "var(--accent-tint-bg)",
-    border:         "1px solid var(--accent-tint-border)",
-    borderRadius:   "6px",
+    background:     "var(--surface-pill)",
+    border:         "none",
+    borderRadius:   "var(--r-pill)",
     color:          "var(--accent)",
     fontSize:       "11px",
-    fontWeight:     600,
-    padding:        "3px 8px",
+    fontWeight:     700,
+    padding:        "5px 12px",
     textDecoration: "none",
     flexShrink:     0,
     whiteSpace:     "nowrap",
@@ -391,12 +403,13 @@ const s = {
     display:        "flex",
     justifyContent: "space-between",
     alignItems:     "center",
-    padding:        "7px 16px",
+    minHeight:      "44px",
+    padding:        "var(--sp-2) var(--sp-4)",
     borderBottom:   "1px solid var(--border)",
-    gap:            "8px",
+    gap:            "var(--sp-2)",
   },
   expenseRowSpecial: {
-    background: "rgba(185,28,28,0.12)",
+    background: "var(--error-bg)",
   },
   expenseLeft: {
     display:    "flex",
@@ -406,13 +419,13 @@ const s = {
     flex:       1,
   },
   priorityDot: {
-    width:        "7px",
-    height:       "7px",
+    width:        "8px",
+    height:       "8px",
     borderRadius: "50%",
     flexShrink:   0,
   },
   expenseSummary: {
-    fontSize:     "12px",
+    fontSize:     "13px",
     color:        "var(--text)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
@@ -434,28 +447,6 @@ const s = {
     fontSize: "12px",
     color:    "var(--text)",
     fontVariantNumeric: "tabular-nums",
-  },
-  statusBadge: {
-    display:        "inline-flex",
-    alignItems:     "center",
-    justifyContent: "center",
-    width:          "14px",
-    height:         "14px",
-    borderRadius:   "3px",
-    fontWeight:     700,
-    fontSize:       "10px",
-    flexShrink:     0,
-    transition:     "background 0.15s, border-color 0.15s",
-  },
-  statusDone: {
-    background: "var(--accent)",
-    color:      "var(--on-accent)",
-    border:     "1px solid var(--accent)",
-  },
-  statusPending: {
-    background: "var(--surface)",
-    color:      "transparent",
-    border:     "1px solid var(--border)",
   },
   // Shared box so the edit and delete icons line up and are equally tappable.
   // The glyphs need different font sizes to render at the same visual size:
@@ -512,24 +503,26 @@ const s = {
   dualBar: {
     display:      "flex",
     height:       "44px",
-    borderRadius: "6px",
+    borderRadius: "var(--r-md)",
     overflow:     "hidden",
     background:   "var(--surface-2)",
-    gap:          "2px",
+    padding:      "3px",
+    gap:          "3px",
   },
   dualBarTop: {
-    display:      "flex",
-    flex:         1,
-    borderBottom: "2px solid var(--surface-2)",
+    display:   "flex",
+    flex:      1,
+    marginBottom: "3px",
   },
   dualBarBottom: {
     display: "flex",
     flex:    3,
-    gap:     "2px",
+    gap:     "3px",
   },
   dualBarTotal: {
     height:         "100%",
-    background:     BAR_COLOR.total,
+    borderRadius:   "var(--r-sm)",
+    background:     "var(--surface-3)",
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
@@ -537,6 +530,7 @@ const s = {
   },
   dualBarCompleted: {
     height:         "100%",
+    borderRadius:   "var(--r-sm)",
     minWidth:       "34px",
     background:     BAR_COLOR.done,
     display:        "flex",
@@ -547,6 +541,7 @@ const s = {
   },
   dualBarPending: {
     height:         "100%",
+    borderRadius:   "var(--r-sm)",
     minWidth:       "34px",
     background:     BAR_COLOR.pending,
     display:        "flex",
@@ -557,6 +552,7 @@ const s = {
   },
   dualBarFree: {
     height:         "100%",
+    borderRadius:   "var(--r-sm)",
     minWidth:       "34px",
     display:        "flex",
     alignItems:     "center",
@@ -565,8 +561,8 @@ const s = {
     transition:     "width 0.5s ease",
   },
   barSegLabel: {
-    fontSize:           "9px",
-    fontWeight:         700,
+    fontSize:           "var(--fs-caption)",
+    fontWeight:         800,
     color:              "var(--bar-label)",
     whiteSpace:         "nowrap",
     padding:            "0 6px",
@@ -581,19 +577,19 @@ const s = {
   legendItem: {
     display:    "flex",
     alignItems: "center",
-    gap:        "4px",
-    fontSize:   "9px",
-    fontWeight: 500,
+    gap:        "5px",
+    fontSize:   "var(--fs-caption)",
+    fontWeight: 600,
     color:      "var(--text-muted)",
   },
   legendDot: {
     width:        "8px",
     height:       "8px",
-    borderRadius: "2px",
+    borderRadius: "var(--r-pill)",
     flexShrink:   0,
   },
   specialStar: {
-    color:      "#a855f7",
+    color:      "var(--accent)",
     lineHeight: 1,
     flexShrink: 0,
   },
@@ -604,14 +600,16 @@ const s = {
     cursor:     "pointer",
     display:    "flex",
     alignItems: "center",
-    color:      "var(--danger)",
-    opacity:    0.55,
+    // Terracotta on the tan hero gradient is nearly invisible, so this reads
+    // as header ink; the confirm dialog is what marks the action as dangerous.
+    color:      "var(--on-header)",
+    opacity:    0.6,
     flexShrink: 0,
   },
   overlay: {
     position:       "fixed",
     inset:          0,
-    background:     "rgba(0,0,0,0.6)",
+    background:     "var(--backdrop)",
     backdropFilter: "blur(2px)",
     display:        "flex",
     alignItems:     "center",
@@ -621,11 +619,11 @@ const s = {
   dialog: {
     background:   "var(--surface)",
     border:       "1px solid var(--border)",
-    borderRadius: "14px",
+    borderRadius: "var(--r-lg)",
     padding:      "28px 32px",
     width:        "100%",
     maxWidth:     "380px",
-    boxShadow:    "0 8px 40px rgba(0,0,0,0.5)",
+    boxShadow:    "var(--shadow-sheet)",
   },
   dialogTitle: {
     fontSize:     "16px",
@@ -647,8 +645,8 @@ const s = {
   btnCancel: {
     background:   "transparent",
     color:        "var(--text-muted)",
-    border:       "1px solid var(--border)",
-    borderRadius: "8px",
+    border:       "none",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   500,
     fontSize:     "13px",
@@ -658,7 +656,7 @@ const s = {
     background:   "transparent",
     color:        "var(--danger)",
     border:       "1px solid var(--danger)",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   500,
     fontSize:     "13px",
@@ -666,9 +664,9 @@ const s = {
   },
   btnDelete: {
     background:   "var(--danger)",
-    color:        "#fff",
+    color:        "var(--on-accent)",
     border:       "none",
-    borderRadius: "8px",
+    borderRadius: "var(--r-md)",
     padding:      "8px 20px",
     fontWeight:   600,
     fontSize:     "13px",

@@ -1,73 +1,155 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   4TURA Home — design tokens
+
+   This file is the single source of truth for colour, radius, elevation,
+   spacing and type. Components read these variables; they do not carry raw
+   hex values. The only exception is `utils/colors.js`, which holds the
+   categorical series colours (priority levels, chart series, HTTP methods) —
+   those are data encodings rather than theme surfaces, but they are tuned to
+   this palette.
+
+   Dusk is the default and lives on :root. Light and Amber remain selectable
+   through Settings and override only the colour group; radius, elevation,
+   spacing and type are shared by every theme.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-/* Ember — the default theme, built from a navy / sand / slate / blue-grey
-   palette but inverted to a light base. The page sits on a tinted blue-grey so
-   white cards read as distinctly raised blocks, and borders are deliberately
-   strong rather than hairlines. The palette's sand is pushed to a saturated
-   burnt orange so the accent carries real weight on a light ground (5.1:1
-   against white, so white text on it passes AA).
-   Legacy "dark" and "prism" preferences land here: neither matches a rule any
-   more, so they fall through to :root. */
+/* ── Dusk — the default theme ────────────────────────────────────────────────
+   A mid-dark warm grey canvas carrying deep navy cards, with a single sandy
+   tan accent and muted blue-grey secondaries. Deliberately not a black dark
+   mode: the canvas is lighter than the cards, so panels read as recessed
+   navy blocks rather than as glowing boxes on a void. Nothing is pure white
+   or pure black, and every status colour is desaturated to sit inside the
+   palette rather than shout over it. */
 :root {
-  --bg:           #dce6ec;
-  --surface:      #ffffff;
-  --surface-2:    #eaf1f5;
-  --border:       #9db2c0;
-  --text:         #141b29;
-  --text-muted:   #4a5c71;
-  --accent:       #c2410c;
-  --accent-hover: #9a330a;
-  --danger:       #d1123a;
-  --success:      #0f7a5a;
-  --warning:      #b45309;
+  /* Surfaces ------------------------------------------------------------- */
+  --bg:            #4a4e57;  /* app canvas — warm grey, not black */
+  --bg-deep:       #40444c;  /* canvas gradient end / pressed canvas */
+  --surface:       #2d3343;  /* card and panel */
+  --surface-deep:  #202332;  /* app bar, nav bar, headers inside cards */
+  --surface-2:     #434e60;  /* raised: inputs, chips, secondary tiles */
+  --surface-3:     #4e596b;  /* raised, hovered/pressed/filled */
+  --surface-pill:  #12151c;  /* near-black pills and icon buttons */
 
-  /* Text/icons drawn ON an --accent fill. The orange is dark, so this is white. */
-  --on-accent:    #ffffff;
+  /* Accents -------------------------------------------------------------- */
+  --accent:        #bc9876;  /* sandy tan — the one warm colour */
+  --accent-hover:  #c9a98a;
+  --accent-2:      #8b9a9f;  /* muted blue-grey secondary */
+  --on-accent:     #202332;  /* drawn ON tan — navy, never white */
+  --on-hero:       #202332;  /* drawn ON the hero gradient */
 
-  --topbar-bg:          rgba(255,255,255,0.92);
-  --topbar-border:      #9db2c0;
-  --topbar-shadow:      rgba(20,27,41,0.12);
-  --topbar-link-active: rgba(194,65,12,0.12);
+  /* Text ----------------------------------------------------------------- */
+  --text:          #e6e1da;  /* warm off-white */
+  --text-muted:    #a9b0bb;  /* labels, dates, meta */
+  --text-dim:      #6e7686;  /* disabled, completed, placeholders */
 
-  --badge-text:         #c2410c;
-  --badge-text-muted:   rgba(194,65,12,0.66);
-  --amount-text:        #0f7a5a;
-  --header-amount-text: #141b29;
-  --bar-label:          rgba(20,27,41,0.85);
+  /* Lines ---------------------------------------------------------------- */
+  /* Cards carry no visible stroke: separation comes from surface and shadow.
+     Existing `1px solid var(--border)` rules therefore resolve to a hairline
+     rather than the outlines the previous light theme relied on. */
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
 
-  --error-bg:           #ffe8ec;
-  --error-text:         #a80d2e;
-  --success-bg:         #e0f5ee;
-  --success-text:       #0b5c44;
-  --warning-bg:         #fdefdc;
-  --warning-text:       #8a4208;
+  /* Status — muted to fit the palette ------------------------------------ */
+  --success:       #8fb39a;  /* sage — done */
+  --warning:       #bc9876;  /* tan — pending */
+  --danger:        #ce8b7a;  /* dusty terracotta — overdue (AA on --surface) */
+  --info:          #8b9a9f;
+  --on-danger:     #202332;
 
-  --header-current-bg:     rgba(194,65,12,0.10);
-  --header-current-border: #c2410c;
-  --avatar-bg:             rgba(194,65,12,0.12);
-  --avatar-border:         #c2410c;
-  --avatar-color:          #c2410c;
+  /* Radii — only these five --------------------------------------------- */
+  --r-sm:   10px;  /* checkboxes, small chips, inline tags */
+  --r-md:   14px;  /* inputs, row tiles, small tiles */
+  --r-lg:   20px;  /* cards and panels */
+  --r-xl:   28px;  /* hero cards and bottom sheets */
+  --r-pill: 999px; /* pills, segmented controls, bars, icon buttons */
 
-  /* accent overlay helpers — updated per theme */
-  --accent-grad-end:     rgba(194,65,12,0.22);
-  --accent-tint-bg:      rgba(194,65,12,0.10);
-  --accent-tint-border:  rgba(194,65,12,0.30);
-  --accent-glow-bg:      rgba(194,65,12,0.06);
-  --accent-glow-border:  rgba(194,65,12,0.18);
-  --accent-reveal-bg:    rgba(194,65,12,0.16);
-  --accent-nav-ind:      rgba(194,65,12,0.85);
-  --accent-row-bg:       rgba(194,65,12,0.06);
-  --accent-badge-bg:     rgba(194,65,12,0.12);
-  --accent-badge-border: rgba(194,65,12,0.34);
+  /* Elevation — soft, diffuse, never harsh ------------------------------- */
+  --shadow-card:   0 8px 24px rgba(10, 12, 18, 0.35),
+                   inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-raised: 0 4px 12px rgba(10, 12, 18, 0.30);
+  --shadow-sheet:  0 -10px 44px rgba(10, 12, 18, 0.55);
 
-  /* Sign-in aurora — the palette's three supporting tones */
-  --aurora-1: rgba(194,65,12,0.22);
-  --aurora-2: rgba(34,42,58,0.20);
-  --aurora-3: rgba(169,189,198,0.50);
+  /* Spacing — 4pt scale -------------------------------------------------- */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+
+  /* Type ----------------------------------------------------------------- */
+  --font-display: "Nunito", "SF Pro Rounded", ui-rounded, system-ui, -apple-system, sans-serif;
+  --font-body:    "Nunito", "Inter", system-ui, -apple-system, sans-serif;
+
+  --fs-display:  40px;  --lh-display:  44px;
+  --fs-h1:       28px;  --lh-h1:       34px;
+  --fs-h2:       22px;  --lh-h2:       28px;
+  --fs-h3:       17px;  --lh-h3:       22px;
+  --fs-body:     16px;  --lh-body:     22px;
+  --fs-label:    13px;  --lh-label:    18px;
+  --fs-overline: 12px;  --lh-overline: 16px;
+  --fs-caption:  11px;  --lh-caption:  14px;
+
+  /* Gradients ------------------------------------------------------------ */
+  --hero-grad:  linear-gradient(160deg, #bc9876 0%, #434e60 100%);
+  --chart-from: rgba(188, 152, 118, 0.90);
+  --chart-to:   rgba(67, 78, 96, 0.20);
+
+  /* Backdrop for sheets and modals --------------------------------------- */
+  --backdrop: rgba(18, 21, 28, 0.60);
+
+  /* ── Derived tokens ───────────────────────────────────────────────────
+     Named for where they are used rather than what colour they are, so a
+     theme can re-point them without every call site changing. */
+  --topbar-bg:          var(--surface-deep);
+  --topbar-border:      rgba(255, 255, 255, 0.06);
+  --topbar-shadow:      rgba(10, 12, 18, 0.40);
+  --topbar-link-active: rgba(188, 152, 118, 0.14);
+
+  --badge-text:         #bc9876;
+  --badge-text-muted:   rgba(188, 152, 118, 0.70);
+  --amount-text:        #8fb39a;
+  --header-amount-text: #e6e1da;
+  /* Numbers sitting on a sage or tan progress segment. */
+  --bar-label:          #202332;
+
+  --error-bg:           rgba(206, 139, 122, 0.14);
+  --error-text:         #ce8b7a;
+  --success-bg:         rgba(143, 179, 154, 0.14);
+  --success-text:       #8fb39a;
+  --warning-bg:         rgba(188, 152, 118, 0.14);
+  --warning-text:       #c9a98a;
+
+  /* The header of the current income card is the one hero gradient per screen. */
+  --header-current-bg:     var(--hero-grad);
+  --header-current-border: rgba(255, 255, 255, 0.10);
+
+  --avatar-bg:             #bc9876;
+  --avatar-border:         transparent;
+  --avatar-color:          #202332;
+
+  --accent-tint-bg:      rgba(188, 152, 118, 0.14);
+  --accent-tint-border:  rgba(188, 152, 118, 0.32);
+  --accent-glow-bg:      rgba(188, 152, 118, 0.08);
+  --accent-glow-border:  rgba(188, 152, 118, 0.20);
+  --accent-reveal-bg:    rgba(188, 152, 118, 0.18);
+  --accent-nav-ind:      rgba(188, 152, 118, 0.90);
+  --accent-row-bg:       rgba(188, 152, 118, 0.08);
+  --accent-badge-bg:     rgba(188, 152, 118, 0.14);
+  --accent-badge-border: rgba(188, 152, 118, 0.32);
+
+  /* Sign-in aurora — tan, navy and slate from the same palette. */
+  --aurora-1: rgba(188, 152, 118, 0.30);
+  --aurora-2: rgba(32, 35, 50, 0.55);
+  --aurora-3: rgba(139, 154, 159, 0.28);
 
   --card-w: 280px;
 
@@ -75,121 +157,179 @@
      pages and bottom sheets read it rather than repeating the number. */
   --app-max-w: 430px;
 
-  font-family: system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
   background-color: var(--bg);
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
+/* ── Light ─────────────────────────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg:           #eef2ee;
-  --surface:      #f9fbf9;
-  --surface-2:    #e4ebe4;
-  --border:       #c2d4c4;
-  --text:         #0e1a10;
-  --text-muted:   #3d5c46;
-  --accent:       #15803d;
-  --accent-hover: #166534;
-  --danger:       #dc2626;
-  --on-accent:    #ffffff;
+  color-scheme: light;
+  --bg:            #eef2ee;
+  --bg-deep:       #e4ebe4;
+  --surface:       #f9fbf9;
+  --surface-deep:  #ffffff;
+  --surface-2:     #e4ebe4;
+  --surface-3:     #d7e2d9;
+  --surface-pill:  #23312a;
 
-  --topbar-bg:          rgba(232,242,234,0.97);
-  --topbar-border:      rgba(22,163,74,0.3);
-  --topbar-shadow:      rgba(22,163,74,0.12);
-  --topbar-link-active: rgba(22,163,74,0.12);
+  --accent:        #15803d;
+  --accent-hover:  #166534;
+  --accent-2:      #5f8570;
+  --on-accent:     #f4fbf6;
+  --on-hero:       #0e1a10;
+
+  --text:          #0e1a10;
+  --text-muted:    #3d5c46;
+  --text-dim:      #7d938a;
+
+  --border:        rgba(14, 26, 16, 0.10);
+  --border-strong: rgba(14, 26, 16, 0.20);
+
+  --success:       #15803d;
+  --warning:       #b45309;
+  --danger:        #c2483c;
+  --info:          #5f8570;
+  --on-danger:     #ffffff;
+
+  --shadow-card:   0 6px 18px rgba(14, 26, 16, 0.10),
+                   inset 0 1px 0 rgba(255, 255, 255, 0.60);
+  --shadow-raised: 0 3px 10px rgba(14, 26, 16, 0.08);
+  --shadow-sheet:  0 -10px 40px rgba(14, 26, 16, 0.20);
+
+  --hero-grad:  linear-gradient(160deg, #15803d 0%, #5f8570 100%);
+  --chart-from: rgba(21, 128, 61, 0.85);
+  --chart-to:   rgba(95, 133, 112, 0.15);
+  --backdrop:   rgba(14, 26, 16, 0.45);
+
+  --topbar-bg:          #ffffff;
+  --topbar-border:      rgba(14, 26, 16, 0.10);
+  --topbar-shadow:      rgba(14, 26, 16, 0.10);
+  --topbar-link-active: rgba(21, 128, 61, 0.12);
 
   --badge-text:         #15803d;
   --badge-text-muted:   #3d6b4a;
   --amount-text:        #15803d;
   --header-amount-text: #0e1a10;
-  --bar-label:          rgba(0,0,0,0.75);
+  --bar-label:          #0e1a10;
 
-  --header-current-bg:     rgba(22,163,74,0.22);
-  --header-current-border: rgba(22,163,74,0.6);
-  --avatar-bg:             rgba(21,128,61,0.15);
-  --avatar-border:         rgba(21,128,61,0.55);
-  --avatar-color:          #15803d;
-
-  --error-bg:           #fef2f2;
-  --error-text:         #b91c1c;
-  --success-bg:         #f0fdf4;
+  --error-bg:           #fdeceb;
+  --error-text:         #a5382e;
+  --success-bg:         #e9f6ed;
   --success-text:       #166534;
-  --warning-bg:         #fffbeb;
+  --warning-bg:         #fdf2e3;
   --warning-text:       #92400e;
 
-  --accent-grad-end:     rgba(22,163,74,0.2);
-  --accent-tint-bg:      rgba(22,163,74,0.1);
-  --accent-tint-border:  rgba(22,163,74,0.25);
-  --accent-glow-bg:      rgba(22,163,74,0.06);
-  --accent-glow-border:  rgba(22,163,74,0.15);
-  --accent-reveal-bg:    rgba(22,163,74,0.15);
-  --accent-nav-ind:      rgba(22,163,74,0.7);
-  --accent-row-bg:       rgba(22,163,74,0.06);
-  --accent-badge-bg:     rgba(22,163,74,0.1);
-  --accent-badge-border: rgba(22,163,74,0.3);
+  --header-current-bg:     var(--hero-grad);
+  --header-current-border: rgba(14, 26, 16, 0.12);
 
-  --aurora-1: rgba(22,163,74,0.20);
-  --aurora-2: rgba(13,148,136,0.16);
-  --aurora-3: rgba(134,239,172,0.22);
+  --avatar-bg:     #15803d;
+  --avatar-border: transparent;
+  --avatar-color:  #f4fbf6;
+
+  --accent-tint-bg:      rgba(21, 128, 61, 0.10);
+  --accent-tint-border:  rgba(21, 128, 61, 0.26);
+  --accent-glow-bg:      rgba(21, 128, 61, 0.06);
+  --accent-glow-border:  rgba(21, 128, 61, 0.16);
+  --accent-reveal-bg:    rgba(21, 128, 61, 0.15);
+  --accent-nav-ind:      rgba(21, 128, 61, 0.80);
+  --accent-row-bg:       rgba(21, 128, 61, 0.06);
+  --accent-badge-bg:     rgba(21, 128, 61, 0.10);
+  --accent-badge-border: rgba(21, 128, 61, 0.28);
+
+  --aurora-1: rgba(21, 128, 61, 0.22);
+  --aurora-2: rgba(13, 148, 136, 0.16);
+  --aurora-3: rgba(134, 239, 172, 0.24);
 }
 
+/* ── Amber ─────────────────────────────────────────────────────────────── */
 [data-theme="amber"] {
-  --bg:           #fef9f0;
-  --surface:      #fffdf8;
-  --surface-2:    #f6ecd6;
-  --border:       #d4a845;
-  --text:         #1a1100;
-  --text-muted:   #7c5c1e;
-  --accent:       #b45309;
-  --accent-hover: #92400e;
-  --danger:       #dc2626;
-  --on-accent:    #ffffff;
-  --success:      #15803d;
-  --warning:      #ea580c;
+  color-scheme: light;
+  --bg:            #f4e9d7;
+  --bg-deep:       #ecdec6;
+  --surface:       #fffdf8;
+  --surface-deep:  #ffffff;
+  --surface-2:     #f6ecd6;
+  --surface-3:     #eee0bf;
+  --surface-pill:  #33240f;
 
-  --topbar-bg:          rgba(254,249,240,0.97);
-  --topbar-border:      rgba(180,83,9,0.28);
-  --topbar-shadow:      rgba(180,83,9,0.10);
-  --topbar-link-active: rgba(180,83,9,0.10);
+  --accent:        #b45309;
+  --accent-hover:  #92400e;
+  --accent-2:      #9c7c4a;
+  --on-accent:     #fffaf2;
+  --on-hero:       #1a1100;
+
+  --text:          #1a1100;
+  --text-muted:    #7c5c1e;
+  --text-dim:      #a89464;
+
+  --border:        rgba(26, 17, 0, 0.10);
+  --border-strong: rgba(26, 17, 0, 0.20);
+
+  --success:       #15803d;
+  --warning:       #b45309;
+  --danger:        #c2483c;
+  --info:          #9c7c4a;
+  --on-danger:     #ffffff;
+
+  --shadow-card:   0 6px 18px rgba(26, 17, 0, 0.10),
+                   inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  --shadow-raised: 0 3px 10px rgba(26, 17, 0, 0.08);
+  --shadow-sheet:  0 -10px 40px rgba(26, 17, 0, 0.20);
+
+  --hero-grad:  linear-gradient(160deg, #d4a845 0%, #9c7c4a 100%);
+  --chart-from: rgba(180, 83, 9, 0.85);
+  --chart-to:   rgba(156, 124, 74, 0.15);
+  --backdrop:   rgba(26, 17, 0, 0.45);
+
+  --topbar-bg:          #ffffff;
+  --topbar-border:      rgba(26, 17, 0, 0.10);
+  --topbar-shadow:      rgba(26, 17, 0, 0.10);
+  --topbar-link-active: rgba(180, 83, 9, 0.10);
 
   --badge-text:         #b45309;
-  --badge-text-muted:   rgba(180,83,9,0.6);
+  --badge-text-muted:   rgba(180, 83, 9, 0.60);
   --amount-text:        #b45309;
   --header-amount-text: #1a1100;
-  --bar-label:          rgba(0,0,0,0.75);
+  --bar-label:          #1a1100;
 
-  --header-current-bg:     rgba(180,83,9,0.08);
-  --header-current-border: rgba(180,83,9,0.35);
-  --avatar-bg:             rgba(180,83,9,0.10);
-  --avatar-border:         rgba(180,83,9,0.40);
-  --avatar-color:          #b45309;
-
-  --error-bg:           #fef2f2;
-  --error-text:         #b91c1c;
-  --success-bg:         #f0fdf4;
+  --error-bg:           #fdeceb;
+  --error-text:         #a5382e;
+  --success-bg:         #eaf7ee;
   --success-text:       #166534;
-  --warning-bg:         #fff4ec;
+  --warning-bg:         #fdf1e2;
   --warning-text:       #9a3412;
 
-  --accent-grad-end:     rgba(212,121,28,0.2);
-  --accent-tint-bg:      rgba(180,83,9,0.10);
-  --accent-tint-border:  rgba(180,83,9,0.25);
-  --accent-glow-bg:      rgba(180,83,9,0.06);
-  --accent-glow-border:  rgba(180,83,9,0.15);
-  --accent-reveal-bg:    rgba(180,83,9,0.15);
-  --accent-nav-ind:      rgba(180,83,9,0.70);
-  --accent-row-bg:       rgba(180,83,9,0.06);
-  --accent-badge-bg:     rgba(180,83,9,0.10);
-  --accent-badge-border: rgba(180,83,9,0.30);
+  --header-current-bg:     var(--hero-grad);
+  --header-current-border: rgba(26, 17, 0, 0.12);
 
-  --aurora-1: rgba(180,83,9,0.18);
-  --aurora-2: rgba(217,119,6,0.16);
-  --aurora-3: rgba(252,211,77,0.20);
+  --avatar-bg:     #b45309;
+  --avatar-border: transparent;
+  --avatar-color:  #fffaf2;
+
+  --accent-tint-bg:      rgba(180, 83, 9, 0.10);
+  --accent-tint-border:  rgba(180, 83, 9, 0.26);
+  --accent-glow-bg:      rgba(180, 83, 9, 0.06);
+  --accent-glow-border:  rgba(180, 83, 9, 0.16);
+  --accent-reveal-bg:    rgba(180, 83, 9, 0.15);
+  --accent-nav-ind:      rgba(180, 83, 9, 0.75);
+  --accent-row-bg:       rgba(180, 83, 9, 0.06);
+  --accent-badge-bg:     rgba(180, 83, 9, 0.10);
+  --accent-badge-border: rgba(180, 83, 9, 0.28);
+
+  --aurora-1: rgba(180, 83, 9, 0.20);
+  --aurora-2: rgba(217, 119, 6, 0.18);
+  --aurora-3: rgba(252, 211, 77, 0.22);
 }
 
-/* The app is mobile-only, so on any viewport it renders as a single centred
+/* ── Shell ──────────────────────────────────────────────────────────────────
+   The app is mobile-only, so on any viewport it renders as a single centred
    phone-width column — top bar and tab bar included, not just the content.
    Capping the shell rather than each page means a page cannot stretch by
    forgetting to cap itself, which is how the Dashboard came to run full width. */
@@ -197,15 +337,15 @@
   width: 100%;
   max-width: var(--app-max-w);
   margin: 0 auto;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
 }
 
-/* Once there is room either side, frame the column so it reads as deliberate
-   rather than as a layout that failed to fill the window. */
+/* Once there is room either side, lift the column off the page. Cards no
+   longer carry strokes, so the column is framed by shadow rather than by a
+   pair of hairlines that would now be invisible. */
 @media (min-width: 520px) {
   .app-shell {
-    border-left:  1px solid var(--border);
-    border-right: 1px solid var(--border);
-    box-shadow:   0 0 60px rgba(0, 0, 0, 0.10);
+    box-shadow: 0 0 80px rgba(10, 12, 18, 0.45);
   }
 }
 
@@ -218,8 +358,9 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  background: var(--bg-deep);
+  font-family: var(--font-body);
 }
-
 
 a {
   color: inherit;
@@ -232,6 +373,13 @@ button {
   font-size: inherit;
   outline: none;
   -webkit-appearance: none;
+  /* Press feedback, applied once rather than per component. */
+  transition: transform 120ms ease-out, background-color 120ms ease-out,
+              color 120ms ease-out, border-color 120ms ease-out;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button:focus,
@@ -240,8 +388,39 @@ button:focus-visible {
   box-shadow: none;
 }
 
+/* Form controls inherit the rounded face rather than falling back to the
+   platform UI font, which would break the tabular alignment of amounts. */
+input,
+select,
+textarea {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The focus ring is a tan hairline rather than the platform outline. */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Skeletons shimmer from the raised surface toward its hover tone. */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--r-md);
 }
 
 /* iOS Safari zooms the viewport whenever a focused form control has a
@@ -252,4 +431,13 @@ button:focus-visible {
 .zoom-safe-form select,
 .zoom-safe-form textarea {
   font-size: 16px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  button:active:not(:disabled) { transform: none; }
 }

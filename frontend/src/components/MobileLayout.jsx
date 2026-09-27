@@ -39,7 +39,9 @@ function JwtTimer() {
   const hours = Math.floor(totalMins / 60);
   const mins  = totalMins % 60;
   const label = hours > 0 ? `${hours}h:${String(mins).padStart(2, "0")}m` : `${mins}m`;
-  const color = remaining <= 300 ? "var(--danger)" : remaining <= 600 ? "#f59e0b" : "var(--text-muted)";
+  const color = remaining <= 300 ? "var(--danger)"
+              : remaining <= 600 ? "var(--warning-text)"
+              : "var(--text-muted)";
 
   return (
     <span style={{ ...s.sessionRow, color }}>
@@ -89,7 +91,7 @@ export default function MobileLayout({ children }) {
     <div className="app-shell" style={s.shell}>
       <header style={s.topBar}>
         <div style={s.brand}>
-          <img src="/app-icon.svg" alt="" style={{ height: 30, width: 30, display: "block", borderRadius: 8 }} />
+          <img src="/app-icon.svg" alt="" style={s.brandMark} />
           <span style={s.brandText}>4TURA<span style={s.brandAccent}> Home</span></span>
         </div>
         <button style={s.avatar} onClick={() => setShowUserMenu(v => !v)} aria-label="Account">
@@ -125,8 +127,10 @@ export default function MobileLayout({ children }) {
               aria-current={group.match(pathname) ? "page" : undefined}
               style={{ ...s.tab, color: active ? "var(--accent)" : "var(--text-muted)" }}
             >
-              <group.Icon />
-              <span style={s.tabLabel}>{group.label}</span>
+              <span style={{ ...s.tabIcon, ...(active ? s.tabIconActive : {}) }}>
+                <group.Icon size={22} />
+              </span>
+              <span style={{ ...s.tabLabel, fontWeight: active ? 700 : 500 }}>{group.label}</span>
             </button>
           );
         })}
@@ -148,12 +152,11 @@ const s = {
     display:        "flex",
     alignItems:     "center",
     justifyContent: "space-between",
-    padding:        "0 16px",
+    padding:        "0 var(--sp-4)",
     paddingTop:     "env(safe-area-inset-top)",
-    minHeight:      "52px",
+    minHeight:      "56px",
     boxSizing:      "content-box",
     background:     "var(--topbar-bg)",
-    borderBottom:   "1px solid var(--topbar-border)",
     flexShrink:     0,
     position:       "relative",
     zIndex:         100,
@@ -161,57 +164,78 @@ const s = {
   brand: {
     display:    "flex",
     alignItems: "center",
-    gap:        "8px",
+    gap:        "var(--sp-2)",
+  },
+  brandMark: {
+    height:       30,
+    width:        30,
+    display:      "block",
+    borderRadius:  "var(--r-md)",
   },
   brandText: {
-    fontSize:   "15px",
-    fontWeight: 400,
-    color:      "var(--text-muted)",
+    fontFamily:    "var(--font-display)",
+    fontSize:      "var(--fs-h3)",
+    fontWeight:    700,
+    color:         "var(--text)",
+    letterSpacing: "-0.01em",
   },
+  // The active section name carries the accent; the wordmark itself does not.
   brandAccent: {
-    fontWeight: 700,
-    color:      "var(--badge-text)",
-    marginLeft: "2px",
+    fontWeight: 800,
+    color:      "var(--accent)",
+    marginLeft: "3px",
   },
   avatar: {
-    width:          "32px",
-    height:         "32px",
+    width:          "40px",
+    height:         "40px",
     borderRadius:   "50%",
     background:     "var(--avatar-bg)",
-    border:         "1px solid var(--avatar-border)",
+    border:         "none",
     color:          "var(--avatar-color)",
-    fontSize:       "11px",
-    fontWeight:     700,
+    fontFamily:     "var(--font-display)",
+    fontSize:       "13px",
+    fontWeight:     800,
+    letterSpacing:  "0.02em",
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
-    cursor:         "pointer",
+    flexShrink:     0,
   },
   userMenu: {
     position:      "absolute",
-    top:           "calc(56px + env(safe-area-inset-top))",
-    right:         "12px",
+    top:           "calc(60px + env(safe-area-inset-top))",
+    right:         "var(--sp-3)",
     background:    "var(--surface)",
-    border:        "1px solid var(--border)",
-    borderRadius:  "10px",
-    padding:       "12px 16px",
+    borderRadius:  "var(--r-lg)",
+    padding:       "var(--sp-4)",
     display:       "flex",
     flexDirection: "column",
-    gap:           "10px",
-    boxShadow:     "0 4px 20px rgba(0,0,0,0.2)",
+    gap:           "var(--sp-3)",
+    boxShadow:     "var(--shadow-card)",
     zIndex:        200,
-    minWidth:      "170px",
+    minWidth:      "190px",
   },
   userMenuName: {
-    fontSize:   "12px",
-    color:      "var(--text-muted)",
-    fontWeight: 500,
+    fontSize:   "var(--fs-label)",
+    lineHeight: "var(--lh-label)",
+    color:      "var(--text)",
+    fontWeight: 700,
   },
   sessionRow: {
-    fontSize:           "11px",
+    fontSize:           "var(--fs-caption)",
+    lineHeight:         "var(--lh-caption)",
     fontWeight:         600,
     fontVariantNumeric: "tabular-nums",
-    letterSpacing:      "0.02em",
+  },
+  signOutBtn: {
+    background:   "var(--surface-2)",
+    color:        "var(--text)",
+    border:       "none",
+    borderRadius: "var(--r-pill)",
+    padding:      "var(--sp-3) var(--sp-4)",
+    fontSize:     "var(--fs-label)",
+    fontWeight:   600,
+    minHeight:    "44px",
   },
   main: {
     flex:          1,
@@ -220,13 +244,16 @@ const s = {
     display:       "flex",
     flexDirection: "column",
   },
+  // Sits on the deepest surface with a rounded top, so it reads as a panel the
+  // content scrolls beneath rather than as a strip welded to the viewport.
   tabBar: {
     display:        "flex",
-    borderTop:      "1px solid var(--border)",
-    background:     "var(--topbar-bg)",
-    backdropFilter: "blur(12px)",
+    background:     "var(--surface-deep)",
+    borderRadius:   "var(--r-xl) var(--r-xl) 0 0",
+    boxShadow:      "var(--shadow-card)",
     flexShrink:     0,
-    paddingBottom:  "env(safe-area-inset-bottom)",
+    paddingTop:     "var(--sp-2)",
+    paddingBottom:  "calc(var(--sp-2) + env(safe-area-inset-bottom))",
     zIndex:         100,
   },
   tab: {
@@ -235,18 +262,29 @@ const s = {
     flexDirection:  "column",
     alignItems:     "center",
     justifyContent: "center",
-    gap:            "3px",
-    padding:        "8px 2px",
+    gap:            "2px",
+    padding:        "2px",
     minWidth:       0,
+    minHeight:      "44px",
     border:         "none",
     background:     "transparent",
-    cursor:         "pointer",
     fontFamily:     "inherit",
-    transition:     "color 0.15s",
+  },
+  tabIcon: {
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    width:          "40px",
+    height:         "28px",
+    borderRadius:   "var(--r-pill)",
+    transition:     "background 120ms ease-out",
+  },
+  tabIconActive: {
+    background: "var(--accent-tint-bg)",
   },
   tabLabel: {
-    fontSize:      "9px",
-    fontWeight:    500,
+    fontSize:      "var(--fs-caption)",
+    lineHeight:    "var(--lh-caption)",
     whiteSpace:    "nowrap",
     letterSpacing: "-0.01em",
   },
