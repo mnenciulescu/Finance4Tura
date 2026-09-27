@@ -11,24 +11,38 @@ const incomes = [
   { incomeId: "n2", date: "2026-09-01", summary: "Salary Sep", amount: 10000, currency: "RON" },
 ];
 
-// Deliberately mixed so priority order and status order disagree: sorting by
-// status would put the pending Low item first, ahead of the completed High one.
-const expenses = [
-  { expenseId: "x1", date: "2026-09-03", summary: "Rent",    amount: 4000, currency: "RON",
-    priority: "High",   status: "Completed", mappedIncomeId: "n2" },
-  { expenseId: "x2", date: "2026-09-05", summary: "Netflix", amount: 60,   currency: "RON",
+/**
+ * Three outstanding items whose priority order and date order disagree — by
+ * date it is Rent, Netflix, Petrol; by priority it is Rent, Petrol, Netflix —
+ * so the ordering assertions cannot pass by accident. Plus one already-completed
+ * item, which must never be listed, and one from the previous period.
+ */
+const SEED = [
+  { expenseId: "x1", date: "2026-09-03", summary: "Rent",      amount: 4000, currency: "RON",
+    priority: "High",   status: "Pending",   mappedIncomeId: "n2" },
+  { expenseId: "x2", date: "2026-09-05", summary: "Netflix",   amount: 60,   currency: "RON",
     priority: "Low",    status: "Pending",   mappedIncomeId: "n2" },
-  { expenseId: "x3", date: "2026-09-07", summary: "Petrol",  amount: 300,  currency: "RON",
-    priority: "Medium", status: "Completed", mappedIncomeId: "n2" },
-  // Belongs to the previous period — must not appear.
-  { expenseId: "x4", date: "2026-08-04", summary: "Old bill", amount: 99,  currency: "RON",
+  { expenseId: "x3", date: "2026-09-07", summary: "Petrol",    amount: 300,  currency: "RON",
+    priority: "Medium", status: "Pending",   mappedIncomeId: "n2" },
+  { expenseId: "x5", date: "2026-09-02", summary: "Insurance", amount: 500,  currency: "RON",
+    priority: "High",   status: "Completed", mappedIncomeId: "n2" },
+  { expenseId: "x4", date: "2026-08-04", summary: "Old bill",  amount: 99,   currency: "RON",
     priority: "High",   status: "Pending",   mappedIncomeId: "n1" },
 ];
 
-const updateExpense = vi.fn(() => Promise.resolve({}));
+// A mutable store, so a save is visible to the next load the way the real API
+// behaves. Without it there is no way to test what a refresh shows.
+let store = [];
+const updateExpense = vi.fn((id, body) => {
+  store = store.map(e => e.expenseId === id ? { ...e, ...body } : e);
+  return Promise.resolve({});
+});
 
 vi.mock("../api/incomes",       () => ({ listIncomes: () => Promise.resolve(incomes) }));
-vi.mock("../api/expenses",      () => ({ listExpenses: () => Promise.resolve(expenses), updateExpense }));
+vi.mock("../api/expenses",      () => ({
+  listExpenses: () => Promise.resolve(store.map(e => ({ ...e }))),
+  updateExpense,
+}));
 vi.mock("../api/splitPayments", () => ({ listSplitPayments: () => Promise.resolve([]), updateSplitPayment: vi.fn() }));
 vi.mock("../api/booksAndDev",   () => ({ listBooks: () => Promise.resolve([]) }));
 vi.mock("../api/investments",   () => ({ listSnapshots: () => Promise.resolve([]) }));
@@ -38,23 +52,28 @@ const { default: HomeOverview } = await import("./HomeOverview");
 
 const renderPage = () => render(<MemoryRouter><HomeOverview /></MemoryRouter>);
 
-/** Summaries of the current-period expense rows, in render order. */
+/** Summaries of the expense rows, in render order. */
 const order = () => [...document.querySelectorAll("li")]
-  .map(li => ["Rent", "Petrol", "Netflix", "Old bill"].find(n => li.textContent.includes(n)))
+  .map(li => ["Rent", "Petrol", "Netflix", "Insurance", "Old bill"].find(n => li.textContent.includes(n)))
   .filter(Boolean);
+
+const rowFor = (name) => screen.getByText(name).closest("li");
+const tick   = (name) => fireEvent.click(within(rowFor(name)).getByTitle("Mark as Completed"));
+const untick = (name) => fireEvent.click(within(rowFor(name)).getByTitle("Mark as Pending"));
 
 beforeEach(() => {
   updateExpense.mockClear();
+  store = SEED.map(e => ({ ...e }));
   vi.setSystemTime(new Date("2026-09-15T10:00:00Z"));
 });
 
-describe("Home Overview — current period expenses", () => {
-  it("lists completed expenses alongside pending ones", async () => {
+describe("Home Overview — the outstanding list", () => {
+  it("lists only what is still to pay", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
-    expect(screen.getByText("Netflix")).toBeTruthy();
-    expect(screen.getByText("Petrol")).toBeTruthy();
+    expect(order()).toEqual(["Rent", "Petrol", "Netflix"]);
+    expect(screen.queryByText("Insurance")).toBeNull();
   });
 
   it("still excludes expenses mapped to another income period", async () => {
@@ -67,79 +86,113 @@ describe("Home Overview — current period expenses", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
-    // High → Medium → Low, regardless of completion state.
+    // High -> Medium -> Low. By date this would be Rent, Netflix, Petrol.
     expect(order()).toEqual(["Rent", "Petrol", "Netflix"]);
   });
 
-  it("keeps the order fixed when an expense is ticked or unticked", async () => {
+  it("shows a distinct message once everything is paid", async () => {
+    store = store.map(e => ({ ...e, status: "Completed" }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Nothing left to pay.")).toBeTruthy());
+  });
+});
+
+describe("Home Overview — ticking an expense", () => {
+  it("keeps the row on screen so a mistap can be undone", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
+
+    tick("Rent");
+    expect(screen.getByText("Rent")).toBeTruthy();
+    expect(updateExpense).toHaveBeenCalledWith("x1", expect.objectContaining({ status: "Completed" }));
+  });
+
+  it("holds the row's position rather than moving it", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
     const before = order();
 
-    // Untick the top row, then tick it again. Sorting by status would move it.
-    fireEvent.click(within(screen.getByText("Rent").closest("li")).getByTitle("Mark as Pending"));
+    tick("Rent");
     expect(order()).toEqual(before);
 
-    fireEvent.click(within(screen.getByText("Rent").closest("li")).getByTitle("Mark as Completed"));
+    untick("Rent");
     expect(order()).toEqual(before);
   });
 
-  it("strikes through the completed ones", async () => {
+  it("lets a mistap be reversed", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
+    tick("Rent");
+    untick("Rent");
+    expect(updateExpense).toHaveBeenLastCalledWith("x1", expect.objectContaining({ status: "Pending" }));
+  });
+
+  it("strikes the row through while it waits", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
+
+    expect(screen.getByText("Rent").style.textDecoration).toBe("none");
+    tick("Rent");
     expect(screen.getByText("Rent").style.textDecoration).toBe("line-through");
-    expect(screen.getByText("Netflix").style.textDecoration).toBe("none");
   });
 
-  it("totals done and pending separately", async () => {
+  it("drops the row only once the page is loaded again", async () => {
+    const first = renderPage();
+    await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
+
+    tick("Rent");
+    await waitFor(() => expect(updateExpense).toHaveBeenCalled());
+    expect(screen.getByText("Rent")).toBeTruthy();   // still there
+
+    first.unmount();
+    renderPage();                                    // a fresh load
+    await waitFor(() => expect(screen.getByText("Petrol")).toBeTruthy());
+    expect(screen.queryByText("Rent")).toBeNull();
+    expect(order()).toEqual(["Petrol", "Netflix"]);
+  });
+
+  it("moves the amount between the two figures as it is ticked", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
-    // done = 4000 + 300 = 4300, pending = 60
-    expect(screen.getByText("4.300")).toBeTruthy();
-    expect(screen.getByText("60")).toBeTruthy();
+    // At load: done = Insurance 500, pending = 4000 + 60 + 300.
+    expect(screen.getByLabelText("Done").textContent).toBe("500");
+    expect(screen.getByLabelText("Pending").textContent).toBe("4.360");
+
+    tick("Rent");
+    expect(screen.getByLabelText("Done").textContent).toBe("4.500");
+    expect(screen.getByLabelText("Pending").textContent).toBe("360");
   });
 
-  it("names the two figures for assistive tech, having dropped the captions", async () => {
+  it("counts completed expenses in the figures even though they are not listed", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
-    // The tiles are told apart by a sage dot and a tan fill, so the only
-    // remaining text is the number itself.
-    expect(screen.getByLabelText("Done").textContent).toBe("4.300");
-    expect(screen.getByLabelText("Pending").textContent).toBe("60");
-    expect(screen.queryByText("Done")).toBeNull();
-    expect(screen.queryByText("Pending")).toBeNull();
+    // Insurance is absent from the list but its 500 is in the Done figure.
+    expect(screen.queryByText("Insurance")).toBeNull();
+    expect(screen.getByLabelText("Done").textContent).toBe("500");
   });
+});
 
+describe("Home Overview — the footer", () => {
   it("shows neither a progress bar nor a period total under the list", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
     expect(screen.queryByText(/^Total$/)).toBeNull();
-    // 4000 + 300 + 60, the figure the removed total row carried.
-    expect(screen.queryByText(/4\.360/)).toBeNull();
-    // The bar's segments were the only elements titled like this.
-    expect(screen.queryByTitle(/^Done 4/)).toBeNull();
-    expect(screen.queryByTitle(/^Pending 60/)).toBeNull();
+    expect(screen.queryByText(/4\.860/)).toBeNull();   // 500 + 4360
+    expect(screen.queryByTitle(/^Done 4/)).toBeNull(); // the bar's segments
+    expect(screen.queryByTitle(/^Pending /)).toBeNull();
   });
 
-  it("flips a completed expense back to pending", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Netflix")).toBeTruthy());
-
-    // Two rows are completed, so scope to the Rent one.
-    const row = screen.getByText("Rent").closest("li");
-    fireEvent.click(within(row).getByTitle("Mark as Pending"));
-    expect(updateExpense).toHaveBeenCalledWith("x1", expect.objectContaining({ status: "Pending" }));
-  });
-
-  it("marks a pending expense complete", async () => {
+  it("carries no visible captions, only accessible names", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
-    fireEvent.click(screen.getByTitle("Mark as Completed"));
-    expect(updateExpense).toHaveBeenCalledWith("x2", expect.objectContaining({ status: "Completed" }));
+    expect(screen.queryByText("Done")).toBeNull();
+    expect(screen.queryByText("Pending")).toBeNull();
+    expect(screen.getByLabelText("Done")).toBeTruthy();
+    expect(screen.getByLabelText("Pending")).toBeTruthy();
   });
 });

@@ -55,7 +55,7 @@ function EmptyState({ children }) {
 
 // ── Section 1: Pending Expenses ────────────────────────────────────────────────
 
-function PendingExpenses({ incomes, expenses, onToggle }) {
+function PendingExpenses({ incomes, expenses, pendingAtLoad, onToggle }) {
   const today = dayjs().format("YYYY-MM-DD");
 
   const currentIncome = useMemo(() => {
@@ -64,30 +64,42 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
     return past.reduce((best, i) => i.date > best.date ? i : best);
   }, [incomes, today]);
 
-  // Every expense mapped to this income, not just the outstanding ones.
+  // Everything mapped to this income. The two figures in the footer are for
+  // the whole period, so they are computed from this rather than from the
+  // rows on screen.
+  const periodExpenses = useMemo(() => {
+    if (!currentIncome) return [];
+    return expenses.filter(e => e.mappedIncomeId === currentIncome.incomeId);
+  }, [expenses, currentIncome]);
+
+  // The list shows what was still outstanding *when the page loaded*, not what
+  // is outstanding right now. Filtering on the live status would make a row
+  // vanish under the finger that ticked it, leaving no way to undo a mistap;
+  // this way a ticked row stays, struck through, until the next load.
+  //
   // Priority then date — the same order IncomeCard uses on the Finance
   // Dashboard. Status is deliberately not part of the sort: keying on it made
   // rows jump position the moment one was ticked.
-  const items = useMemo(() => {
-    if (!currentIncome) return [];
-    return expenses
-      .filter(e => e.mappedIncomeId === currentIncome.incomeId)
+  const items = useMemo(() =>
+    periodExpenses
+      .filter(e => pendingAtLoad.has(e.expenseId))
       .slice()
       .sort((a, b) =>
         (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
         || a.date.localeCompare(b.date)
-      );
-  }, [expenses, currentIncome]);
+      ),
+    [periodExpenses, pendingAtLoad]
+  );
 
   const { doneTotal, pendingTotal } = useMemo(() => {
     let doneTotal = 0, pendingTotal = 0;
-    for (const e of items) {
+    for (const e of periodExpenses) {
       const amt = Number(e.amount) || 0;
       if (e.status === "Completed") doneTotal += amt;
       else                          pendingTotal += amt;
     }
     return { doneTotal, pendingTotal };
-  }, [items]);
+  }, [periodExpenses]);
   const total = doneTotal + pendingTotal;
 
   if (!currentIncome) {
@@ -118,7 +130,9 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
       <div style={{ flex: 1, padding: "var(--sp-2) var(--sp-2)" }}>
         {items.length === 0 ? (
           <div style={{ ...TYPE.label, color: T.muted, padding: "var(--sp-3) var(--sp-2)" }}>
-            No expenses for this period.
+            {periodExpenses.length === 0
+              ? "No expenses for this period."
+              : "Nothing left to pay."}
           </div>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--sp-1)" }}>
@@ -697,6 +711,10 @@ function BooksSnippet({ books }) {
 export default function HomeOverview() {
   const [incomes,   setIncomes]   = useState([]);
   const [expenses,  setExpenses]  = useState([]);
+  // Which expenses were outstanding when this page loaded. Ticking one updates
+  // `expenses` but deliberately not this, so the row stays on screen until the
+  // next load — see PendingExpenses.
+  const [pendingAtLoad, setPendingAtLoad] = useState(() => new Set());
   const [payments,  setPayments]  = useState([]);
   const [books,     setBooks]     = useState([]);
   const [snapshots, setSnapshots] = useState([]);
@@ -724,6 +742,9 @@ export default function HomeOverview() {
       .then(([inc, exp, pay, bks, snaps]) => {
         setIncomes(inc);
         setExpenses(exp);
+        setPendingAtLoad(new Set(
+          exp.filter(e => e.status !== "Completed").map(e => e.expenseId)
+        ));
         setPayments(pay);
         setBooks(bks);
         setSnapshots(snaps);
@@ -768,7 +789,12 @@ export default function HomeOverview() {
 
         {/* Section 1 — Pending Expenses */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <PendingExpenses incomes={incomes} expenses={expenses} onToggle={handleToggleExpense} />
+          <PendingExpenses
+            incomes={incomes}
+            expenses={expenses}
+            pendingAtLoad={pendingAtLoad}
+            onToggle={handleToggleExpense}
+          />
         </div>
 
         {/* Section 2 — Split Payments */}
