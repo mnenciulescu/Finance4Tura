@@ -97,9 +97,32 @@ describe("Home Overview — current period expenses", () => {
     await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
 
     // done = 4000 + 300 = 4300, pending = 60
-    expect(screen.getByText(/Done/)).toBeTruthy();
     expect(screen.getByText("4.300")).toBeTruthy();
     expect(screen.getByText("60")).toBeTruthy();
+  });
+
+  it("names the two figures for assistive tech, having dropped the captions", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
+
+    // The tiles are told apart by a sage dot and a tan fill, so the only
+    // remaining text is the number itself.
+    expect(screen.getByLabelText("Done").textContent).toBe("4.300");
+    expect(screen.getByLabelText("Pending").textContent).toBe("60");
+    expect(screen.queryByText("Done")).toBeNull();
+    expect(screen.queryByText("Pending")).toBeNull();
+  });
+
+  it("shows neither a progress bar nor a period total under the list", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Rent")).toBeTruthy());
+
+    expect(screen.queryByText(/^Total$/)).toBeNull();
+    // 4000 + 300 + 60, the figure the removed total row carried.
+    expect(screen.queryByText(/4\.360/)).toBeNull();
+    // The bar's segments were the only elements titled like this.
+    expect(screen.queryByTitle(/^Done 4/)).toBeNull();
+    expect(screen.queryByTitle(/^Pending 60/)).toBeNull();
   });
 
   it("flips a completed expense back to pending", async () => {

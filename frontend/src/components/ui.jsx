@@ -55,19 +55,25 @@ export function HeroHeader({ children, style, ...rest }) {
  * A key number with a caption under it. `tone="accent"` is the tan tile used
  * for the single most important figure; `"raised"` is the slate sibling.
  */
-export function StatTile({ value, label, tone = "raised", dot, style }) {
+export function StatTile({ value, label, tone = "raised", dot, title, style }) {
   const onTan = tone === "accent";
   return (
-    <div style={{
-      background:    onTan ? T.accent : T.raised,
-      borderRadius:  T.rMd,
-      padding:       "var(--sp-3)",
-      display:       "flex",
-      flexDirection: "column",
-      gap:           "2px",
-      minWidth:      0,
-      ...style,
-    }}>
+    <div
+      // With no visible caption the fill and the dot carry the meaning, so the
+      // name has to reach assistive tech some other way.
+      title={title ?? label}
+      aria-label={title ?? label}
+      style={{
+        background:    onTan ? T.accent : T.raised,
+        borderRadius:  T.rMd,
+        padding:       label ? "var(--sp-3)" : "var(--sp-2) var(--sp-3)",
+        display:       "flex",
+        flexDirection: "column",
+        gap:           "2px",
+        minWidth:      0,
+        ...style,
+      }}
+    >
       <div style={{
         display: "flex", alignItems: "center", gap: "6px", minWidth: 0,
       }}>
@@ -88,13 +94,15 @@ export function StatTile({ value, label, tone = "raised", dot, style }) {
           {value}
         </span>
       </div>
-      <span style={{
-        ...TYPE.caption,
-        color:   onTan ? T.onAccent : T.muted,
-        opacity: onTan ? 0.7 : 1,
-      }}>
-        {label}
-      </span>
+      {label && (
+        <span style={{
+          ...TYPE.caption,
+          color:   onTan ? T.onAccent : T.muted,
+          opacity: onTan ? 0.7 : 1,
+        }}>
+          {label}
+        </span>
+      )}
     </div>
   );
 }

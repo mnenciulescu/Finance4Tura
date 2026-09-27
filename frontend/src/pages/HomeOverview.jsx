@@ -16,7 +16,7 @@ import {
 } from "../utils/colors";
 import { T, TYPE } from "../components/tokens";
 import {
-  Card, SectionHeader, StatTile, Pill, StatusDot, Checkbox, ProgressBar,
+  Card, SectionHeader, StatTile, Pill, StatusDot, Checkbox,
 } from "../components/ui";
 
 // ── Investment constants (shared with Investments page) ────────────────────────
@@ -100,7 +100,6 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
 
   const { month, day, year } = monthParts(currentIncome.date);
   const dow = getDow(currentIncome.date);
-  const cur = items[0]?.currency || "";
 
   return (
     <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }}>
@@ -171,35 +170,24 @@ function PendingExpenses({ incomes, expenses, onToggle }) {
         )}
       </div>
 
-      {/* Footer — the bar carries proportion only; the figures sit in tiles
-          below it, where they are legible regardless of segment width. */}
+      {/* Footer — two figures, nothing else. The sage dot and the tan fill
+          distinguish them, so neither needs a caption. */}
       {total > 0 && (
         <div style={st.footer}>
-          <ProgressBar
-            height={12}
-            segments={[
-              { key: "done",    value: doneTotal,    color: BAR_COLOR.done,    title: `Done ${fmtDec(doneTotal)}` },
-              { key: "pending", value: pendingTotal, color: BAR_COLOR.pending, title: `Pending ${fmtDec(pendingTotal)}` },
-            ]}
-          />
           <div style={st.tiles}>
             <StatTile
               value={fmtInt(doneTotal)}
-              label="Done"
+              title="Done"
               tone="raised"
               dot={BAR_COLOR.done}
               style={{ flex: 1 }}
             />
             <StatTile
               value={fmtInt(pendingTotal)}
-              label="Pending"
+              title="Pending"
               tone="accent"
               style={{ flex: 1 }}
             />
-          </div>
-          <div style={st.totalRow}>
-            <span style={{ ...TYPE.caption, color: T.muted }}>Total</span>
-            <span style={st.totalValue}>{fmtDec(total)} {cur}</span>
           </div>
         </div>
       )}
@@ -278,24 +266,11 @@ const st = {
     marginLeft: "var(--sp-2)",
   },
   footer: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "var(--sp-3)",
-    padding:       "var(--sp-3) var(--sp-4) var(--sp-4)",
+    padding: "var(--sp-2) var(--sp-4) var(--sp-4)",
   },
   tiles: {
     display: "flex",
     gap:     "var(--sp-3)",
-  },
-  totalRow: {
-    display:        "flex",
-    alignItems:     "baseline",
-    justifyContent: "space-between",
-  },
-  totalValue: {
-    ...TYPE.h3,
-    color:              T.text,
-    fontVariantNumeric: "tabular-nums",
   },
 };
 
