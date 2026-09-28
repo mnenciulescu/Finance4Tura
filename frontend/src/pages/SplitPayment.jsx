@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import dayjs from "dayjs";
+import DateSheet from "../components/DateSheet";
 import {
   listSplitPayments,
   createSplitPayment,
@@ -42,14 +43,6 @@ function stats(entry) {
     remaining: Math.max(0, round2(Number(entry.totalAmount || 0) - covered)),
     complete:  occs.length > 0 && paid === occs.length,
   };
-}
-
-/** Even split of what is still uncovered across the still-empty occurrences. */
-function suggestValue(entry) {
-  const { occs, covered } = stats(entry);
-  const empties = occs.filter(o => !isFilled(o)).length;
-  if (empties === 0) return 0;
-  return Math.max(0, round2((Number(entry.totalAmount || 0) - covered) / empties));
 }
 
 function defaultForm() {
@@ -192,11 +185,6 @@ export default function SplitPayment() {
   const setOcc = (entryId, idx, value) =>
     applyOccs(entryId, occs => occs.map((o, i) => (i === idx ? { ...o, value } : o)));
 
-  /** Amount entries only — date slots open the picker instead. */
-  function quickFill(entry, idx) {
-    setOcc(entry.splitPaymentId, idx, String(suggestValue(entry)));
-  }
-
   /** Fill every still-empty amount occurrence; the last one absorbs the rounding rest. */
   function fillRemaining(entry) {
     applyOccs(entry.splitPaymentId, (occs, e) => {
@@ -321,7 +309,6 @@ export default function SplitPayment() {
   const cardProps = {
     onToggle:    toggle,
     onSetOcc:    setOcc,
-    onQuickFill: quickFill,
     onFillRest:  fillRemaining,
     onClearAll:  clearAll,
     onEdit:      openEdit,
@@ -429,24 +416,18 @@ export default function SplitPayment() {
 
 function EntryCard({
   entry, expanded, confirmId,
-  onToggle, onSetOcc, onQuickFill, onFillRest, onClearAll, onEdit, onAskDelete, onDelete,
+  onToggle, onSetOcc, onFillRest, onClearAll, onEdit, onAskDelete, onDelete,
 }) {
   const { occs, paid, count, covered, remaining, complete } = stats(entry);
   const isAmount   = entry.occurrenceType === "amount";
   const pct        = count ? Math.round((paid / count) * 100) : 0;
   const id         = entry.splitPaymentId;
   const confirming = confirmId === id;
-  const inputs     = useRef({});
 
-  // On a date entry the action button opens the picker instead of writing
-  // today's date. It used to commit today outright, so a stray tap on the
-  // button — which sits inside the same tile as the field — silently filled
-  // the slot and could settle the whole entry.
-  function openPicker(i) {
-    const el = inputs.current[i];
-    if (!el) return;
-    try { el.showPicker(); } catch { el.focus(); }
-  }
+  // Which slot has the calendar open: { idx, value }. A date slot is a button,
+  // never a live field — on iOS a native date field opens a wheel already
+  // showing today, and dismissing it commits that value.
+  const [datePicker, setDatePicker] = useState(null);
 
   return (
     <div style={s.card(complete)}>
@@ -478,35 +459,46 @@ function EntryCard({
 
       {expanded && (
         <div style={s.cardBody}>
-          <div style={s.grid(isAmount)}>
+          <div style={s.grid()}>
             {occs.map((occ, i) => {
               const filled = isFilled(occ);
               return (
-                <div key={i} style={s.occ(filled)}>
-                  <span style={s.occIdx(filled)}>{i + 1}</span>
-                  <input
-                    ref={el => { inputs.current[i] = el; }}
-                    type={isAmount ? "number" : "date"}
-                    inputMode={isAmount ? "decimal" : undefined}
-                    value={occ.value ?? ""}
-                    min={isAmount ? "0" : undefined}
-                    step={isAmount ? "any" : undefined}
-                    placeholder={isAmount ? "0.00" : undefined}
-                    onChange={e => onSetOcc(id, i, e.target.value)}
-                    style={s.occInput(filled)}
-                  />
+                // An amount is typed; a date opens the calendar, which carries
+                // its own Clear. Neither slot has a control beside it: the
+                // number of slots belongs to the series and cannot change here.
+                isAmount ? (
+                  <div key={i} style={s.occ(filled)}>
+                    <span style={s.occIdx(filled)}>{i + 1}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={occ.value ?? ""}
+                      min="0"
+                      step="any"
+                      placeholder="0.00"
+                      aria-label={`${entry.title} — installment ${i + 1}`}
+                      onChange={e => onSetOcc(id, i, e.target.value)}
+                      style={s.occInput(filled)}
+                    />
+                  </div>
+                ) : (
                   <button
-                    style={s.occAction(filled)}
-                    title={filled ? "Clear" : (isAmount ? "Fill suggested amount" : "Pick a date")}
-                    onClick={() => {
-                      if (filled)   return onSetOcc(id, i, "");
-                      if (isAmount) return onQuickFill(entry, i);
-                      openPicker(i);
-                    }}
+                    key={i}
+                    type="button"
+                    onClick={() => setDatePicker({ idx: i, value: occ.value ?? "" })}
+                    aria-label={
+                      filled
+                        ? `${entry.title} — installment ${i + 1}: ${occ.value}`
+                        : `${entry.title} — installment ${i + 1}: pick a date`
+                    }
+                    style={{ ...s.occ(filled), ...s.occButton }}
                   >
-                    {filled ? "✕" : "+"}
+                    <span style={s.occIdx(filled)}>{i + 1}</span>
+                    <span style={{ ...s.occInput(filled), padding: "7px 0" }}>
+                      {occ.value || "Set date"}
+                    </span>
                   </button>
-                </div>
+                )
               );
             })}
           </div>
@@ -537,6 +529,16 @@ function EntryCard({
             </div>
           )}
         </div>
+      )}
+
+      {datePicker && (
+        <DateSheet
+          value={datePicker.value}
+          label={`${entry.title} — installment ${datePicker.idx + 1}`}
+          onPick={(value) => { onSetOcc(id, datePicker.idx, value); setDatePicker(null); }}
+          onClear={() => { onSetOcc(id, datePicker.idx, ""); setDatePicker(null); }}
+          onClose={() => setDatePicker(null)}
+        />
       )}
     </div>
   );
@@ -824,9 +826,10 @@ const s = {
   },
 
   // Fixed column counts so the grid never reflows between desktop and phone
-  grid: (isAmount) => ({
+  // Two per row for both kinds, so the grid never reflows between entries.
+  grid: () => ({
     display:             "grid",
-    gridTemplateColumns: isAmount ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap:                 "8px",
   }),
   occ: (filled) => ({
@@ -861,21 +864,12 @@ const s = {
     padding:    "7px 0",
     fontVariantNumeric: "tabular-nums",
   }),
-  occAction: (filled) => ({
-    flexShrink:     0,
-    width:          "28px",
-    height:         "28px",
-    display:        "flex",
-    alignItems:     "center",
-    justifyContent: "center",
-    background:     "transparent",
-    border:         "none",
-    borderRadius:   "var(--r-sm)",
-    color:          filled ? "var(--on-accent)" : "var(--accent)",
-    fontSize:       filled ? "12px" : "17px",
-    lineHeight:     1,
-    cursor:         "pointer",
-  }),
+  occButton: {
+    width:      "100%",
+    textAlign:  "left",
+    cursor:     "pointer",
+    fontFamily: "inherit",
+  },
 
   actions: {
     display:    "flex",

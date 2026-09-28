@@ -38,7 +38,6 @@ vi.mock("../api/fxRates",       () => ({ getFxRates: () => Promise.resolve({ rat
 const { default: HomeOverview } = await import("./HomeOverview");
 
 const renderPage = () => render(<MemoryRouter><HomeOverview /></MemoryRouter>);
-const tile = (title) => screen.getByText(title).closest("div[style]").parentElement;
 
 /** The card's own title, as opposed to the copy the dialog repeats. */
 const cardTitle = (name) =>
