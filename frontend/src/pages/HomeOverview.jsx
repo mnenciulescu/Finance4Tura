@@ -15,6 +15,7 @@ import {
   TYPE_COLORS,
 } from "../utils/colors";
 import { T, TYPE } from "../components/tokens";
+import DateSheet from "../components/DateSheet";
 import {
   Card, SectionHeader, StatTile, Pill, StatusDot, Checkbox,
 } from "../components/ui";
@@ -290,21 +291,15 @@ const st = {
 
 // ── Section 2: Split Payments ──────────────────────────────────────────────────
 
-/**
- * Whether the browser can open a date picker on demand. When it can, an empty
- * date slot is a button rather than a live `<input type="date">`, so the field
- * cannot receive a stray tap at all — on iOS, tapping one opens a wheel already
- * showing today and dismissing it commits that value. Where `showPicker` is
- * missing there is no better option than the plain field, so we keep it.
- */
-const CAN_OPEN_PICKER =
-  typeof HTMLInputElement !== "undefined" &&
-  typeof HTMLInputElement.prototype.showPicker === "function";
-
 function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
   const debounceTimers = useRef({});
   const askTimer       = useRef(null);
-  const dateInputs     = useRef({});
+
+  // Which date slot has the calendar open: { entryId, idx, title, value }.
+  // A date slot is a button, never a live field, so it cannot take a stray tap
+  // — on iOS a native date field opens a wheel already showing today, and
+  // dismissing it commits that value.
+  const [datePicker, setDatePicker] = useState(null);
 
   // Set when an edit fills the final empty slot. Settling drops the entry off
   // this list, so the change is shown but not saved until the user agrees.
@@ -387,12 +382,6 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
     onRestore(p.entryId, p.prevOccs);
   }
 
-  function openPicker(key) {
-    const el = dateInputs.current[key];
-    if (!el) return;
-    try { el.showPicker(); } catch { el.focus(); }
-  }
-
   if (latest3.length === 0) return <EmptyState>No pending split payments.</EmptyState>;
 
   return (
@@ -424,48 +413,38 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
                 const occ = occs[i];
                 if (!occ) return null;
                 const filled = isFilled(occ);
-                const key    = `${entry.splitPaymentId}-${i}`;
                 const label  = `${entry.title} — installment ${i + 1}`;
                 return (
                   <div key={i} style={sp.slot}>
                     <span style={sp.slotIdx}>#{i + 1}</span>
 
-                    {isAmount || !CAN_OPEN_PICKER ? (
+                    {isAmount ? (
                       <input
-                        type={isAmount ? "number" : "date"}
+                        type="number"
                         value={occ.value ?? ""}
-                        min={isAmount ? "0" : undefined}
-                        step={isAmount ? "any" : undefined}
-                        placeholder={isAmount ? "0.00" : undefined}
+                        min="0"
+                        step="any"
+                        placeholder="0.00"
                         aria-label={label}
                         onChange={e => updateOcc(entry, i, e.target.value)}
-                        style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: isAmount ? "78px" : "132px" }}
+                        style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: "78px" }}
                       />
                     ) : (
-                      // The field is inert and invisible; the button is the only
-                      // way in, so a date lands only when one is chosen.
-                      <span style={sp.pickerWrap}>
-                        <button
-                          type="button"
-                          onClick={() => openPicker(key)}
-                          aria-label={filled ? `${label}: ${occ.value}` : `${label}: pick a date`}
-                          style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: "132px" }}
-                        >
-                          {occ.value || "Set date"}
-                        </button>
-                        <input
-                          ref={el => { dateInputs.current[key] = el; }}
-                          type="date"
-                          value={occ.value ?? ""}
-                          tabIndex={-1}
-                          aria-hidden="true"
-                          onChange={e => updateOcc(entry, i, e.target.value)}
-                          style={sp.hiddenDate}
-                        />
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDatePicker({
+                          entryId: entry.splitPaymentId, idx: i,
+                          title: label, value: occ.value ?? "",
+                        })}
+                        aria-label={filled ? `${label}: ${occ.value}` : `${label}: pick a date`}
+                        style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: "132px" }}
+                      >
+                        {occ.value || "Set date"}
+                      </button>
                     )}
 
-                    {filled && (
+                    {/* Date slots clear from inside the calendar instead. */}
+                    {filled && isAmount && (
                       <button
                         type="button"
                         onClick={() => updateOcc(entry, i, "")}
@@ -483,6 +462,24 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
           </div>
         );
       })}
+
+      {datePicker && (() => {
+        const entry = payments.find(e => e.splitPaymentId === datePicker.entryId);
+        if (!entry) return null;
+        const apply = (value) => {
+          updateOcc(entry, datePicker.idx, value);
+          setDatePicker(null);
+        };
+        return (
+          <DateSheet
+            value={datePicker.value}
+            label={datePicker.title}
+            onPick={apply}
+            onClear={() => apply("")}
+            onClose={() => setDatePicker(null)}
+          />
+        );
+      })()}
 
       {pendingSettle?.ask && (
         <div style={sp.overlay} onClick={cancelSettle}>
@@ -572,23 +569,6 @@ const sp = {
     color:      filled ? T.onAccent : T.muted,
     fontWeight: filled ? 700 : 500,
   }),
-  pickerWrap: {
-    position: "relative",
-    display:  "inline-flex",
-  },
-  // Rendered but transparent and inert: showPicker() refuses to open on a
-  // display:none element, and a tappable date field is the thing being avoided.
-  hiddenDate: {
-    position:      "absolute",
-    inset:         0,
-    width:         "100%",
-    height:        "100%",
-    opacity:       0,
-    pointerEvents: "none",
-    border:        "none",
-    padding:       0,
-    background:    "transparent",
-  },
   clearBtn: {
     width:          "28px",
     height:         "28px",

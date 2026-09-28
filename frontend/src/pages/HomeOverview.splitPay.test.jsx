@@ -1,20 +1,15 @@
 /**
  * The split-payments block on the Home Overview.
  *
- * Two behaviours were ported here from the Split Pay page: an empty date slot
- * must not be a tappable `<input type="date">` (on iOS, tapping one opens a
- * wheel already showing today and dismissing it commits that value), and
- * filling the final slot must ask before the entry settles and drops off the
- * list.
+ * A date slot is a button that opens the app's own calendar, never a live
+ * `<input type="date">` — on iOS, tapping one of those opens a wheel already
+ * showing today and dismissing it commits that value. The calendar carries the
+ * Clear action, since the native picker cannot hold one. Filling the final slot
+ * asks before the entry settles and drops off the list.
  */
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
-
-// Must exist before the module is imported: the component reads it once, at
-// load, to decide whether it can replace the field with a button.
-const showPicker = vi.fn();
-HTMLInputElement.prototype.showPicker = showPicker;
 
 const DATE_ENTRY = {
   splitPaymentId: "s1", title: "Radu - Engleza", createdDate: "2026-09-01",
@@ -49,37 +44,38 @@ const tile = (title) => screen.getByText(title).closest("div[style]").parentElem
 const cardTitle = (name) =>
   screen.getAllByText(name).find(el => el.tagName === "SPAN");
 
-/** The hidden field behind a date slot's button. */
-const hiddenDateFor = (title, n) =>
-  document.querySelectorAll('input[type="date"]')[n];
+/** Open the calendar on a slot, by the button's accessible name. */
+const openSlot = (label) => fireEvent.click(screen.getByLabelText(new RegExp(`^${label}`)));
+
+/** Choose a day in the open calendar. */
+const pickDay = (aria) => fireEvent.click(screen.getByLabelText(aria));
+
+const calendar = () =>
+  screen.queryAllByRole("dialog").find(d => /pick a date/i.test(d.getAttribute("aria-label") || ""));
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   updateSplitPayment.mockClear();
-  showPicker.mockClear();
   store = [DATE_ENTRY, AMOUNT_ENTRY].map(e => ({ ...e, occurrences: e.occurrences.map(o => ({ ...o })) }));
 });
 afterEach(() => vi.useRealTimers());
 
 describe("date slots", () => {
-  it("renders an empty date slot as a button, never a tappable date field", async () => {
+  it("renders an empty date slot as a button, with no date field anywhere", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
 
     expect(screen.getByText("Set date").tagName).toBe("BUTTON");
-    // The field still exists to drive the picker, but cannot be reached.
-    for (const el of document.querySelectorAll('input[type="date"]')) {
-      expect(el.style.pointerEvents).toBe("none");
-      expect(el.getAttribute("tabindex")).toBe("-1");
-    }
+    // Nothing for a stray tap to land on.
+    expect(document.querySelectorAll('input[type="date"]')).toHaveLength(0);
   });
 
-  it("opens the picker on tap and writes nothing by itself", async () => {
+  it("opens the calendar on tap and writes nothing by itself", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
 
-    fireEvent.click(screen.getByText("Set date"));
-    expect(showPicker).toHaveBeenCalledOnce();
+    openSlot("Radu - Engleza — installment 2");
+    expect(calendar()).toBeTruthy();
 
     // No value was committed, and nothing was saved.
     expect(screen.getByText("Set date")).toBeTruthy();
@@ -87,29 +83,106 @@ describe("date slots", () => {
     expect(updateSplitPayment).not.toHaveBeenCalled();
   });
 
-  it("writes the date only once one is actually chosen", async () => {
+  it("writes the date only once a day is chosen", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
 
-    // The second date field is the empty slot; choosing a date fires change.
-    fireEvent.change(hiddenDateFor("Radu - Engleza", 1), { target: { value: "2026-09-20" } });
+    openSlot("Radu - Engleza — installment 2");
+    pickDay("20 September 2026");
+    expect(calendar()).toBeUndefined();
     expect(screen.queryByText("Set date")).toBeNull();
     expect(screen.getByText("2026-09-20")).toBeTruthy();
   });
 
-  it("offers a way back out of a slot that was filled by mistake", async () => {
+  it("opens the calendar on the month already in the slot", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
 
-    const clear = screen.getByLabelText(/^Clear Radu - Engleza — installment 1$/);
-    fireEvent.click(clear);
-    expect(screen.getAllByText("Set date").length).toBe(2);
+    openSlot("Radu - Engleza — installment 1");     // holds 2026-07-10
+    expect(within(calendar()).getByText("July 2026")).toBeTruthy();
+  });
+
+  it("marks the day the slot holds, and never preselects today", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    expect(screen.getByLabelText("10 July 2026").getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(within(calendar()).getByText("Cancel"));
+    openSlot("Radu - Engleza — installment 2");     // empty
+    const pressed = [...calendar().querySelectorAll('[aria-pressed="true"]')];
+    expect(pressed).toHaveLength(0);
+  });
+
+  it("steps between months without choosing anything", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(screen.getByLabelText("Next month"));
+    expect(within(calendar()).getByText("August 2026")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Previous month"));
+    fireEvent.click(screen.getByLabelText("Previous month"));
+    expect(within(calendar()).getByText("June 2026")).toBeTruthy();
+
+    await act(async () => { vi.advanceTimersByTime(2000); });
+    expect(updateSplitPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearing from inside the calendar", () => {
+  it("empties the slot and closes", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(within(calendar()).getByText("Clear"));
+
+    expect(calendar()).toBeUndefined();
+    expect(screen.getAllByText("Set date")).toHaveLength(2);
+  });
+
+  it("saves the cleared slot", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(within(calendar()).getByText("Clear"));
+    await act(async () => { vi.advanceTimersByTime(1000); });
+
+    expect(updateSplitPayment).toHaveBeenCalledWith("s1", {
+      occurrences: [{ value: "" }, { value: "" }],
+    });
+  });
+
+  it("offers nothing to clear on a slot that is already empty", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 2");
+    expect(within(calendar()).getByText("Clear").disabled).toBe(true);
+  });
+
+  it("leaves the slot alone when the calendar is dismissed", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(within(calendar()).getByText("Cancel"));
+
+    expect(screen.getByText("2026-07-10")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(2000); });
+    expect(updateSplitPayment).not.toHaveBeenCalled();
   });
 });
 
 describe("settling the last slot", () => {
-  const fillLastDate = () =>
-    fireEvent.change(hiddenDateFor("Radu - Engleza", 1), { target: { value: "2026-09-20" } });
+  const fillLastDate = () => {
+    openSlot("Radu - Engleza — installment 2");
+    pickDay("20 September 2026");
+  };
 
   it("asks before the entry settles, and holds the save meanwhile", async () => {
     renderPage();
@@ -171,10 +244,11 @@ describe("settling the last slot", () => {
     await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
 
     fillLastDate();
-    fireEvent.click(screen.getByLabelText(/^Clear Radu - Engleza — installment 2$/));
+    openSlot("Radu - Engleza — installment 2");
+    fireEvent.click(within(calendar()).getByText("Clear"));
     await act(async () => { vi.advanceTimersByTime(2000); });
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Mark as settled?")).toBeNull();
     // Clearing is an ordinary edit, so it saves.
     expect(updateSplitPayment).toHaveBeenCalledWith("s1", {
       occurrences: [{ value: "2026-07-10" }, { value: "" }],
