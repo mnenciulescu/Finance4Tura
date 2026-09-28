@@ -44,6 +44,9 @@ const tile = (title) => screen.getByText(title).closest("div[style]").parentElem
 const cardTitle = (name) =>
   screen.getAllByText(name).find(el => el.tagName === "SPAN");
 
+/** The whole card for an entry, so slot queries do not cross into another. */
+const cardTile = (name) => cardTitle(name).closest("div[style]").parentElement;
+
 /** Open the calendar on a slot, by the button's accessible name. */
 const openSlot = (label) => fireEvent.click(screen.getByLabelText(new RegExp(`^${label}`)));
 
@@ -253,6 +256,86 @@ describe("settling the last slot", () => {
     expect(updateSplitPayment).toHaveBeenCalledWith("s1", {
       occurrences: [{ value: "2026-07-10" }, { value: "" }],
     });
+  });
+});
+
+describe("the number of slots", () => {
+  const slotCount = (title) =>
+    within(cardTile(title)).getAllByLabelText(/— installment \d+$|— installment \d+:/).length;
+
+  it("carries no remove control beside a slot", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    // A ✕ next to a slot reads as "drop this instalment", which the series
+    // must never allow. Clearing happens inside the calendar, or by editing.
+    expect(screen.queryByText("✕")).toBeNull();
+    expect(screen.queryByLabelText(/^Clear /)).toBeNull();
+  });
+
+  it("keeps every slot after one is cleared from the calendar", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+    expect(slotCount("Radu - Engleza")).toBe(2);
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(within(calendar()).getByText("Clear"));
+
+    expect(slotCount("Radu - Engleza")).toBe(2);
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(updateSplitPayment).toHaveBeenCalledWith("s1", {
+      occurrences: [{ value: "" }, { value: "" }],
+    });
+  });
+
+  it("keeps every slot after an amount is emptied", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Anvelope iarna")).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText("Anvelope iarna — installment 1"), { target: { value: "" } });
+    expect(slotCount("Anvelope iarna")).toBe(2);
+
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    // Same length as before — an empty slot, not a removed one.
+    expect(updateSplitPayment).toHaveBeenCalledWith("s2", {
+      occurrences: [{ value: "" }, { value: "" }],
+    });
+  });
+
+  it("renders the full count even when fewer occurrences were stored", async () => {
+    // A series of four whose stored array only has two entries.
+    store = [{ ...DATE_ENTRY, occurrenceCount: 4, occurrences: [{ value: "2026-07-10" }, { value: "" }] }];
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    expect(slotCount("Radu - Engleza")).toBe(4);
+    expect(screen.getByText("1/4")).toBeTruthy();
+  });
+
+  it("writes back the full count, so a short array is repaired rather than kept", async () => {
+    store = [{ ...DATE_ENTRY, occurrenceCount: 4, occurrences: [{ value: "2026-07-10" }, { value: "" }] }];
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 3");
+    pickDay("20 September 2026");
+    await act(async () => { vi.advanceTimersByTime(1000); });
+
+    expect(updateSplitPayment).toHaveBeenCalledWith("s1", {
+      occurrences: [{ value: "2026-07-10" }, { value: "" }, { value: "2026-09-20" }, { value: "" }],
+    });
+  });
+
+  it("never sends occurrenceCount, so a save cannot resize the series", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Radu - Engleza")).toBeTruthy());
+
+    openSlot("Radu - Engleza — installment 1");
+    fireEvent.click(within(calendar()).getByText("Clear"));
+    await act(async () => { vi.advanceTimersByTime(1000); });
+
+    const [, body] = updateSplitPayment.mock.calls.at(-1);
+    expect(Object.keys(body)).toEqual(["occurrences"]);
   });
 });
 

@@ -312,8 +312,19 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
   }, []);
 
   const isFilled = (o) => o && o.value !== "" && o.value != null;
-  const paidOf   = (p) => (p.occurrences || []).filter(isFilled).length;
-  const isDone   = (p) => paidOf(p) >= p.occurrenceCount;
+
+  /**
+   * Exactly `occurrenceCount` slots, every time. Nothing in this block may add
+   * or drop one — the count belongs to the series and is set when it is
+   * created. A stored array that is short or long is padded or trimmed here
+   * rather than silently changing how many slots the series appears to have.
+   */
+  const slotsOf = (p) =>
+    Array.from({ length: p.occurrenceCount ?? 0 },
+      (_, i) => (p.occurrences || [])[i] ?? { value: "" });
+
+  const paidOf = (p) => slotsOf(p).filter(isFilled).length;
+  const isDone = (p) => paidOf(p) >= p.occurrenceCount;
 
   const latest3 = useMemo(() =>
     [...payments]
@@ -333,7 +344,7 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
   }
 
   function updateOcc(entry, occIdx, value) {
-    const prevOccs = entry.occurrences;
+    const prevOccs = slotsOf(entry);
     const nextOccs = prevOccs.map((o, i) => i !== occIdx ? o : { ...o, value });
 
     // Show the edit either way, so the slot reflects what was just entered.
@@ -388,8 +399,8 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
       {latest3.map(entry => {
         const isAmount  = entry.occurrenceType === "amount";
-        const occs      = entry.occurrences || [];
-        const paidCount = occs.filter(isFilled).length;
+        const slots     = slotsOf(entry);
+        const paidCount = slots.filter(isFilled).length;
         const isFull    = paidCount === entry.occurrenceCount;
         return (
           // A nested tile on the card, carrying no stroke of its own.
@@ -409,9 +420,7 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
 
             {/* Installment slots */}
             <div style={sp.slots}>
-              {Array.from({ length: entry.occurrenceCount || occs.length }, (_, i) => {
-                const occ = occs[i];
-                if (!occ) return null;
+              {slots.map((occ, i) => {
                 const filled = isFilled(occ);
                 const label  = `${entry.title} — installment ${i + 1}`;
                 return (
@@ -443,18 +452,6 @@ function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
                       </button>
                     )}
 
-                    {/* Date slots clear from inside the calendar instead. */}
-                    {filled && isAmount && (
-                      <button
-                        type="button"
-                        onClick={() => updateOcc(entry, i, "")}
-                        title="Clear"
-                        aria-label={`Clear ${label}`}
-                        style={sp.clearBtn}
-                      >
-                        ✕
-                      </button>
-                    )}
                   </div>
                 );
               })}
@@ -569,20 +566,6 @@ const sp = {
     color:      filled ? T.onAccent : T.muted,
     fontWeight: filled ? 700 : 500,
   }),
-  clearBtn: {
-    width:          "28px",
-    height:         "28px",
-    flexShrink:     0,
-    display:        "flex",
-    alignItems:     "center",
-    justifyContent: "center",
-    background:     "transparent",
-    border:         "none",
-    borderRadius:   T.rSm,
-    color:          T.muted,
-    fontSize:       "12px",
-    lineHeight:     1,
-  },
   overlay: {
     position:       "fixed",
     inset:          0,
