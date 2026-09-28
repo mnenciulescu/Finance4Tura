@@ -290,33 +290,107 @@ const st = {
 
 // ── Section 2: Split Payments ──────────────────────────────────────────────────
 
-function SplitPaymentsTable({ payments, onUpdate }) {
+/**
+ * Whether the browser can open a date picker on demand. When it can, an empty
+ * date slot is a button rather than a live `<input type="date">`, so the field
+ * cannot receive a stray tap at all — on iOS, tapping one opens a wheel already
+ * showing today and dismissing it commits that value. Where `showPicker` is
+ * missing there is no better option than the plain field, so we keep it.
+ */
+const CAN_OPEN_PICKER =
+  typeof HTMLInputElement !== "undefined" &&
+  typeof HTMLInputElement.prototype.showPicker === "function";
+
+function SplitPaymentsTable({ payments, onUpdate, onRestore }) {
   const debounceTimers = useRef({});
+  const askTimer       = useRef(null);
+  const dateInputs     = useRef({});
+
+  // Set when an edit fills the final empty slot. Settling drops the entry off
+  // this list, so the change is shown but not saved until the user agrees.
+  // { entryId, title, prevOccs, ask }
+  const [pendingSettle, setPendingSettle] = useState(null);
+
+  useEffect(() => () => {
+    clearTimeout(askTimer.current);
+    Object.values(debounceTimers.current).forEach(clearTimeout);
+  }, []);
+
+  const isFilled = (o) => o && o.value !== "" && o.value != null;
+  const paidOf   = (p) => (p.occurrences || []).filter(isFilled).length;
+  const isDone   = (p) => paidOf(p) >= p.occurrenceCount;
 
   const latest3 = useMemo(() =>
     [...payments]
-      // Only payments that are not fully paid (incomplete occurrences)
-      .filter(p => {
-        const occs = p.occurrences || [];
-        const paidCount = occs.filter(o => o.value !== "" && o.value != null).length;
-        return paidCount < p.occurrenceCount;
-      })
+      // Outstanding entries only — plus the one being asked about, so the card
+      // does not vanish out from under the question.
+      .filter(p => !isDone(p) || p.splitPaymentId === pendingSettle?.entryId)
       .sort((a, b) => (b.createdDate || "").localeCompare(a.createdDate || ""))
       .slice(0, 3),
-    [payments]
+    [payments, pendingSettle]
   );
 
-  function updateOcc(entry, occIdx, value) {
-    const updated = {
-      ...entry,
-      occurrences: entry.occurrences.map((o, i) => i !== occIdx ? o : { ...o, value }),
-    };
-    onUpdate(updated);
-    const key = `${entry.splitPaymentId}-${occIdx}`;
-    clearTimeout(debounceTimers.current[key]);
-    debounceTimers.current[key] = setTimeout(() => {
-      updateSplitPayment(entry.splitPaymentId, { occurrences: updated.occurrences }).catch(console.error);
+  function persist(entryId, occurrences) {
+    clearTimeout(debounceTimers.current[entryId]);
+    debounceTimers.current[entryId] = setTimeout(() => {
+      updateSplitPayment(entryId, { occurrences }).catch(console.error);
     }, 600);
+  }
+
+  function updateOcc(entry, occIdx, value) {
+    const prevOccs = entry.occurrences;
+    const nextOccs = prevOccs.map((o, i) => i !== occIdx ? o : { ...o, value });
+
+    // Show the edit either way, so the slot reflects what was just entered.
+    onUpdate({ ...entry, occurrences: nextOccs });
+
+    const wasComplete = isDone(entry);
+    const nowComplete = nextOccs.filter(isFilled).length >= entry.occurrenceCount;
+
+    if (nowComplete && !wasComplete) {
+      // Hold the save and ask first. An amount counts as filled from its first
+      // keystroke, so the question waits for typing to stop rather than
+      // interrupting it.
+      clearTimeout(debounceTimers.current[entry.splitPaymentId]);
+      clearTimeout(askTimer.current);
+      setPendingSettle(p =>
+        p?.entryId === entry.splitPaymentId
+          ? { ...p, ask: false }
+          : { entryId: entry.splitPaymentId, title: entry.title, prevOccs, ask: false });
+      askTimer.current = setTimeout(
+        () => setPendingSettle(p => (p ? { ...p, ask: true } : p)), 700);
+      return;
+    }
+
+    // Edited back below complete — the question no longer applies.
+    if (pendingSettle?.entryId === entry.splitPaymentId) {
+      clearTimeout(askTimer.current);
+      setPendingSettle(null);
+    }
+    persist(entry.splitPaymentId, nextOccs);
+  }
+
+  function confirmSettle() {
+    const p = pendingSettle;
+    clearTimeout(askTimer.current);
+    setPendingSettle(null);
+    if (!p) return;
+    const entry = payments.find(e => e.splitPaymentId === p.entryId);
+    if (entry) persist(p.entryId, entry.occurrences);
+  }
+
+  function cancelSettle() {
+    const p = pendingSettle;
+    clearTimeout(askTimer.current);
+    setPendingSettle(null);
+    if (!p) return;
+    onRestore(p.entryId, p.prevOccs);
+  }
+
+  function openPicker(key) {
+    const el = dateInputs.current[key];
+    if (!el) return;
+    try { el.showPicker(); } catch { el.focus(); }
   }
 
   if (latest3.length === 0) return <EmptyState>No pending split payments.</EmptyState>;
@@ -326,7 +400,7 @@ function SplitPaymentsTable({ payments, onUpdate }) {
       {latest3.map(entry => {
         const isAmount  = entry.occurrenceType === "amount";
         const occs      = entry.occurrences || [];
-        const paidCount = occs.filter(o => o.value !== "" && o.value != null).length;
+        const paidCount = occs.filter(isFilled).length;
         const isFull    = paidCount === entry.occurrenceCount;
         return (
           // A nested tile on the card, carrying no stroke of its own.
@@ -349,26 +423,59 @@ function SplitPaymentsTable({ payments, onUpdate }) {
               {Array.from({ length: entry.occurrenceCount || occs.length }, (_, i) => {
                 const occ = occs[i];
                 if (!occ) return null;
-                const hasPaid = occ.value !== "" && occ.value != null;
+                const filled = isFilled(occ);
+                const key    = `${entry.splitPaymentId}-${i}`;
+                const label  = `${entry.title} — installment ${i + 1}`;
                 return (
                   <div key={i} style={sp.slot}>
                     <span style={sp.slotIdx}>#{i + 1}</span>
-                    <input
-                      type={isAmount ? "number" : "date"}
-                      value={occ.value ?? ""}
-                      min={isAmount ? "0" : undefined}
-                      step={isAmount ? "any" : undefined}
-                      placeholder={isAmount ? "0.00" : undefined}
-                      aria-label={`${entry.title} — installment ${i + 1}`}
-                      onChange={e => updateOcc(entry, i, e.target.value)}
-                      style={{
-                        ...sp.slotInput,
-                        width:      isAmount ? "78px" : "132px",
-                        background: hasPaid ? T.accent : T.raisedHi,
-                        color:      hasPaid ? T.onAccent : T.text,
-                        fontWeight: hasPaid ? 700 : 500,
-                      }}
-                    />
+
+                    {isAmount || !CAN_OPEN_PICKER ? (
+                      <input
+                        type={isAmount ? "number" : "date"}
+                        value={occ.value ?? ""}
+                        min={isAmount ? "0" : undefined}
+                        step={isAmount ? "any" : undefined}
+                        placeholder={isAmount ? "0.00" : undefined}
+                        aria-label={label}
+                        onChange={e => updateOcc(entry, i, e.target.value)}
+                        style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: isAmount ? "78px" : "132px" }}
+                      />
+                    ) : (
+                      // The field is inert and invisible; the button is the only
+                      // way in, so a date lands only when one is chosen.
+                      <span style={sp.pickerWrap}>
+                        <button
+                          type="button"
+                          onClick={() => openPicker(key)}
+                          aria-label={filled ? `${label}: ${occ.value}` : `${label}: pick a date`}
+                          style={{ ...sp.slotInput, ...sp.slotSkin(filled), width: "132px" }}
+                        >
+                          {occ.value || "Set date"}
+                        </button>
+                        <input
+                          ref={el => { dateInputs.current[key] = el; }}
+                          type="date"
+                          value={occ.value ?? ""}
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          onChange={e => updateOcc(entry, i, e.target.value)}
+                          style={sp.hiddenDate}
+                        />
+                      </span>
+                    )}
+
+                    {filled && (
+                      <button
+                        type="button"
+                        onClick={() => updateOcc(entry, i, "")}
+                        title="Clear"
+                        aria-label={`Clear ${label}`}
+                        style={sp.clearBtn}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -376,6 +483,23 @@ function SplitPaymentsTable({ payments, onUpdate }) {
           </div>
         );
       })}
+
+      {pendingSettle?.ask && (
+        <div style={sp.overlay} onClick={cancelSettle}>
+          <div style={sp.dialog} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <p style={sp.dialogTitle}>Mark as settled?</p>
+            <p style={sp.dialogBody}>
+              That was the last open slot on{" "}
+              <strong style={{ color: T.text }}>{pendingSettle.title || "this entry"}</strong>.
+              Confirming moves it into Settled.
+            </p>
+            <div style={sp.dialogActions}>
+              <button style={sp.dialogCancel} onClick={cancelSettle}>Cancel</button>
+              <button style={sp.dialogConfirm} onClick={confirmSettle}>Mark settled</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -440,7 +564,93 @@ const sp = {
     fontFamily:         "inherit",
     fontVariantNumeric: "tabular-nums",
     boxSizing:          "border-box",
+    textAlign:          "left",
     transition:         "background 150ms ease-out, color 150ms ease-out",
+  },
+  slotSkin: (filled) => ({
+    background: filled ? T.accent : T.raisedHi,
+    color:      filled ? T.onAccent : T.muted,
+    fontWeight: filled ? 700 : 500,
+  }),
+  pickerWrap: {
+    position: "relative",
+    display:  "inline-flex",
+  },
+  // Rendered but transparent and inert: showPicker() refuses to open on a
+  // display:none element, and a tappable date field is the thing being avoided.
+  hiddenDate: {
+    position:      "absolute",
+    inset:         0,
+    width:         "100%",
+    height:        "100%",
+    opacity:       0,
+    pointerEvents: "none",
+    border:        "none",
+    padding:       0,
+    background:    "transparent",
+  },
+  clearBtn: {
+    width:          "28px",
+    height:         "28px",
+    flexShrink:     0,
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     "transparent",
+    border:         "none",
+    borderRadius:   T.rSm,
+    color:          T.muted,
+    fontSize:       "12px",
+    lineHeight:     1,
+  },
+  overlay: {
+    position:       "fixed",
+    inset:          0,
+    background:     T.backdrop,
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    padding:        "var(--sp-5)",
+    zIndex:         800,
+  },
+  dialog: {
+    background:    T.surface,
+    borderRadius:  T.rLg,
+    boxShadow:     T.shadowSheet,
+    padding:       "var(--sp-5)",
+    width:         "100%",
+    maxWidth:      "320px",
+    display:       "flex",
+    flexDirection: "column",
+    gap:           "var(--sp-3)",
+  },
+  dialogTitle: { ...TYPE.h3, color: T.text },
+  dialogBody:  { ...TYPE.label, color: T.muted },
+  dialogActions: {
+    display:        "flex",
+    justifyContent: "flex-end",
+    gap:            "var(--sp-2)",
+    marginTop:      "var(--sp-1)",
+  },
+  dialogCancel: {
+    minHeight:    "44px",
+    padding:      "0 var(--sp-4)",
+    borderRadius: T.rPill,
+    border:       "none",
+    background:   T.raised,
+    color:        T.text,
+    fontSize:     "13px",
+    fontWeight:   600,
+  },
+  dialogConfirm: {
+    minHeight:    "44px",
+    padding:      "0 var(--sp-4)",
+    borderRadius: T.rPill,
+    border:       "none",
+    background:   T.accent,
+    color:        T.onAccent,
+    fontSize:     "13px",
+    fontWeight:   700,
   },
 };
 
@@ -810,7 +1020,12 @@ export default function HomeOverview() {
           </SectionHeader>
           <SplitPaymentsTable
             payments={payments}
-            onUpdate={updated => setPayments(prev => prev.map(p => p.splitPaymentId === updated.splitPaymentId ? updated : p))}
+            onUpdate={updated =>
+              setPayments(prev => prev.map(p =>
+                p.splitPaymentId === updated.splitPaymentId ? updated : p))}
+            onRestore={(id, occurrences) =>
+              setPayments(prev => prev.map(p =>
+                p.splitPaymentId === id ? { ...p, occurrences } : p))}
           />
         </Card>
 
