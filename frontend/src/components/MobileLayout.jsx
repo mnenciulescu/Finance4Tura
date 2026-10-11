@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { getAuthToken } from "../api/client";
 import NavSheet from "./NavSheet";
-import { navGroups, visibleItems } from "./navConfig";
+import { navGroups, accountItems, visibleItems } from "./navConfig";
 
 // ── JWT expiry timer ─────────────────────────────────────────────────────────
 
@@ -74,8 +74,9 @@ export default function MobileLayout({ children }) {
   }
 
   const groups = navGroups
-    .map(g => (g.items ? { ...g, items: visibleItems(g, gates) } : g))
+    .map(g => (g.items ? { ...g, items: visibleItems(g.items, gates) } : g))
     .filter(g => !g.items || g.items.length > 0);
+  const menuItems = visibleItems(accountItems, gates);
 
   const sheetGroup = groups.find(g => g.id === openGroup) ?? null;
 
@@ -98,10 +99,29 @@ export default function MobileLayout({ children }) {
           {initials}
         </button>
         {showUserMenu && (
-          <div style={s.userMenu}>
+          <div style={s.userMenu} role="menu" aria-label="Account">
             <span style={s.userMenuName}>{user?.username}</span>
             <JwtTimer />
-            <button style={s.signOutBtn} onClick={signOut}>Sign out</button>
+            <div style={s.menuItems}>
+              {menuItems.map(item => {
+                const { to, label, Icon } = item;
+                const active = pathname === to || pathname.startsWith(`${to}/`);
+                return (
+                  <button
+                    key={to}
+                    role="menuitem"
+                    style={{ ...s.menuItem, color: active ? "var(--accent)" : "var(--text)" }}
+                    onClick={() => { setShowUserMenu(false); navigate(to); }}
+                  >
+                    <span style={{ ...s.menuIcon, color: active ? "var(--accent)" : "var(--text-muted)" }}>
+                      <Icon size={20} />
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <button style={s.signOutBtn} role="menuitem" onClick={signOut}>Sign out</button>
           </div>
         )}
       </header>
@@ -226,6 +246,29 @@ const s = {
     lineHeight:         "var(--lh-caption)",
     fontWeight:         600,
     fontVariantNumeric: "tabular-nums",
+  },
+  menuItems: {
+    display:       "flex",
+    flexDirection: "column",
+    margin:        "0 calc(-1 * var(--sp-2))",
+  },
+  menuItem: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "var(--sp-3)",
+    minHeight:    "44px",
+    padding:      "0 var(--sp-2)",
+    background:   "transparent",
+    border:       "none",
+    borderRadius: "var(--r-md)",
+    fontFamily:   "inherit",
+    fontSize:     "var(--fs-label)",
+    fontWeight:   600,
+    textAlign:    "left",
+  },
+  menuIcon: {
+    display:    "flex",
+    flexShrink: 0,
   },
   signOutBtn: {
     background:   "var(--surface-2)",

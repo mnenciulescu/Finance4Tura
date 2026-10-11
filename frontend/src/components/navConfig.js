@@ -4,9 +4,12 @@
 //
 // A group either navigates straight to `to`, or opens a sheet listing `items`.
 // `match` decides whether the group's tab renders active for a given pathname.
+//
+// Settings, Backstage and Admin are not a tab: they live in the account menu
+// behind the avatar, listed by `accountItems`.
 
 import {
-  IconHome, IconFinance, IconEvolve, IconHQ, IconSystem,
+  IconHome, IconFinance, IconEvolve, IconHQ,
   IconDashboard, IconIncome, IconExpense, IconSplit, IconStats,
   IconInvestments, IconSettings, IconBackstage, IconAdmin,
 } from "./navIcons";
@@ -56,23 +59,17 @@ export const navGroups = [
     to: "/headquarters",
     match: p => p.startsWith("/headquarters"),
   },
-  {
-    id: "system",
-    label: "System",
-    Icon: IconSystem,
-    items: [
-      { to: "/settings",  label: "Settings",  Icon: IconSettings  },
-      { to: "/backstage", label: "Backstage", Icon: IconBackstage, requires: "backstage" },
-      { to: "/admin",     label: "Admin",     Icon: IconAdmin,     requires: "admin"     },
-    ],
-    match: p => ["/settings", "/backstage", "/admin"].some(r => p.startsWith(r)),
-  },
 ];
 
-// Drops sheet items the current user or app settings don't allow.
-export function visibleItems(group, { backstageEnabled, username }) {
-  if (!group.items) return [];
-  return group.items.filter(item => {
+export const accountItems = [
+  { to: "/settings",  label: "Settings",  Icon: IconSettings  },
+  { to: "/backstage", label: "Backstage", Icon: IconBackstage, requires: "backstage" },
+  { to: "/admin",     label: "Admin",     Icon: IconAdmin,     requires: "admin"     },
+];
+
+// Drops items the current user or app settings don't allow.
+export function visibleItems(items = [], { backstageEnabled, username }) {
+  return items.filter(item => {
     if (item.requires === "backstage") return backstageEnabled;
     if (item.requires === "admin")     return username === ADMIN_USER;
     return true;

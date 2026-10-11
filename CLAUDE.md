@@ -71,11 +71,15 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
   hook were deleted. Every page renders as a centred phone-width column
   (`max-width: 430px`) on any screen, so a laptop browser shows the same UI.
 - `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
-  top bar (brand, avatar menu with the JWT session countdown) and the bottom bar.
-- Bottom bar groups mirror what the desktop dropdowns used to be —
-  **Home · Finance · Evolve · HQ · System**. Finance and System open bottom
-  sheets (`NavSheet.jsx`); Evolve and HQ navigate directly. Config lives in
-  `components/navConfig.js`, icons in `components/navIcons.jsx`.
+  top bar (brand, avatar menu) and the bottom bar.
+- Bottom bar: **Home · Finance · Evolve · HQ**. Finance opens a bottom sheet
+  (`NavSheet.jsx`); the others navigate directly.
+- The avatar (user initials, top right) opens the account menu: username, JWT
+  session countdown, then **Settings · Admin · Sign out**. Backstage appears
+  between Settings and Admin only while `backstageEnabled` is on; Admin only for
+  `ADMIN_USER`. There is no System tab any more. Tab groups are `navGroups`,
+  menu entries `accountItems`, both in `components/navConfig.js`; icons in
+  `components/navIcons.jsx`.
 - Home Overview is `/`; the Finance Dashboard is `/finance`.
 - The Dashboard owns the year stepper and the privacy (hide amounts) toggle —
   both used to live in the desktop chrome.

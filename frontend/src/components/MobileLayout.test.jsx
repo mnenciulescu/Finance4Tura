@@ -25,7 +25,7 @@ const tab = label => within(document.querySelector("nav")).getByLabelText(label)
 describe("MobileLayout tab bar", () => {
   it("mirrors the desktop nav groups", () => {
     renderBar();
-    expect(tabLabels()).toEqual(["Home", "Finance", "Evolve", "HQ", "System"]);
+    expect(tabLabels()).toEqual(["Home", "Finance", "Evolve", "HQ"]);
   });
 
   it("opens the Finance group as a sheet rather than navigating", () => {
@@ -48,32 +48,48 @@ describe("MobileLayout tab bar", () => {
     expect(sheet()).toBeNull();
   });
 
-  it("shows Backstage and Admin in System for the admin user", () => {
+  it("has no System tab", () => {
     renderBar();
-    fireEvent.click(tab("System"));
-    const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
-    expect(items).toEqual(expect.arrayContaining(["Settings", "Backstage", "Admin"]));
+    expect(tabLabels()).not.toContain("System");
   });
-
-  it("hides Backstage when the app setting is off, and Admin for other users", () => {
-    appSettings.settings = { backstageEnabled: false };
-    auth.user = { username: "someone-else" };
-    try {
-      renderBar();
-      fireEvent.click(tab("System"));
-      const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
-      expect(items).not.toContain("Backstage");
-      expect(items).not.toContain("Admin");
-      expect(items).toContain("Settings");
-    } finally {
-      appSettings.settings = { backstageEnabled: true };
-      auth.user = { username: "nenciulescu" };
-    }
-  });
-
   it("keeps Add Expense / Add Income out of the bar itself", () => {
     renderBar();
     expect(tabLabels()).not.toContain("Add Expense");
     expect(tabLabels()).not.toContain("Add Income");
+  });
+});
+
+describe("MobileLayout account menu", () => {
+  const menuLabels = () => {
+    fireEvent.click(within(document.querySelector("header")).getByLabelText("Account"));
+    return within(document.querySelector('[role="menu"]'))
+      .getAllByRole("menuitem").map(b => b.textContent);
+  };
+
+  it("lists Settings and Admin above Sign out for the admin user", () => {
+    appSettings.settings = { backstageEnabled: false };
+    try {
+      renderBar();
+      expect(menuLabels()).toEqual(["Settings", "Admin", "Sign out"]);
+    } finally {
+      appSettings.settings = { backstageEnabled: true };
+    }
+  });
+
+  it("adds Backstage only when the app setting is on", () => {
+    renderBar();
+    expect(menuLabels()).toEqual(["Settings", "Backstage", "Admin", "Sign out"]);
+  });
+
+  it("hides Admin from other users", () => {
+    auth.user = { username: "someone-else" };
+    appSettings.settings = { backstageEnabled: false };
+    try {
+      renderBar();
+      expect(menuLabels()).toEqual(["Settings", "Sign out"]);
+    } finally {
+      appSettings.settings = { backstageEnabled: true };
+      auth.user = { username: "nenciulescu" };
+    }
   });
 });

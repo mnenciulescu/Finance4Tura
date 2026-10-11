@@ -51,17 +51,6 @@ export function IconHQ({ size = 24 }) {
   );
 }
 
-export function IconSystem({ size = 24 }) {
-  return (
-    <svg {...svg(size)} {...stroke}>
-      <line x1="1" y1="4.5" x2="14" y2="4.5" />
-      <line x1="1" y1="10.5" x2="14" y2="10.5" />
-      <circle cx="5" cy="4.5" r="1.8" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="10.5" r="1.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function IconDashboard({ size = 24 }) {
   return (
     <svg {...svg(size)} fill="currentColor">
