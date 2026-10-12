@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { getAuthToken } from "../api/client";
 import { navGroups, accountItems, visibleItems } from "./navConfig";
+import { TAB_ICON_COLORS, alpha } from "../utils/colors";
 
 // ── JWT expiry timer ─────────────────────────────────────────────────────────
 
@@ -116,24 +117,52 @@ export default function MobileLayout({ children }) {
 
       <main style={s.main}>{children}</main>
 
-      <nav style={s.tabBar}>
-        {navGroups.map(group => {
-          const active = group.match(pathname);
-          return (
-            <button
-              key={group.id}
-              onClick={() => onTab(group)}
-              aria-label={group.label}
-              aria-current={group.match(pathname) ? "page" : undefined}
-              style={{ ...s.tab, color: active ? "var(--accent)" : "var(--text-muted)" }}
-            >
-              <span style={{ ...s.tabIcon, ...(active ? s.tabIconActive : {}) }}>
-                <group.Icon size={22} />
-              </span>
-              <span style={{ ...s.tabLabel, fontWeight: active ? 700 : 500 }}>{group.label}</span>
-            </button>
-          );
-        })}
+      <nav style={s.tabBar} aria-label="Main">
+        <div style={s.dock}>
+          {navGroups.map(group => {
+            const active = group.match(pathname);
+            const tone   = TAB_ICON_COLORS[group.tone];
+            return (
+              <button
+                key={group.id}
+                onClick={() => onTab(group)}
+                aria-label={group.label}
+                aria-current={active ? "page" : undefined}
+                style={s.tab}
+              >
+                <span
+                  style={{
+                    ...s.tabIcon,
+                    ...(active
+                      ? {
+                          background: `linear-gradient(160deg, ${alpha(tone.from, 0.26)}, ${alpha(tone.to, 0.14)})`,
+                          transform:  "translateY(-2px)",
+                          filter:     `drop-shadow(0 3px 6px ${alpha(tone.to, 0.45)})`,
+                        }
+                      : s.tabIconIdle),
+                  }}
+                >
+                  <group.Icon size={30} />
+                </span>
+                <span
+                  style={{
+                    ...s.tabLabel,
+                    color:      active ? tone.ink : "var(--text-muted)",
+                    fontWeight: active ? 800 : 600,
+                  }}
+                >
+                  {group.label}
+                </span>
+                <span
+                  style={{
+                    ...s.tabDot,
+                    background: active ? `linear-gradient(90deg, ${tone.from}, ${tone.to})` : "transparent",
+                  }}
+                />
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );
@@ -267,17 +296,23 @@ const s = {
     display:       "flex",
     flexDirection: "column",
   },
-  // Sits on the deepest surface with a rounded top, so it reads as a panel the
-  // content scrolls beneath rather than as a strip welded to the viewport.
+  // A floating dock rather than a strip welded to the viewport edge: it sits
+  // on the canvas, inset from the sides, with the safe-area inset below it.
   tabBar: {
-    display:        "flex",
-    background:     "var(--surface-deep)",
-    borderRadius:   "var(--r-xl) var(--r-xl) 0 0",
-    boxShadow:      "var(--shadow-card)",
-    flexShrink:     0,
-    paddingTop:     "var(--sp-2)",
-    paddingBottom:  "calc(var(--sp-2) + env(safe-area-inset-bottom))",
-    zIndex:         100,
+    flexShrink:    0,
+    padding:       "var(--sp-2) var(--sp-3) calc(var(--sp-2) + env(safe-area-inset-bottom))",
+    display:       "flex",
+    justifyContent: "center",
+    zIndex:        100,
+  },
+  dock: {
+    display:      "flex",
+    width:        "100%",
+    maxWidth:     "var(--app-max-w)",
+    background:   "var(--surface-deep)",
+    borderRadius: "var(--r-xl)",
+    boxShadow:    "var(--shadow-raised)",
+    padding:      "var(--sp-2) var(--sp-1) var(--sp-1)",
   },
   tab: {
     flex:           1,
@@ -285,30 +320,42 @@ const s = {
     flexDirection:  "column",
     alignItems:     "center",
     justifyContent: "center",
-    gap:            "2px",
-    padding:        "2px",
+    gap:            "3px",
+    padding:        "0 2px",
     minWidth:       0,
-    minHeight:      "44px",
+    minHeight:      "56px",
     border:         "none",
     background:     "transparent",
     fontFamily:     "inherit",
+    cursor:         "pointer",
   },
+  // Each icon sits in a capsule. The active one is tinted in its own hue,
+  // lifted a little and given a coloured glow; idle ones keep their colour
+  // but step back.
   tabIcon: {
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
-    width:          "40px",
-    height:         "28px",
+    width:          "58px",
+    height:         "40px",
     borderRadius:   "var(--r-pill)",
-    transition:     "background 120ms ease-out",
+    transition:     "transform 180ms ease-out, background 180ms ease-out, filter 180ms ease-out, opacity 180ms ease-out",
   },
-  tabIconActive: {
-    background: "var(--accent-tint-bg)",
+  tabIconIdle: {
+    opacity: 0.88,
+    filter:  "saturate(0.85)",
   },
   tabLabel: {
     fontSize:      "var(--fs-caption)",
     lineHeight:    "var(--lh-caption)",
     whiteSpace:    "nowrap",
-    letterSpacing: "-0.01em",
+    letterSpacing: "0.01em",
+    transition:    "color 180ms ease-out",
+  },
+  tabDot: {
+    width:        "14px",
+    height:       "3px",
+    borderRadius: "var(--r-pill)",
+    transition:   "background 180ms ease-out",
   },
 };

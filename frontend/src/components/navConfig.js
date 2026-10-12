@@ -2,14 +2,15 @@
 // account menu.
 //
 // Every tab navigates straight to `to`, passing `state()` when it has one.
-// `match` decides whether the tab renders active for a given pathname.
+// `match` decides whether the tab renders active for a given pathname; `tone`
+// picks the tab's colour family in TAB_ICON_COLORS.
 //
 // The Finance pages are not listed under the tab: they live in the ⋮ menu on
 // the Dashboard header, listed by `financeItems`. Settings, Backstage and Admin
 // live in the account menu behind the avatar, listed by `accountItems`.
 
+import { TabIconHome, TabIconFinance, TabIconBooks, TabIconHQ } from "./TabIcons";
 import {
-  IconHome, IconFinance, IconEvolve, IconHQ,
   IconDashboard, IconIncome, IconExpense, IconSplit, IconStats,
   IconInvestments, IconSettings, IconBackstage, IconAdmin,
 } from "./navIcons";
@@ -25,14 +26,16 @@ export const navGroups = [
   {
     id: "home",
     label: "Home",
-    Icon: IconHome,
+    Icon: TabIconHome,
+    tone: "home",
     to: "/",
     match: p => p === "/",
   },
   {
     id: "finance",
     label: "Finance",
-    Icon: IconFinance,
+    Icon: TabIconFinance,
+    tone: "finance",
     to: "/finance",
     // Opens the Dashboard on the current income column, even when it is
     // already showing another one.
@@ -42,14 +45,16 @@ export const navGroups = [
   {
     id: "books",
     label: "Books",
-    Icon: IconEvolve,
+    Icon: TabIconBooks,
+    tone: "books",
     to: "/books-and-dev",
     match: p => p.startsWith("/books-and-dev"),
   },
   {
     id: "hq",
     label: "HQ",
-    Icon: IconHQ,
+    Icon: TabIconHQ,
+    tone: "hq",
     to: "/headquarters",
     match: p => p.startsWith("/headquarters"),
   },

@@ -1,5 +1,5 @@
-// Icon set for the bottom bar and its sheets, carried over from the desktop
-// top bar that used to be their only consumer.
+// Line icons for the Dashboard's Finance menu and the account menu. The bottom
+// bar has its own full-colour set in TabIcons.jsx.
 
 const stroke = {
   fill: "none",
@@ -11,44 +11,6 @@ const stroke = {
 
 function svg(size) {
   return { width: size, height: size, viewBox: "0 0 15 15" };
-}
-
-export function IconHome({ size = 24 }) {
-  return (
-    <svg {...svg(size)} {...stroke}>
-      <path d="M1.5 7.5 L7.5 2 L13.5 7.5" />
-      <polyline points="3,6.5 3,13 6.5,13 6.5,9.5 8.5,9.5 8.5,13 12,13 12,6.5" />
-    </svg>
-  );
-}
-
-export function IconFinance({ size = 24 }) {
-  return (
-    <svg {...svg(size)} {...stroke}>
-      <rect x="1" y="5" width="13" height="8" rx="1.5" />
-      <path d="M5,5 V3.5 Q5,2 7.5,2 Q10,2 10,3.5 V5" />
-      <line x1="1" y1="9" x2="14" y2="9" />
-    </svg>
-  );
-}
-
-export function IconEvolve({ size = 24 }) {
-  return (
-    <svg {...svg(size)} {...stroke}>
-      <path d="M7.5 13 C7.5 13 7.5 8 12 4 C10 4 8 5 7.5 7 C7 5 5 4 3 4 C7.5 8 7.5 13 7.5 13Z" />
-      <line x1="7.5" y1="13" x2="7.5" y2="10" />
-    </svg>
-  );
-}
-
-export function IconHQ({ size = 24 }) {
-  return (
-    <svg {...svg(size)} {...stroke}>
-      <rect x="1.5" y="6" width="12" height="8" rx="1" />
-      <path d="M1.5 6 L7.5 1.5 L13.5 6" />
-      <rect x="5.5" y="9" width="4" height="5" rx="0.5" />
-    </svg>
-  );
 }
 
 export function IconDashboard({ size = 24 }) {

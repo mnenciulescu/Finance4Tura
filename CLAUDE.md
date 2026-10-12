@@ -93,7 +93,15 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
   shows the same UI.
 - `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
   top bar (brand, avatar menu) and the bottom bar.
-- Bottom bar: **Home · Finance · Books · HQ**. Every tab navigates directly;
+- Bottom bar: a floating dock (`--surface-deep`, `--r-xl`, `--shadow-raised`)
+  inset from the screen edges. Each tab has a full-colour illustrated icon from
+  `components/TabIcons.jsx` in its own hue family (`TAB_ICON_COLORS` in
+  `utils/colors.js`, picked by the tab's `tone`): coral house, emerald wallet,
+  violet book, blue building with a water drop. The active tab gets a capsule
+  tinted in its hue, a slight lift, a coloured glow, a coloured bold label and a
+  gradient underline; idle icons stay coloured but step back. Icons take their
+  gradient ids from `useId()` so copies never collide.
+- Tabs: **Home · Finance · Books · HQ**. Every tab navigates directly;
   there are no sheets. **Finance** opens `/finance` with `resetDashboard`
   state (back on the current income) and stays highlighted on all six Finance
   routes. The other Finance pages are reached from the Dashboard's ⋮ menu,
@@ -129,7 +137,8 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
   `Skeleton`.
 - Categorical series colours in `frontend/src/utils/colors.js` — the palette
   anchors (`DUSK`), `PRIORITY_COLORS`, `HTTP_METHOD_COLORS`, `CHART_COLORS`,
-  `BAR_COLORS`, `PLATFORM_COLORS`, `TYPE_COLORS` and the `alpha()` tint helper.
+  `BAR_COLORS`, `PLATFORM_COLORS`, `TYPE_COLORS`, `TAB_ICON_COLORS` (the
+  bottom bar — the one deliberately bright palette) and the `alpha()` tint helper.
   This is the one file allowed to hold hex literals.
 - **Two-step inline delete** is the app-wide pattern: `Delete` → `Tap to
   confirm`, reverting after 4 s. No `window.confirm`. (The Finance Dashboard
@@ -515,7 +524,7 @@ cd backend && node --test src/**/*.test.mjs
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
 | Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Dashboard` (9), `Statistics` (7), `BooksAndDev` (5), `Headquarters` (4) | 83 |
-| Frontend components | `MobileLayout` (tab bar + account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 29 |
+| Frontend components | `MobileLayout` (tab bar, tab icons, account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 30 |
 | Frontend regression | `noZoom` (16px form controls), `appWidth`, `designTokens` (no raw colours, radii or shadows outside the token files) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |

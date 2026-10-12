@@ -91,3 +91,34 @@ export const TYPE_COLORS = {
   Book:      { bg: "var(--surface-2)",          text: "var(--text-muted)" },
   Other:     { bg: "var(--surface-2)",          text: "var(--text-muted)" },
 };
+
+/**
+ * Bottom-bar tab icons. Deliberately brighter than the muted Dusk anchors: the
+ * bar is the one place the app uses full colour, one hue family per tab.
+ * `from`/`to` run the main gradient top to bottom, `deep` is the shaded face,
+ * `ink` the active label (mid-tone, so it reads on the navy Dusk bar and on
+ * the white Light/Amber bars alike). Shared accents sit in `light`/`gold`.
+ */
+export const TAB_ICON_COLORS = {
+  home: {
+    from: "#ff9e6d", to: "#f0567c", deep: "#c93a64", ink: "#f0567c",
+    door: "#7a2950",
+  },
+  finance: {
+    from: "#3fdcab", to: "#0e9f8a", deep: "#0a7d6d", ink: "#14b38f",
+  },
+  books: {
+    from: "#b29bff", to: "#6d58d6", deep: "#5443b8", ink: "#8b6ff2",
+    page: "#f3efff", pageShade: "#e3dbff", line: "#c9bcff", ribbon: "#f472b6",
+  },
+  hq: {
+    from: "#6cb2ff", to: "#2a63e0", deep: "#1d44a8", ink: "#3d82f0",
+    annex: "#8ec2ff", door: "#1a3680", dropFrom: "#7eecff", dropTo: "#0bb3d6",
+  },
+  shared: {
+    light: "#fff6ec",   // highlights — warm, never pure white
+    gold:  "#ffd66b",
+    goldDeep: "#f2a516",
+    window: "#ffe38f",
+  },
+};

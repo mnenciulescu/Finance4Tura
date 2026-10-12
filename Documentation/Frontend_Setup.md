@@ -36,7 +36,8 @@ src/
 │   ├── Layout.jsx          # passthrough to MobileLayout
 │   ├── MobileLayout.jsx    # top bar, avatar menu, bottom bar
 │   ├── navConfig.js        # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu), ADMIN_USER
-│   ├── navIcons.jsx        # nav icons
+│   ├── TabIcons.jsx        # full-colour bottom-bar icons (palette: TAB_ICON_COLORS)
+│   ├── navIcons.jsx        # line icons for the Finance and account menus
 │   ├── IncomeCard.jsx      # income-period card on the Dashboard
 │   ├── DateSheet.jsx       # the app's calendar sheet (Monday first, with Clear)
 │   ├── ui.jsx              # shared primitives: Card, Sheet, Button, Pill, StatTile, …
@@ -101,7 +102,7 @@ Google Sign-In uses a GIS popup and `POST /auth/google`. The login page hides th
 
 ## Tests
 
-Vitest + Testing Library, `jsdom`. 214 tests: util and context tests in `src/test/`, render tests next to each page and component, against mocked API modules. See CLAUDE.md for the breakdown and the currently failing date-slot tests.
+Vitest + Testing Library, `jsdom`. 215 tests: util and context tests in `src/test/`, render tests next to each page and component, against mocked API modules. See CLAUDE.md for the breakdown and the currently failing date-slot tests.
 
 ## Deploying
 
