@@ -2,77 +2,98 @@
 
 ## Overview
 
-A new desktop-only module that allows the user to log advance payments split into multiple occurrences and track when the total amount has been fully covered.
+Log a payment that's split into instalments, record each instalment as it's paid (by amount or by date), and see when the total is covered.
+
+The module lives on its own page (`/split-payments`) and as a compact block on the Home Overview (`/`). Both share the same slot rules.
+
+**Files**: `frontend/src/pages/SplitPayment.jsx`, the `SplitPaymentsTable` block in `frontend/src/pages/HomeOverview.jsx`, `frontend/src/components/DateSheet.jsx`, `backend/src/handlers/splitPayments.mjs`.
 
 ---
 
 ## Functional Requirements
 
-### FR-1 Platform Availability
-The Split Payment module **must** be available only in the desktop (web) interface. It **must not** appear in the mobile bottom-tab navigation, nor be accessible from any mobile navigation element.
+### FR-1 Navigation
+- Route: `/split-payments`, opened from **Finance → Split Pay** in the bottom bar.
+- The Home Overview's **Split Payments — Last 3** block links to it with *View all →*.
+- One phone-width layout (430 px column) on every screen.
 
-### FR-2 Navigation Entry
-A dedicated **"Split Pay"** link **must** appear in the top navigation bar (desktop only), alongside the other navigation items.
-Route: `/split-payments`
+### FR-2 Page layout
+- **Header**: title, `N open · M settled`, the amount left to cover per currency, and a **+ New** button.
+- **In progress** group: every open entry, always listed.
+- **Settled** group: fully covered entries, collapsed behind a toggle.
+- Empty state when there are no entries.
 
-### FR-3 Page Layout
-The Split Pay page **must** contain:
-- A page heading ("Split Pay") and a short descriptive subtitle.
-- An **"Add New Split Payment"** button, positioned in the page header area.
-- A data table listing all existing split payment entries (see FR-5).
-- An empty-state message when no entries exist.
+### FR-3 Entry card
+- A 3 px progress track shows `paid / occurrenceCount`.
+- Open entries start **expanded**, settled ones **collapsed**. Tapping the head toggles either way.
+- The collapsed head shows title, coverage badge, date, total and remaining amount.
 
-### FR-4 Create Split Payment Form
-Pressing "Add New Split Payment" **must** open a modal form with the following fields:
+### FR-4 Slots
+- An entry always shows **exactly `occurrenceCount` slots**. The count belongs to the series and is set on create or edit; nothing else adds or removes slots. A stored array that's short or long is padded or trimmed on display, and every write sends the full count.
+- Slots sit **two per row** for both kinds of entry. Each slot has an index badge (`#1`, `#2`, …) and nothing beside it.
+- **Amount slots** are number inputs at 16 px (no iOS zoom). A slot counts as filled from its first typed character.
+- **Date slots** are buttons. Tapping one opens the app's calendar sheet (`DateSheet`), which has **Clear**. There's no native `<input type="date">`: on iOS it opens on today and commits today when dismissed, so a stray tap would record a payment.
+
+### FR-5 Bulk actions (page only)
+- **Cover rest** (amount-tracked entries): fills every empty slot with an even split of what's left. The last slot takes the rounding remainder, so the slots add up to `totalAmount` exactly.
+- **Clear all**: empties every slot.
+
+### FR-6 Settling
+- When an edit fills the **last empty slot** (typing, the calendar, or Cover rest), the app asks **"Mark as settled?"** before saving.
+- **Mark settled** saves; the entry moves to Settled (on the Home block, it drops off the list).
+- **Cancel** restores the slot and saves nothing.
+- Clearing the slot again before answering withdraws the question.
+
+### FR-7 Saving
+Slot edits save with a **600 ms debounce per entry**, via `PUT /split-payments/{splitPaymentId}` with `{ occurrences }`. A failed save shows "Could not save the change." on the page (the Home block only logs it). The edited values stay on screen either way; reload to see what's stored.
+
+### FR-8 Create and edit
+A **bottom sheet** at column width (rounded top, grabber, safe-area padding), the same form for both:
 
 | Field | Type | Constraints |
 |---|---|---|
-| Date | Date input, editable | Pre-filled with today's date (`YYYY-MM-DD`); user can change it |
-| Title | Text input | Mandatory |
-| Amount | Number input | Mandatory; must be > 0 |
-| Currency | Dropdown | Options: `RON`, `EUR`, `USD`; default `RON` |
-| Number of Occurrences | Integer input | Mandatory; range 1–36 |
-| Occurrence Type | Dropdown | `amount` – occurrences split the total equally; `date` – occurrences record individual payment dates |
+| Title | Text | Required |
+| Date | Date | Defaults to today |
+| Total amount | Number | Required, > 0 |
+| Currency | Select | `RON` (default), `EUR`, `USD` |
+| Occurrences | Integer | 1–36 |
+| Track by | Select | `amount` or `date` |
 
-Pressing **Save** validates all mandatory fields and, on success, appends the new entry to the list and closes the modal.
-Pressing **Cancel** or clicking the overlay dismisses the modal without saving.
+On edit, **Track by** is locked once any slot is filled, and changing the count keeps existing values by position.
 
-### FR-5 Split Payment Table
-Each split payment entry **must** be rendered as a single table row containing:
+### FR-9 Delete
+Two-step inline confirm: **Delete** → **Tap to confirm**, reverting after 4 s. No dialog.
 
-**Fixed columns** (always present):
-| Column | Description |
-|---|---|
-| Date | The date the entry was created (`YYYY-MM-DD`) |
-| Title | The payment title |
-| Amount | The total amount (formatted with locale separators) |
-| Currency | The currency code |
+### FR-10 Home Overview block
+- Shows the **three newest open entries** (by `createdDate`).
+- Same slot rules as FR-4, FR-6 and FR-7. No Cover rest or Clear all.
 
-**Dynamic occurrence columns** (one column per occurrence, up to the maximum across all visible rows):
-- Each cell represents one occurrence of the split payment.
-- Behaviour depends on **Occurrence Type**:
-  - **amount**: the cell displays the equal installment value (`totalAmount ÷ occurrenceCount`), and can be toggled between **paid** (green) and **unpaid** (grey).
-  - **date**: the cell displays the date on which the occurrence was marked as paid, or `—` if not yet paid. Clicking toggles paid status and auto-records today's date on the first paid transition.
-- If a row has fewer occurrences than the maximum, trailing cells are rendered empty.
+---
 
-**Trailing columns**:
-| Column | Description |
-|---|---|
-| Coverage | Badge showing `paidCount / totalCount`; turns green with a checkmark (✓) when fully covered |
-| Actions | Delete button (✕) to permanently remove the entry |
+## Data
 
-### FR-6 Occurrence Toggle
-Clicking an occurrence cell **must** toggle its `paid` state between `true` and `false`.
-When toggled to `paid` for the first time, `paidDate` is set to today's date.
-When toggled back to unpaid, `paidDate` is cleared.
+`SplitPayments` table, PK `splitPaymentId`, scoped by `userId`.
 
-### FR-7 Data Persistence
-All split payment entries **must** persist across page refreshes and browser sessions in the `SplitPayments` DynamoDB table, scoped per authenticated user (`userId`).
+| Attribute | Type | Notes |
+|---|---|---|
+| `splitPaymentId` | String | UUID |
+| `userId` | String | Cognito `sub` |
+| `title` | String | Required |
+| `totalAmount` | Number | Required |
+| `currency` | String | `RON` \| `EUR` \| `USD`; default `RON` |
+| `occurrenceCount` | Number | 1–36 |
+| `occurrenceType` | String | `amount` \| `date` |
+| `createdDate` | String | `YYYY-MM-DD`; defaults to today |
+| `occurrences` | List | `{ index, value }`; `value` is an amount, a date, or `""` |
 
-On page load the frontend calls `GET /split-payments` to fetch all entries for the current user. Creating an entry calls `POST /split-payments`. Updating any occurrence value calls `PUT /split-payments/{splitPaymentId}` (debounced 600 ms). Deleting an entry calls `DELETE /split-payments/{splitPaymentId}`.
+## API
 
-### FR-8 Delete Entry
-Clicking the delete button (✕) on a row **must** call `DELETE /split-payments/{splitPaymentId}` and, on success, permanently remove that entry from the list.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/split-payments` | The user's entries, newest `createdDate` first |
+| `POST` | `/split-payments` | Create. 400 without title, totalAmount, occurrenceCount and occurrenceType |
+| `PUT` | `/split-payments/{splitPaymentId}` | Update fields or `occurrences` |
+| `DELETE` | `/split-payments/{splitPaymentId}` | Delete |
 
 ---
 
@@ -80,25 +101,28 @@ Clicking the delete button (✕) on a row **must** call `DELETE /split-payments/
 
 | # | Requirement |
 |---|---|
-| NFR-1 | Data is persisted in DynamoDB via the backend API (`SplitPaymentsFunction` Lambda + `SplitPayments` table). |
-| NFR-2 | The module must follow the existing design system (CSS variables, `var(--surface)`, `var(--border)`, `var(--text)`, etc.). |
-| NFR-3 | The table must be horizontally scrollable when the number of occurrence columns overflows the viewport. |
-| NFR-4 | The feature must not be present in the mobile tab bar or accessible through any mobile navigation element. |
-| NFR-5 | Occurrence cell updates must be debounced (600 ms) to avoid excessive API calls on rapid input. |
+| NFR-1 | Persisted in DynamoDB through `SplitPaymentsFunction`. |
+| NFR-2 | Design tokens only — no raw colours, radii or shadows. |
+| NFR-3 | 16 px inputs and ≥ 44 px tap targets. |
+| NFR-4 | Slot edits debounced at 600 ms. |
+| NFR-5 | No native date inputs for slots. |
 
 ---
 
 ## Acceptance Tests
 
+Covered by `SplitPayment.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (23).
+
 | # | Test | Expected Result |
 |---|---|---|
-| 10.1 | Navigate to `/split-payments` on desktop | Page loads with heading, subtitle, "Add New Split Payment" button, and empty-state message |
-| 10.2 | Click "Add New Split Payment" | Modal opens with all form fields; Date pre-filled with today; date is editable |
-| 10.3 | Submit form with all required fields (title, amount, currency, 3 occurrences, type = amount) | Row appears with 3 occurrence cells each showing `amount/3`; coverage badge shows `0/3` |
-| 10.4 | Click first occurrence cell | Cell turns green; coverage badge updates to `1/3` |
-| 10.5 | Click all occurrence cells | All cells green; coverage badge shows `3/3 ✓` |
-| 10.6 | Click a green occurrence cell | Cell reverts to grey; coverage badge decrements |
-| 10.7 | Refresh the page | Entries are still present (fetched from DynamoDB via `GET /split-payments`) |
-| 10.8 | Click ✕ on a row | `DELETE /split-payments/{id}` called; row removed immediately |
-| 10.9 | Create entry with type = date; mark an occurrence as paid | Cell displays today's date; toggle back clears the date |
-| 10.10 | View app on mobile | "Split Payments" link is absent from bottom tab bar; feature not accessible via mobile navigation |
+| 10.1 | Open `/split-payments` | Header, In progress and Settled groups; empty state when there are no entries |
+| 10.2 | **+ New**, create 3 amount slots | `POST` called; card appears in In progress with 3 slots, two per row, coverage `0/3` |
+| 10.3 | Type in the first slot | Coverage `1/3`; one `PUT` after 600 ms |
+| 10.4 | Tap a date slot | The calendar sheet opens; picking a day fills the slot; dismissing without picking changes nothing |
+| 10.5 | Fill the last empty slot | "Mark as settled?" appears; nothing is saved yet |
+| 10.6 | Confirm | Saved; the entry moves to Settled |
+| 10.7 | Cancel instead | The slot reverts; nothing is saved |
+| 10.8 | **Cover rest** | Every empty slot filled; the slots sum to the total exactly |
+| 10.9 | Entry whose stored array is short | Still shows `occurrenceCount` slots; the next save writes the full count |
+| 10.10 | Delete, then tap again within 4 s | `DELETE` called on the second tap only |
+| 10.11 | Home Overview | Lists the 3 newest open entries with the same slot behaviour |

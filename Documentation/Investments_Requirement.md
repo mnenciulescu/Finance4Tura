@@ -11,11 +11,11 @@ A **PWA-first** page (`/investments`) to track the user's investment portfolio a
 
 Snapshots and operations are created, edited, and deleted from **bottom sheets**; deletes use a two-step inline confirm.
 
-The page is reachable from the **mobile bottom tab bar** (Investments tab, after Split Pay) and from the **desktop Sidebar** (Finance → Investments).
+The page is reachable from the bottom bar: **Finance → Investments**.
 
 > There is no S&P 500 simulation and no P&L Evolution chart — both were removed from the product.
 
-**File**: `frontend/src/pages/Investments.jsx` (self-contained; no `useIsMobile`, no external CSS).
+**File**: `frontend/src/pages/Investments.jsx` (self-contained, no external CSS).
 
 ---
 
@@ -37,6 +37,8 @@ Fixed list — no free-text entry, no CRUD for platforms in the UI. The same lis
 ---
 
 ## Historical Data (from Portfolio.xlsx)
+
+These tables record the spreadsheet the data was first imported from. The live data has moved on since; it's in DynamoDB.
 
 ### Operations — 32 entries
 
@@ -177,7 +179,7 @@ The page never fetches rates from a third party at runtime — it reads the shar
 
 ## Page Layout
 
-`/investments` is a **single phone-width column (`max-width: 430px`), centered on desktop too** — same widths, paddings and font sizes on every screen, mirroring Split Pay and Home Overview. There is no separate desktop layout and no `useIsMobile` branch: one layout, width-capped by the `COL_WIDTH` constant.
+`/investments` is a **single phone-width column (`max-width: 430px`), centered on wider screens** — same widths, paddings and font sizes everywhere, like every page in the app. One layout, width-capped by the `COL_WIDTH` constant.
 
 The column is a page header plus four stacked blocks:
 
@@ -219,8 +221,7 @@ The column is a page header plus four stacked blocks:
 ## Functional Requirements
 
 ### FR-1 Navigation
-- **Mobile**: an **Investments** tab in the bottom tab bar, placed **after Split Pay** (5th and last tab).
-- **Desktop**: the existing **Finance → Investments** entry in the Sidebar.
+- **Finance → Investments** in the bottom bar's Finance sheet.
 - Route: `/investments`, registered in `App.jsx`.
 
 ### FR-2 Block 1 — Total portfolio (expandable)
@@ -233,7 +234,7 @@ The column is a page header plus four stacked blocks:
 ### FR-3 Block 2 — Portfolio evolution chart
 - A `recharts` `LineChart` at 210 px height, plotting the **actual portfolio value in EUR** month by month. No S&P 500 simulation and no P&L chart — both were removed.
 - **The plotted range starts at `CHART_START` (`2023-01`)**. Snapshots and operations before that date still feed the carry-forward, but are never plotted. If the earliest data is later than `CHART_START`, the chart starts at the earliest data instead.
-- Lines: **Total** (grey `#94a3b8`, visible by default) plus one line per active platform (colour-coded, **hidden by default**), all with `connectNulls`.
+- Lines: **Total** (visible by default) plus one line per active platform (colour-coded, **hidden by default**), all with `connectNulls`.
 - Legend toggle chips above the chart control which lines are drawn; active = coloured border + tinted background, inactive = dimmed.
 - Platform chips list `activePlatforms` — platforms with a snapshot > 0 in the last 12 months — to keep the legend free of platforms that have gone quiet. (Block 1 deliberately uses the wider `heldPlatforms` set instead.)
 - Per-month values carry forward the latest snapshot per platform (`platformAt` / `portfolioAt`); the month spine runs from `CHART_START` (or the earliest data) to the latest snapshot/operation month.
@@ -282,38 +283,17 @@ Fixed application constant — no CRUD in the UI. The same 6 platforms and their
 | NFR-1 | Two DynamoDB tables: `InvestmentOperations` and `PortfolioSnapshots`, defined in `backend/template.yaml`. |
 | NFR-2 | Lambda handlers and routes for operations and snapshots registered in the SAM template. |
 | NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership. |
-| NFR-4 | Historical data seeded via dedicated one-off scripts (see Seed Scripts section). |
-| NFR-5 | Follows the existing design system — CSS variables only, no hard-coded theme colours, works in both dark and light themes. |
+| NFR-4 | Historical data was imported once from `Portfolio.xlsx`; since then everything is entered in the app. |
+| NFR-5 | Design tokens only — no raw colours; works in all three themes (Dusk, Light, Amber). Platform colours come from `PLATFORM_COLORS` in `utils/colors.js`. |
 | NFR-6 | **PWA-first**: one phone-width layout for every screen; tap targets ≥ 38 px; bottom sheets; 16 px inputs; safe-area padding. |
 | NFR-7 | Charts use `recharts` (already a project dependency). |
 | NFR-8 | The page is self-contained in `frontend/src/pages/Investments.jsx` — no external CSS, no shared sub-components. |
 
 ---
 
-## Seed / Local Dev Scripts
+## Data Import
 
-All scripts live in `backend/src/` unless noted.
-
-| Script | Purpose |
-|---|---|
-| `backend/src/seed-investments-local.mjs` | Seeds investment operations and snapshots for the `local-dev` userId. |
-| `backend/src/seed-local.mjs` | Seeds incomes and expenses for the `local-dev` userId. |
-| `backend/src/sync-from-aws.mjs` | Syncs the AWS DynamoDB tables to local DynamoDB, remapping the real Cognito userId to `"local-dev"`. |
-
-### Running seed scripts
-
-```bash
-cd backend
-
-# Seed investments for local-dev
-node src/seed-investments-local.mjs
-
-# Seed incomes/expenses (local)
-node src/seed-local.mjs
-
-# Sync AWS data to local (remaps userId → "local-dev")
-node src/sync-from-aws.mjs
-```
+The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/seed-investments.mjs`. That script and the local-dev seed and sync scripts were written for the DynamoDB Local setup, which no longer exists — don't re-run them against production. New operations and snapshots are entered in the app.
 
 ---
 
@@ -339,8 +319,8 @@ node src/sync-from-aws.mjs
 
 | # | Test | Expected Result |
 |---|---|---|
-| I-1 | Open `/investments` on mobile and on desktop | Identical phone-width column with four stacked blocks; on desktop it is centered |
-| I-2 | Mobile bottom tab bar | An **Investments** tab appears after **Split Pay** and routes to `/investments` |
+| I-1 | Open `/investments` on a phone and on a laptop | Identical phone-width column with four stacked blocks; centered on the laptop |
+| I-2 | Finance sheet in the bottom bar | **Investments** is listed and routes to `/investments` |
 | I-3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
 | I-4 | Portfolio evolution chart on first load | Only the grey **Total** line is drawn; platform lines hidden but togglable; the x-axis starts at 2023 |
 | I-5 | Toggle a legend chip | The matching line appears / disappears; the chip dims when hidden |
@@ -356,4 +336,4 @@ node src/sync-from-aws.mjs
 | I-15 | **+ Add** on Operations, fill the sheet, save | `POST /investments/operations` called; the new operation appears at the top |
 | I-16 | Edit / delete an operation | `PUT` / `DELETE` called; the two-step confirm guards the delete |
 | I-17 | Refresh the page | All data persists (fetched from DynamoDB) |
-| I-18 | Switch between dark and light theme | Every block, chip, sheet, and badge stays legible — CSS variables only |
+| I-18 | Switch between Dusk, Light and Amber | Every block, chip, sheet, and badge stays legible — design tokens only |

@@ -1,66 +1,77 @@
-# AWS Deployment Guide — Finance4Tura
+# AWS Deployment Guide — 4TURA Home (Finance4Tura)
 
-This guide documents the one-time setup used to deploy Finance4Tura to AWS.
+How the AWS environment is built. Use it to rebuild from scratch or to understand what's there.
 
 > **Already deployed.** The infrastructure is live. For day-to-day updates see `AWS_Sync.md`.
+>
+> **AWS only.** There is no local backend (no DynamoDB Local, no `sam local`). The frontend dev server talks to the deployed API.
 
 ## Deployed Resources
 
 | Layer | AWS Service | Value |
 |---|---|---|
-| Frontend hosting | S3 + CloudFront | `d34ylrmixnmvem.cloudfront.net` |
-| Authentication | Cognito User Pool | `eu-central-1_CD7AdBFwQ` |
+| Frontend hosting | S3 + CloudFront | bucket `finance4tura-frontend`, distribution `E1O9C9K6CO439`, `d34ylrmixnmvem.cloudfront.net` |
+| Authentication | Cognito User Pool | `eu-central-1_CD7AdBFwQ`, app client `2nh5dljhrg9mq7nsmdg7cef21v`, group `admin` |
 | API | API Gateway + Lambda (SAM) | `https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod` |
-| Database | DynamoDB | Tables: `Incomes`, `Expenses`, `SplitPayments`, `InvestmentOperations`, `PortfolioSnapshots`, `SP500Monthly` |
+| Database | DynamoDB | 11 tables, listed below |
+| Secrets | SSM Parameter Store | `/finance4tura/gdrive-oauth2` (SecureString) |
 | CloudFormation stack | SAM | `finance4tura-backend` |
-| AWS region | — | `eu-central-1` |
+| AWS account / region | — | `980921747943` / `eu-central-1` |
 
 ---
 
 ## Prerequisites
 
 - AWS CLI installed and configured (`aws configure`)
-- AWS SAM CLI installed (`brew install aws-sam-cli`)
-- Node.js 20+
+- AWS SAM CLI (`brew install aws-sam-cli`)
+- Node.js 22+
 - An AWS account with sufficient IAM permissions
 
 ---
 
 ## 1. DynamoDB Tables
 
-Tables are defined in `backend/template.yaml` and provisioned automatically by SAM on first `sam deploy`. No manual setup required.
-
-The following tables are created:
+Tables are defined in `backend/template.yaml` and created by SAM on the first `sam deploy`. All are on-demand (`PAY_PER_REQUEST`) with a single string hash key.
 
 | Table | PK | Notes |
 |---|---|---|
-| `Incomes` | `incomeId` | GSI: `date-index` on `date` |
-| `Expenses` | `expenseId` | GSI: `date-index` on `date` |
-| `SplitPayments` | `splitPaymentId` | No GSI |
-| `InvestmentOperations` | `operationId` | GSI: `date-index` on `date` |
-| `PortfolioSnapshots` | `snapshotId` | GSI: `date-index` on `date` |
-| `SP500Monthly` | `monthId` | No GSI; stores monthly S&P 500 closing prices |
+| `Incomes` | `incomeId` | GSI `date-index` on `date` |
+| `Expenses` | `expenseId` | GSI `date-index` on `date` |
+| `InvestmentOperations` | `operationId` | |
+| `PortfolioSnapshots` | `snapshotId` | |
+| `SplitPayments` | `splitPaymentId` | |
+| `Books_and_Dev` | `bookId` | |
+| `HQ_Locations` | `hqId` | |
+| `HQ_Templates` | `templateId` | |
+| `HQ_Entries` | `entryId` | |
+| `AppSettings` | `settingKey` | One global item, `settingKey = "global"` |
+| `FxRates` | `rateId` | One global item, `rateId = "global"` |
+
+The same account also holds tables for other apps (`TYG_*`, `Grabit`, `kalotura-data`, Amplify tables). They are not part of this stack.
 
 ---
 
 ## 2. Cognito User Pool (Authentication)
 
+The pool is **not** created by this stack; the template refers to it by ID. It is shared with the TYG app.
+
 ### 2.1 The deployed User Pool
 
 - **User Pool ID**: `eu-central-1_CD7AdBFwQ`
-- **App Client ID**: `2nh5dljhrg9mq7nsmdg7cef21v`
+- **App Client ID**: `2nh5dljhrg9mq7nsmdg7cef21v` (no client secret)
 - **Username attribute**: username (not email)
-- **Auth flows**: `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
-- **Password policy**: minimum 6 characters (no complexity requirements)
+- **App client auth flows**: `ALLOW_USER_SRP_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`. `USER_PASSWORD_AUTH` is deliberately off.
+- **Password policy**: minimum 6 characters
+- **Group**: `admin`. Admin API routes check membership through the `cognito:groups` claim.
 
 ### 2.2 Pre Sign-Up Lambda trigger (auto-confirm)
 
-A Lambda function (`backend/src/handlers/preSignUp.mjs`) is wired as the Cognito Pre Sign-Up trigger. It sets `event.response.autoConfirmUser = true`, so all new sign-ups are confirmed immediately without email verification.
+`backend/src/handlers/preSignUp.mjs` (`PreSignUpFunction`) is the pool's Pre Sign-Up trigger. It sets `autoConfirmUser = true`, so new accounts are active immediately without email verification. TYG sign-ups go through it too.
 
-The trigger was registered via:
+The function is in the stack, but wiring it to the pool was a one-time manual step:
 
 ```bash
-# Grant Cognito permission to invoke the Lambda
+# Allow Cognito to invoke the Lambda
 aws lambda add-permission \
   --function-name <PreSignUpFunction-ARN> \
   --statement-id cognito-presignup \
@@ -76,6 +87,8 @@ aws cognito-idp update-user-pool \
   --region eu-central-1
 ```
 
+> `update-user-pool` resets any setting you don't pass. Check the current config with `describe-user-pool` first and pass everything back.
+
 ### 2.3 API Gateway Cognito Authorizer
 
 Defined in `backend/template.yaml`:
@@ -89,87 +102,100 @@ Auth:
       UserPoolArn: !Ref CognitoUserPoolArn
 ```
 
-The `CognitoUserPoolArn` parameter defaults to the deployed pool ARN. The frontend sends the JWT ID token in the `Authorization` header (raw token, no `Bearer` prefix). Lambda extracts the user identity via:
+`CognitoUserPoolArn` defaults to the deployed pool. The frontend sends the ID token in the `Authorization` header (raw token, no `Bearer` prefix), and handlers read the user from `event.requestContext.authorizer.claims.sub`.
 
-```js
-const userId = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
-```
+Public routes override the authorizer with `Auth: Authorizer: NONE`: `POST /auth/google`, `GET /app-settings`, `GET /fx-rates`, `GET /ai-news`.
 
 ---
 
 ## 3. Google Sign-In Setup
 
-Google Sign-In uses Google Identity Services (GIS) — an embedded popup, no redirect required.
+Google Sign-In uses Google Identity Services (GIS) — a popup, no redirect.
 
 ### 3.1 Google Cloud Console
 
 1. Create a project at [console.cloud.google.com](https://console.cloud.google.com)
-2. **APIs & Services → OAuth consent screen** — choose External, fill in app name and email
-3. **APIs & Services → Credentials → + Create Credentials → OAuth 2.0 Client ID**
+2. **APIs & Services → OAuth consent screen** — External; fill in app name and email
+3. **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
    - Application type: **Web application**
-   - Authorized JavaScript origins:
-     - `https://d34ylrmixnmvem.cloudfront.net`
-     - `http://localhost:3000`
+   - Authorized JavaScript origins: `https://d34ylrmixnmvem.cloudfront.net` and `http://localhost:5173`
 4. Copy the Client ID (`...apps.googleusercontent.com`)
 
-### 3.2 Backend configuration
+### 3.2 Backend
 
-The `GoogleAuthFunction` Lambda (`backend/src/handlers/googleAuth.mjs`):
+`GoogleAuthFunction` (`backend/src/handlers/googleAuth.mjs`), on `POST /auth/google`:
 - Verifies the Google ID token via `https://oauth2.googleapis.com/tokeninfo`
-- Creates a Cognito user on first sign-in (`AdminCreateUser` + `AdminSetUserPassword`)
-- Returns Cognito JWT tokens after `AdminInitiateAuth`
-- Uses a HMAC-derived deterministic password (never exposed to the user)
+- Creates the Cognito user on first sign-in (`AdminCreateUser`)
+- Sets a **fresh random password** (`AdminSetUserPassword`) and immediately uses it with `AdminInitiateAuth` (`ADMIN_USER_PASSWORD_AUTH`)
+- Returns the Cognito tokens
 
-Environment variables set in `backend/template.yaml`:
+Nothing is stored and no secret is involved. An earlier version derived the password from a secret plus the Google `sub`; that secret was public and is now inert. Don't reintroduce a derived-password scheme.
 
 | Variable | Description |
 |----------|-------------|
 | `USER_POOL_ID` | Cognito User Pool ID |
 | `CLIENT_ID` | Cognito App Client ID |
-| `GOOGLE_SECRET` | HMAC secret for deriving per-user passwords |
-| `GOOGLE_CLIENT_ID` | Google OAuth Client ID (passed via `samconfig.toml` parameter override) |
+| `GOOGLE_CLIENT_ID` | From the `GoogleClientId` parameter, set in `samconfig.toml` |
 
-The `GoogleAuthFunction` route (`POST /auth/google`) has `Auth: Authorizer: NONE` — it is a public endpoint.
+### 3.3 Frontend
 
-### 3.3 Frontend env var
-
-Add to `frontend/.env.production` and `frontend/.env.local`:
+`frontend/.env.production`:
 
 ```env
 VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 ```
 
+The Google button only shows while **Admin → App Settings → Google Sign-In** is on.
+
 ---
 
-## 4. Backend — SAM Deploy (Lambda + API Gateway)
+## 4. Google Drive Backup Credentials
 
-### 4.1 Build
+The Admin page's **Backup ALL Tables** writes CSVs to Google Drive as a real Google account, through OAuth2 (not a service account).
+
+1. In Google Cloud, create an OAuth client with the Drive API enabled, and get a **refresh token** for the account that owns the backup folder (scope `https://www.googleapis.com/auth/drive`).
+2. Store the credentials as a SecureString:
+
+   ```bash
+   aws ssm put-parameter \
+     --name /finance4tura/gdrive-oauth2 \
+     --type SecureString \
+     --value '{"client_id":"…","client_secret":"…","refresh_token":"…"}' \
+     --region eu-central-1
+   ```
+
+3. Put the ID of the parent Drive folder (`4TURA_DB_Backups`) in `GDRIVE_BACKUP_FOLDER_ID` on `AdminBackupFunction` in `template.yaml`.
+
+`AdminBackupFunction` has `ssm:GetParameter` on that parameter and `dynamodb:Scan` on all 11 tables. Timeout 300 s, memory 512 MB.
+
+---
+
+## 5. Backend — SAM Deploy (Lambda + API Gateway)
+
+### 5.1 Build
 
 ```bash
 cd backend
-sam build --no-cached
+ulimit -n 10240 && sam build --no-cached
 ```
 
-### 4.2 First-time deploy
+`ulimit` avoids "too many open files" on macOS; `--no-cached` makes sure source changes are picked up.
+
+### 5.2 First-time deploy
 
 ```bash
 sam deploy --guided
 ```
 
-Answer the prompts:
 - **Stack name**: `finance4tura-backend`
 - **Region**: `eu-central-1`
 - **Confirm changes before deploy**: `N`
 - **Allow SAM to create IAM roles**: `Y`
 - **Save config to samconfig.toml**: `Y`
 
-After this, `samconfig.toml` stores all defaults and subsequent deploys only need:
+After that, `sam deploy` alone is enough.
 
-```bash
-sam build --no-cached && sam deploy
-```
-
-### 4.3 samconfig.toml structure
+### 5.3 samconfig.toml
 
 ```toml
 version = 0.1
@@ -181,10 +207,6 @@ stack_name = "finance4tura-backend"
 cached = true
 parallel = true
 
-[default.local_start_api.parameters]
-warm_containers = "EAGER"
-parameter_overrides = "DynamoDbEndpoint=http://host.docker.internal:8000"
-
 [default.deploy.parameters]
 region = "eu-central-1"
 capabilities = "CAPABILITY_IAM"
@@ -193,9 +215,19 @@ confirm_changeset = false
 parameter_overrides = "GoogleClientId=<your-google-client-id>.apps.googleusercontent.com"
 ```
 
-> **Important**: Deploy settings must be under `[default.deploy.parameters]`, not `[default.deploy.guided]`.
+> Deploy settings must be under `[default.deploy.parameters]`, not `[default.deploy.guided]`.
 
-### 4.4 Get the API URL
+The optional `AnthropicApiKey` parameter (`NoEcho`) feeds the unused `/ai-news` endpoint. Leave it blank.
+
+### 5.4 Template parameters
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `CognitoUserPoolArn` | the deployed pool | API authorizer |
+| `GoogleClientId` | `""` | Google token verification |
+| `AnthropicApiKey` | `""` | Optional summaries for `/ai-news` |
+
+### 5.5 Get the API URL
 
 ```bash
 aws cloudformation describe-stacks \
@@ -206,9 +238,9 @@ aws cloudformation describe-stacks \
 
 ---
 
-## 5. Frontend — Build & Deploy to S3 + CloudFront
+## 6. Frontend — Build & Deploy to S3 + CloudFront
 
-### 5.1 S3 bucket
+### 6.1 S3 bucket
 
 ```bash
 aws s3 mb s3://finance4tura-frontend --region eu-central-1
@@ -219,7 +251,7 @@ aws s3api put-public-access-block \
     "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 ```
 
-### 5.2 CloudFront Origin Access Control
+### 6.2 CloudFront Origin Access Control
 
 ```bash
 aws cloudfront create-origin-access-control \
@@ -232,17 +264,18 @@ aws cloudfront create-origin-access-control \
   --query "OriginAccessControl.Id" --output text
 ```
 
-### 5.3 CloudFront Distribution
+### 6.3 CloudFront distribution
 
-Distribution ID: `E1O9C9K6CO439`, domain: `d34ylrmixnmvem.cloudfront.net`
-
-Key configuration:
+Distribution `E1O9C9K6CO439`, domain `d34ylrmixnmvem.cloudfront.net`:
+- **Origin**: `finance4tura-frontend.s3.eu-central-1.amazonaws.com` with the OAC above
 - **Default root object**: `index.html`
 - **Viewer protocol policy**: `redirect-to-https`
-- **Custom error response**: 403 → `/index.html` with HTTP 200 (required for React Router)
+- **Custom error response**: 403 → `/index.html` with HTTP 200 (needed for client-side routes)
 - **Cache policy**: `658327ea-f89d-4fab-a63d-7e88639e58f6` (CachingOptimized)
 
-### 5.4 S3 bucket policy (CloudFront access only)
+The API is called directly on its API Gateway URL, not through CloudFront.
+
+### 6.4 S3 bucket policy (CloudFront access only)
 
 ```bash
 aws s3api put-bucket-policy \
@@ -263,7 +296,7 @@ aws s3api put-bucket-policy \
   }'
 ```
 
-### 5.5 Environment variables
+### 6.5 Environment variables
 
 `frontend/.env.production`:
 
@@ -275,112 +308,102 @@ VITE_COGNITO_REGION=eu-central-1
 VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 ```
 
-### 5.6 Build and sync
+### 6.6 Build and sync
 
 ```bash
 cd frontend
 npm run build
-
-aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete
-
-aws cloudfront create-invalidation \
-  --distribution-id E1O9C9K6CO439 \
-  --paths "/*" \
-  --region us-east-1
+aws s3 sync dist s3://finance4tura-frontend --region eu-central-1 --delete
+aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" --region us-east-1
 ```
 
 ---
 
-## 6. Important Implementation Notes
+## 7. First-Run Data
+
+- **App Settings**: until an admin saves **Admin → App Settings**, `GET /app-settings` returns the defaults — all three toggles on. Saving creates the `global` item.
+- **FX rates**: press **Admin → FX Rates → Update FX rates** once. Until then, Investments shows "no FX rates set" and amounts are left unconverted.
+- **Admin user**: add your user to the Cognito `admin` group. The frontend shows Admin only to username `nenciulescu` (`ADMIN_USER` in `navConfig.js`, and the `/admin` route in `App.jsx`). Change both if the admin username changes.
+
+---
+
+## 8. Implementation Notes
 
 ### Cache-Control on API responses
 
-Lambda responses include `"Cache-Control": "no-store"` in their headers. This is required because API Gateway internally routes through a CloudFront layer that will cache responses if no cache directive is set. Without this header, a user's first API call returning empty data would be cached and served to all subsequent requests.
+Every Lambda response sets `Cache-Control: no-store`, and so do API Gateway's default 4XX/5XX responses. Without it, API Gateway's internal CloudFront layer can cache a response and serve it to later requests.
 
 ### Vite browser polyfill
 
-`frontend/vite.config.js` includes `define: { global: 'globalThis' }`. This is required because `amazon-cognito-identity-js` references the Node.js `global` variable, which does not exist in the browser.
+`frontend/vite.config.js` sets `define: { global: 'globalThis' }`, because `amazon-cognito-identity-js` references Node's `global`.
 
-### Local dev userId
+### `local-dev` fallback
 
-When running `sam local start-api`, the Cognito authorizer is not enforced. Lambda falls back to `userId = "local-dev"`. All locally-created records use this userId.
-
-### Google Sign-In password derivation
-
-Google users never set a password. The backend derives a stable deterministic password from the Google `sub` using HMAC-SHA256 keyed with `GOOGLE_SECRET`. This allows `ADMIN_USER_PASSWORD_AUTH` to work transparently on every sign-in without storing any credential.
+Handlers default `userId` to `"local-dev"` when there is no authorizer context. That was for the removed local backend and never applies in AWS.
 
 ---
 
-## 7. Deploy Checklist (for re-deployment from scratch)
+## 9. Deploy Checklist (rebuild from scratch)
 
 ```
-[ ] DynamoDB tables provisioned (auto via sam deploy)
-[ ] Cognito User Pool created with username auth + Pre Sign-Up trigger
-[ ] Cognito App Client has ALLOW_ADMIN_USER_PASSWORD_AUTH enabled
-[ ] backend/template.yaml references correct CognitoUserPoolArn
-[ ] samconfig.toml has [default.deploy.parameters] with GoogleClientId override
-[ ] sam build --no-cached && sam deploy succeeds
+[ ] Cognito User Pool exists, with username sign-in and the admin group
+[ ] App client allows USER_SRP_AUTH, ADMIN_USER_PASSWORD_AUTH, REFRESH_TOKEN_AUTH
+[ ] backend/template.yaml points CognitoUserPoolArn at the pool
+[ ] samconfig.toml has [default.deploy.parameters] with the GoogleClientId override
+[ ] /finance4tura/gdrive-oauth2 stored in SSM; GDRIVE_BACKUP_FOLDER_ID set
+[ ] sam build --no-cached && sam deploy succeeds (creates all 11 tables)
+[ ] PreSignUpFunction wired as the pool's Pre Sign-Up trigger
 [ ] API Gateway URL confirmed from stack outputs
 [ ] S3 bucket created with public access blocked
-[ ] CloudFront distribution created with OAC + 403→index.html error response
-[ ] S3 bucket policy grants access to CloudFront distribution only
-[ ] Google Cloud project created with OAuth consent screen configured
-[ ] OAuth 2.0 Client ID created with CloudFront domain as authorized JS origin
-[ ] frontend/.env.production filled with all values including VITE_GOOGLE_CLIENT_ID
-[ ] npm run build succeeds
-[ ] aws s3 sync dist/ s3://finance4tura-frontend --delete
-[ ] CloudFront cache invalidated
+[ ] CloudFront distribution with OAC + 403→/index.html (200)
+[ ] S3 bucket policy grants access to the distribution only
+[ ] Google OAuth client with the CloudFront domain as an authorized origin
+[ ] frontend/.env.production filled in
+[ ] npm run build, s3 sync, CloudFront invalidation
 [ ] App loads at https://d34ylrmixnmvem.cloudfront.net
-[ ] Username/password sign-up tested
-[ ] Google Sign-In tested (first sign-in creates Cognito account automatically)
+[ ] Admin user in the admin group; App Settings saved; FX rates updated
+[ ] Username/password sign-up and Google sign-in tested
 ```
 
 ---
 
-## 8. Estimated AWS Costs (Free Tier / Low Traffic)
+## 10. Estimated AWS Costs
 
 | Service | Free Tier | Notes |
 |---|---|---|
-| DynamoDB | 25 GB storage, 25 WCU/RCU | Sufficient for personal use |
+| DynamoDB | 25 GB storage | On-demand; personal use stays tiny |
 | Lambda | 1M requests/month | Well within free tier |
 | API Gateway | 1M requests/month (first 12 months) | |
 | S3 | 5 GB storage, 20K GET requests | Minimal for a SPA |
-| CloudFront | 1 TB transfer, 10M requests/month (always free) | |
-| Cognito | 50,000 MAU free | Free for personal use |
+| CloudFront | 1 TB transfer, 10M requests/month | |
+| Cognito | 50,000 MAU (Lite) | |
+| SSM Parameter Store | Standard parameters free | |
 
-For a personal budgeting app with low traffic, **total monthly cost is effectively $0** within free tier limits.
+For personal traffic the monthly cost is effectively $0.
 
 ---
 
-## 9. Viewing Logs
-
-### Lambda function logs (real-time)
+## 11. Viewing Logs
 
 ```bash
-# Tail logs for a specific function
+# Tail one function by its logical name
 sam logs -n IncomesFunction --stack-name finance4tura-backend --tail
 
-# Or using CloudWatch directly
+# Or through CloudWatch
 aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 ```
 
-### Lambda log groups
+Log groups follow `/aws/lambda/finance4tura-backend-<LogicalId>-<suffix>`. The functions are:
 
 ```
-/aws/lambda/finance4tura-backend-GoogleAuthFunction-*
-/aws/lambda/finance4tura-backend-IncomesFunction-*
-/aws/lambda/finance4tura-backend-ExpensesFunction-*
-/aws/lambda/finance4tura-backend-SplitPaymentsFunction-*
-/aws/lambda/finance4tura-backend-InvestmentOperationsFunction-*
-/aws/lambda/finance4tura-backend-PortfolioSnapshotsFunction-*
-/aws/lambda/finance4tura-backend-SP500Function-*
-/aws/lambda/finance4tura-backend-AiNewsFunction-*
-/aws/lambda/finance4tura-backend-AdminFunction-*
-/aws/lambda/finance4tura-backend-HealthFunction-*
-/aws/lambda/finance4tura-backend-PreSignUpFunction-*
+GoogleAuthFunction          PreSignUpFunction          HealthFunction
+IncomesFunction             ExpensesFunction           AdminFunction
+InvestmentOperationsFunction PortfolioSnapshotsFunction SplitPaymentsFunction
+BooksAndDevFunction         HQFunction                 AppSettingsFunction
+FxRatesFunction             AdminBackupFunction        AiNewsFunction
 ```
 
-Get the exact log group names:
+List the exact names:
 
 ```bash
 aws logs describe-log-groups \

@@ -2,152 +2,132 @@
 
 ## Overview
 
-Headquarters (HQ) is a configurable metric-tracking module for physical locations (e.g. houses, properties). Users define **Tracker Templates** that describe what to measure (parameters and their types), assign templates to **Locations**, and then log **Entries** over time. The page provides a per-location view of all logged data with inline editing, plus a cross-location dashboard.
+Headquarters (HQ) tracks readings for physical locations (houses, flats). Users define **Tracker Templates** that describe what to measure, attach them to **Locations**, and log **Entries** over time. Each location gets its own tab, and a dashboard summarises them all, with water-consumption charts where the meters allow it.
 
 ---
 
 ## Route & Navigation
 
 - **Route**: `/headquarters`
-- **Desktop**: accessible from the Sidebar under a new top-level link "Headquarters" (with a suitable icon)
-- **Mobile**: not required in this phase
+- **Navigation**: the **HQ** tab in the bottom bar (Home · Finance · Books · HQ)
+- One phone-width layout (430 px column) on every screen, like the rest of the app
 
 ---
 
 ## Page Layout — Tabs
 
-The page has a tab bar at the top with the following tabs (in order):
+A horizontal tab strip, in this order:
 
 1. **HQ Dashboard** — cross-location summary (always first)
-2. **One tab per Location** — named after the location (e.g. "House A", "Apartment")
-3. **Settings** — manage Locations and Tracker Templates (always last)
+2. **One tab per Location** — named after the location
+3. **Settings** — manage locations and templates (always last)
 
-Tabs are dynamic: adding a new Location creates a new tab automatically.
+Adding a location adds its tab and switches to it. Deleting the active location returns to the Dashboard.
 
 ---
 
 ## Data Model
 
-### 1. Headquarters (Locations)
-
-A **Headquarters** record represents a named physical location.
+### 1. Locations
 
 | Field | Type | Notes |
 |---|---|---|
 | `hqId` | String (PK) | UUID |
 | `userId` | String | Owner |
-| `name` | String | Display name (e.g. "Main House") |
-| `address` | String | Optional free text |
-| `order` | Number | Tab display order |
+| `name` | String | Required |
+| `address` | String | Optional |
+| `order` | Number | Tab order |
 | `createdAt` | String | ISO timestamp |
 
 ### 2. Tracker Templates
-
-A **Tracker Template** defines what metrics to collect and at which location(s) it applies.
 
 | Field | Type | Notes |
 |---|---|---|
 | `templateId` | String (PK) | UUID |
 | `userId` | String | Owner |
-| `hqId` | String | Associated location |
-| `name` | String | Template name (e.g. "Water Consumption") |
-| `parameters` | Array | Up to 30 parameter definitions (see below) |
-| `createdAt` | String | ISO timestamp |
-| `updatedAt` | String | ISO timestamp |
+| `hqId` | String | Location it belongs to |
+| `name` | String | e.g. "Water Consumption" |
+| `parameters` | Array | 1–30 parameter definitions |
+| `createdAt`, `updatedAt` | String | ISO timestamps |
 
-**Parameter definition** (within `parameters` array):
+**Parameter**:
 
 | Field | Type | Notes |
 |---|---|---|
 | `parameterId` | String | UUID within the template |
-| `title` | String | Display name (e.g. "Hot Water m³") |
+| `title` | String | Required, e.g. "Baie - Apa Rece" |
 | `type` | Enum | `number`, `text`, `boolean` |
-| `unit` | String | Optional unit label (e.g. "m³", "kWh", "°C") |
+| `unit` | String | Optional, e.g. "m³", "kWh" |
 | `order` | Number | Display order |
 
-Constraints:
-- Max **30 parameters** per template (same limit as Practice Tests topics)
-- Template name is required
-- At least 1 parameter required to save
-
 ### 3. Tracker Entries
-
-A **Tracker Entry** is a single logged row for a given template.
 
 | Field | Type | Notes |
 |---|---|---|
 | `entryId` | String (PK) | UUID |
 | `userId` | String | Owner |
-| `templateId` | String | Which template this belongs to |
-| `hqId` | String | Denormalized from template for fast querying |
-| `date` | String | `YYYY-MM-DD`; defaults to today, user-editable |
+| `templateId` | String | Template it belongs to |
+| `hqId` | String | Denormalized from the template |
+| `date` | String | `YYYY-MM-DD`; defaults to today |
 | `values` | Array | `{ parameterId, title, value }` per parameter |
-| `notes` | String | Optional free-text notes field |
-| `createdAt` | String | ISO timestamp |
-| `updatedAt` | String | ISO timestamp |
+| `notes` | String | Optional |
+| `createdAt`, `updatedAt` | String | ISO timestamps |
 
 ---
 
 ## API Endpoints
 
 ```
-# Locations (HQ)
-GET    /headquarters                          List all locations for userId
-POST   /headquarters                          Create a location
-PUT    /headquarters/{hqId}                   Update a location
-DELETE /headquarters/{hqId}                   Delete a location
+# Locations
+GET    /headquarters                          List the user's locations
+POST   /headquarters                          Create
+PUT    /headquarters/{hqId}                   Update
+DELETE /headquarters/{hqId}                   Delete — 400 while it has templates
 
 # Tracker Templates
-GET    /headquarters/templates                List all templates (optionally ?hqId=)
-POST   /headquarters/templates                Create a template
-PUT    /headquarters/templates/{templateId}   Update a template
-DELETE /headquarters/templates/{templateId}   Delete a template
+GET    /headquarters/templates                List (optional ?hqId=)
+POST   /headquarters/templates                Create
+PUT    /headquarters/templates/{templateId}   Update
+DELETE /headquarters/templates/{templateId}   Delete
 
 # Tracker Entries
-GET    /headquarters/entries                  List entries (?templateId=, ?hqId=, ?from=, ?to=)
-POST   /headquarters/entries                  Create an entry
-PUT    /headquarters/entries/{entryId}        Update an entry
-DELETE /headquarters/entries/{entryId}        Delete an entry
+GET    /headquarters/entries                  List (?templateId=, ?hqId=, ?from=, ?to=), newest first
+POST   /headquarters/entries                  Create
+PUT    /headquarters/entries/{entryId}        Update
+DELETE /headquarters/entries/{entryId}        Delete
 ```
+
+All routes are handled by one Lambda, `HQFunction` (`backend/src/handlers/headquarters.mjs`).
 
 ---
 
 ## DynamoDB Tables
 
-### `HQ_Locations`
-- **PK**: `hqId`
-- Fields: `userId`, `name`, `address`, `order`, `createdAt`
-- GSI: `userId-index` on `userId`
+| Table | PK | Indexes |
+|---|---|---|
+| `HQ_Locations` | `hqId` | none |
+| `HQ_Templates` | `templateId` | none |
+| `HQ_Entries` | `entryId` | none |
 
-### `HQ_Templates`
-- **PK**: `templateId`
-- Fields: `userId`, `hqId`, `name`, `parameters[]`, `createdAt`, `updatedAt`
-- GSI: `userId-hqId-index` on `userId` + `hqId`
-
-### `HQ_Entries`
-- **PK**: `entryId`
-- Fields: `userId`, `templateId`, `hqId`, `date`, `values[]`, `notes`, `createdAt`, `updatedAt`
-- GSI: `templateId-date-index` on `templateId` + `date` (for sorted queries)
+There are no GSIs: list calls scan and filter by `userId` (plus `hqId` / `templateId` / date range where given). Fine at personal scale.
 
 ---
 
-## Frontend Pages & Components
-
-### File structure
+## Frontend Files
 
 ```
 frontend/src/pages/Headquarters/
-├── index.jsx              # Tab routing, data loading
-├── DashboardTab.jsx       # HQ Dashboard tab
-├── LocationTab.jsx        # Per-location tab (receives hqId)
-├── SettingsTab.jsx        # Manage locations + templates
-├── TemplateModal.jsx      # Add/Edit tracker template modal
-├── LocationModal.jsx      # Add/Edit location modal
-├── EntryTable.jsx         # Inline-editable entries table (reused per template)
-└── styles.js              # Shared styles object
+├── index.jsx              # Tabs, data loading, mutation handlers
+├── DashboardTab.jsx       # HQ Dashboard (incl. water charts)
+├── LocationTab.jsx        # One location; computed consumption columns
+├── SettingsTab.jsx        # Locations + templates
+├── EntryTable.jsx         # Entry cards with auto-saving edit mode
+├── LocationModal.jsx      # Add/Edit location
+├── TemplateModal.jsx      # Add/Edit template
+├── Modal.jsx              # Shared modal shell
+├── styles.js              # Shared styles
+└── Headquarters.test.jsx  # Render tests (4)
 ```
-
-`App.jsx` adds: `<Route path="/headquarters" element={<Headquarters />} />`
 
 ---
 
@@ -155,109 +135,68 @@ frontend/src/pages/Headquarters/
 
 ### Settings Tab
 
-#### Locations section
-- List of configured locations with name, address, order
-- **Add Location** button → `LocationModal`
-  - Fields: Name (required), Address (optional)
-- Edit / Delete inline per location
-- Delete is blocked if location has templates (show warning)
+**Locations**
+- List with name and address; **Add Location** opens `LocationModal` (name required, address optional).
+- Edit and delete per location. Deleting a location that still has templates is refused with a message.
 
-#### Tracker Templates section
-- Grouped by location
-- Card grid (similar to PracticeTests Templates tab)
-- **Add Template** button → `TemplateModal`
-- Each card shows: template name, location, parameter count
-- Edit / Delete per card
+**Tracker Templates**
+- Grouped by location; each shows its name, its first five parameters (with units) and `+N more`, plus edit and delete. Delete asks for a second tap (`🗑` → `⚠ Del?`).
+- **Add Template** opens `TemplateModal`:
+  - **Location** (required) and **Template name** (required)
+  - **Parameters** (`n/30`): title, type (`number` / `text` / `boolean`), optional unit, ▲ / ▼ to reorder, × to remove
+  - **+ Add Parameter**, disabled at 30
+  - Needs at least one parameter to save
 
-#### TemplateModal
-- Fields:
-  - **Location** — dropdown of configured locations (required)
-  - **Template name** — text input (required)
-  - **Parameters** — dynamic list, up to 30 rows:
-    - `Title` (text input)
-    - `Type` (select: `number` / `text` / `boolean`)
-    - `Unit` (text input, optional; shown when type = `number`)
-    - Drag-handle or ↑/↓ buttons to reorder
-    - Remove (×) button per row
-  - **+ Add Parameter** button
-- Save / Cancel buttons
-- Validation: name required, at least 1 parameter, max 30 parameters
+### Location Tab
 
----
+- One section per template at that location, each with a **+ New Entry** button.
+- Entries are **cards, newest first**. The collapsed head shows the date and the first two or three values.
+- **Editing** turns a card into stacked, labelled inputs: date, then one input per parameter (number, text or checkbox), then notes.
+- **Auto-save**: edits save after a 600 ms pause. A new entry is created on its first save and updated afterwards.
+- **Delete** is the two-step inline confirm (`Delete` → `Tap to confirm`, reverting after 4 s).
 
-### Location Tab (one per HQ location)
-
-- One **section per Tracker Template** assigned to that location
-- Each section has:
-  - Section header: template name + **+ New Entry** button
-  - **EntryTable**: displays all entries for that template
-
-#### EntryTable behaviour
-- Columns: `Date` | one column per parameter (with unit in header) | `Notes` | `Actions`
-- **Sorted by date descending** (latest first)
-- **Inline editing**: clicking ✎ on a row converts all cells to inputs in place (no modal)
-  - `date` → date input (default: today)
-  - `number` parameter → numeric input
-  - `text` parameter → text input
-  - `boolean` parameter → checkbox
-  - `notes` → text input
-- **Auto-save**: same debounced pattern (600 ms) as Practice Tests Results tab
-  - First save on a new row creates the record (stores `entryId` via `useRef`)
-  - Subsequent saves update it
-- Save button flushes pending debounce and exits edit mode
-- Delete button (🗑) per row with confirmation
-- **+ New Entry** inserts a new editable row at the top with today's date and empty values
-
----
+#### Water consumption columns
+If a template has all four meters — `Baie - Apa Rece`, `Bucatarie - Apa Rece`, `Baie - Apa Calda`, `Bucatarie - Apa Calda` — the location tab adds computed **Consum Apa Rece** and **Consum Apa Calda** values to each entry: the combined consumption since the previous reading.
 
 ### HQ Dashboard Tab
 
-- One **summary card per location**
-- Each card shows:
-  - Location name
-  - List of tracker templates at that location
-  - For each template: the **most recent entry date** and a preview of the first 3 parameter values
-- Acts as a quick status overview; no editing from this tab
-- Empty state if no locations configured yet
+- One block per location: name and address, then each of its templates.
+- A **water template** (all four meters present) shows a consumption chart with averages, or "Not enough data."
+- Any other template shows a read-only list of its latest entries.
+- Read-only; no editing here.
+- Empty state: "No locations configured yet. Go to Settings to add your first location."
 
 ---
 
 ## UX / Design Notes
 
-- Visual style consistent with Practice Tests module (same tab bar style, card grid, inline edit pattern)
-- Parameter type icons in column headers: `#` for number, `T` for text, `✓` for boolean
-- Boolean values displayed as ✓ / — in read mode, checkbox in edit mode
-- Number values right-aligned in table cells; text values left-aligned
-- Long text values truncated with ellipsis in read mode (`max-width` + `overflow: hidden`)
-- Date column always shows `YYYY-MM-DD`; editable via `<input type="date">`
-- Mobile: page not accessible (desktop-only, same as Books & Development)
+- Design tokens only; one phone-width column.
+- Parameter type icons: `#` number, `T` text, `✓` boolean.
+- Booleans read as ✓ / —; empty values as —.
+- Inputs at 16 px so iOS doesn't zoom.
 
 ---
 
 ## Backend Validation
 
-- Max 30 parameters per template (HTTP 400 if exceeded)
-- `date` field must match `YYYY-MM-DD` format
-- `values` array length must match template's `parameters` length
-- `amount` / numeric values: no strict range validation (unlike expenses)
-- `hqId` must belong to the same `userId`
-- `templateId` must belong to the same `userId`
+| Rule | Response |
+|---|---|
+| Location `name` required | 400 |
+| Template needs `hqId`, `name`, and 1–30 parameters | 400 |
+| Each parameter needs a title and a type of `number` / `text` / `boolean` | 400 |
+| Template's `hqId` must belong to the caller | 400 "location not found" |
+| Entry needs `templateId`, `hqId`, and `date` as `YYYY-MM-DD` | 400 |
+| Entry's template and location must belong to the caller | 400 |
+| Location with templates can't be deleted | 400 |
+
+Values aren't range-checked, and the number of `values` isn't checked against the template.
 
 ---
 
-## Sidebar Entry
+## Out of Scope
 
-- New top-level link in `Sidebar.jsx` between "Split Pay" and "Investments" (or at bottom of main links)
-- Label: **Headquarters**
-- Icon: a house/building SVG (new `IconHQ` component)
-- Desktop only (not added to `MobileLayout.jsx`)
-
----
-
-## Out of Scope (Phase 1)
-
-- Charts / trend visualisation per parameter (future phase)
-- Alerts / thresholds (e.g. "notify if water > X")
-- Export to CSV
-- Multiple users sharing a location
-- Image attachments per entry
+- Charts for templates other than the water template
+- Alerts and thresholds
+- Export to CSV (the Admin backup covers raw data)
+- Sharing a location between users
+- Attachments

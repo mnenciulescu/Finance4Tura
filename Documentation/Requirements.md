@@ -1,519 +1,442 @@
-# Finance4Tura – Structured Implementation Requirements
+# 4TURA Home (Finance4Tura) – Structured Implementation Requirements
 
-> Personal budgeting web application. All phases have been implemented and deployed.
+> Personal dashboard PWA, built in phases. Every phase below is implemented and deployed, and each section describes the app **as it behaves today**. Where a phase's original design was later replaced, that's noted in the phase.
 
 ---
 
-## Phase 0 – Project Scaffold & Local Infrastructure ✅
+## Phase 0 – Project Scaffold ✅
 
 ### Goal
-Set up the full development environment so every subsequent phase has a working foundation.
+Set up the monorepo and the toolchain every later phase builds on.
 
-### Tasks
-
-1. **Initialize monorepo structure**
+### What exists
+1. **Monorepo**
    ```
-   finance4tura/
+   4TURAHome/
    ├── frontend/          # React app (Vite)
    ├── backend/           # AWS SAM project (Lambda functions)
-   ├── docker/            # DynamoDB local config
+   ├── scripts/           # One-off maintenance scripts
+   ├── Documentation/
    └── README.md
    ```
+2. **AWS SAM backend** — `backend/template.yaml` defines tables, Lambdas, API Gateway and IAM. `samconfig.toml` holds deploy defaults (stack `finance4tura-backend`).
+3. **React frontend** — Vite + React 19 in `frontend/`. Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`.
+4. **Auth** — `AuthContext.jsx` on the Cognito User Pool via `amazon-cognito-identity-js`. Vite needs `define: { global: 'globalThis' }` for that library.
 
-2. **DynamoDB Local (Docker)**
-   - `docker/docker-compose.yml` runs `amazon/dynamodb-local` on port `8000`.
-   - `docker/init-tables.sh` creates the initial tables.
-
-3. **AWS SAM Backend**
-   - `backend/template.yaml` defines all infrastructure (tables, Lambda, API Gateway, IAM roles).
-   - `DYNAMODB_ENDPOINT` env var controls which DynamoDB endpoint Lambda connects to.
-   - `samconfig.toml` stores deploy defaults (stack name: `finance4tura-backend`).
-
-4. **React Frontend**
-   - Scaffolded inside `frontend/` using Vite + React.
-   - Dependencies: `axios`, `react-router-dom`, `dayjs`, `recharts`, `amazon-cognito-identity-js`.
-   - `.env.local` points to local SAM endpoint; `.env.production` points to cloud API.
-
-5. **Auth**
-   - `AuthContext.jsx` wired to AWS Cognito User Pool using `amazon-cognito-identity-js`.
-   - Vite requires `define: { global: 'globalThis' }` for the Cognito library to work in the browser.
+> **Retired:** the original local stack (DynamoDB Local in Docker, `sam local start-api`, a `local-dev` user, seed scripts) was removed. The app runs against AWS only; `npm run dev` uses the deployed API and production data.
 
 ### Tests – Phase 0
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 0.1 | `docker compose up` in `docker/` | DynamoDB Local starts; `aws dynamodb list-tables --endpoint-url http://localhost:8000` returns both table names |
-| 0.2 | `sam build && sam local start-api` in `backend/` | SAM API gateway starts on port `3001` with no errors |
-| 0.3 | `npm run dev` in `frontend/` | React app opens in browser at `http://localhost:5173` |
-| 0.4 | Health-check Lambda | `GET /health` returns `{ "status": "ok" }` |
+| 0.1 | `ulimit -n 10240 && sam build --no-cached` in `backend/` | Builds with no errors |
+| 0.2 | `npm run dev` in `frontend/` | App opens at `http://localhost:5173` against the deployed API |
+| 0.3 | `GET /health` | `{ "status": "ok" }` |
+| 0.4 | `npm test` in both packages | Suites run (see CLAUDE.md for current counts) |
 
 ---
 
 ## Phase 1 – Database Schema ✅
 
 ### Goal
-Define and provision all DynamoDB tables needed by the application.
-
-### Tables
+Define the core tables. Later phases add more (see the table summary at the end).
 
 #### `Incomes`
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `incomeId` | String (PK) | UUID |
 | `userId` | String | Cognito sub — filters records per user |
-| `seriesId` | String | Same for all occurrences of a repeating income; equals `incomeId` for single events |
-| `summary` | String | Mandatory |
-| `date` | String | ISO 8601 (`YYYY-MM-DD`), Mandatory |
-| `amount` | Number | Mandatory |
+| `seriesId` | String | Shared by all occurrences of a repeating income; equals `incomeId` for single events |
+| `summary` | String | Required |
+| `date` | String | `YYYY-MM-DD`, required |
+| `amount` | Number | Required, > 0 |
 | `currency` | String | Default `RON` |
 | `isRepeatable` | Boolean | Default `false` |
-| `repeatFrequency` | String | `daily` \| `weekly` \| `monthly` – only when `isRepeatable=true` |
-| `seriesEndDate` | String | ISO 8601 – only when `isRepeatable=true` |
+| `repeatFrequency` | String | `daily` \| `weekly` \| `monthly` — only when repeatable |
+| `seriesEndDate` | String | `YYYY-MM-DD` — only when repeatable |
 | `isException` | Boolean | `true` when this record overrides a single occurrence of a series |
 
 #### `Expenses`
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `expenseId` | String (PK) | UUID |
-| `userId` | String | Cognito sub — filters records per user |
-| `seriesId` | String | Same for all occurrences; equals `expenseId` for single events |
-| `summary` | String | Mandatory |
-| `priority` | String | `High` \| `Medium` \| `Low` – Mandatory |
-| `date` | String | ISO 8601, Mandatory |
-| `amount` | Number | Mandatory |
+| `userId` | String | Cognito sub |
+| `seriesId` | String | As for incomes |
+| `summary` | String | Required |
+| `priority` | String | `High` \| `Medium` \| `Low` — required |
+| `date` | String | `YYYY-MM-DD`, required |
+| `amount` | Number | Required, > 0 |
 | `currency` | String | Default `RON` |
-| `special` | Boolean | Default `false` — flags the expense as special; highlighted in red on Dashboard |
-| `isRepeatable` | Boolean | Default `false` |
-| `repeatFrequency` | String | `daily` \| `weekly` \| `monthly` |
-| `seriesEndDate` | String | ISO 8601 |
-| `isException` | Boolean | |
+| `special` | Boolean | Default `false` — ★ and red row on the Dashboard |
+| `isRepeatable`, `repeatFrequency`, `seriesEndDate`, `isException` | | As for incomes |
 | `mappedIncomeId` | String | FK → `Incomes.incomeId` (auto-mapped) |
-| `mappedIncomeSummary` | String | Denormalized for fast UI rendering |
-| `mappedIncomeDate` | String | Denormalized |
-| `status` | String | `Pending` \| `Completed` – Default `Pending` |
-
-#### `SplitPayments`
-| Attribute | Type | Notes |
-|-----------|------|-------|
-| `splitPaymentId` | String (PK) | UUID |
-| `userId` | String | Cognito sub — filters records per user |
-| `title` | String | Mandatory |
-| `totalAmount` | Number | Mandatory |
-| `currency` | String | `RON` \| `EUR` \| `USD`; default `RON` |
-| `occurrenceCount` | Number | 1–36 |
-| `occurrenceType` | String | `amount` \| `date` |
-| `createdDate` | String | ISO 8601 (`YYYY-MM-DD`) |
-| `occurrences` | List | Array of `{ index, value }` objects; `value` is the amount or date string entered by the user |
+| `mappedIncomeSummary`, `mappedIncomeDate` | String | Denormalized for fast rendering |
+| `status` | String | `Pending` \| `Completed` — default `Pending` |
 
 ### Tasks
-- All three tables defined in `backend/template.yaml` and auto-provisioned on `sam deploy`.
-- GSI on `Incomes`: `date-index` (partition key: `date`) for efficient date-range queries.
-- GSI on `Expenses`: `date-index` (partition key: `date`).
-- `SplitPayments` has no GSI; records are fetched via scan filtered by `userId`.
-
-### Tests – Phase 1
-| # | Test | Expected Result |
-|---|------|-----------------|
-| 1.1 | Run `docker/init-tables.sh` | All three tables appear in `aws dynamodb list-tables --endpoint-url http://localhost:8000` output |
-| 1.2 | Insert a sample Income item manually | Item visible via `aws dynamodb scan --table-name Incomes --endpoint-url http://localhost:8000` |
-| 1.3 | Insert a sample Expense item manually | Item visible via `aws dynamodb scan --table-name Expenses --endpoint-url http://localhost:8000` |
-| 1.4 | Insert a sample SplitPayment item manually | Item visible via `aws dynamodb scan --table-name SplitPayments --endpoint-url http://localhost:8000` |
+- Both tables defined in `template.yaml`, pay-per-request, created on `sam deploy`.
+- GSI `date-index` (hash key `date`) on both.
 
 ---
 
 ## Phase 2 – Backend: Income CRUD ✅
 
-### Goal
-Implement Lambda functions and API Gateway routes for Income management.
-
 ### Endpoints
-
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/incomes` | Create income (single or series) |
-| `GET` | `/incomes` | List all income occurrences (supports `?from=&to=` date filter) |
-| `GET` | `/incomes/{incomeId}` | Get a single income occurrence |
-| `PUT` | `/incomes/{incomeId}` | Edit a single occurrence (sets `isException=true` if part of a series) |
-| `PUT` | `/incomes/{incomeId}/series` | Edit all future occurrences in a series |
-| `DELETE` | `/incomes/{incomeId}` | Delete a single occurrence; pass `?deleteSeries=true` to delete entire series |
+| `GET` | `/incomes` | List the user's incomes (supports `?from=&to=`) |
+| `GET` | `/incomes/{incomeId}` | Get one occurrence |
+| `PUT` | `/incomes/{incomeId}` | Edit one occurrence (sets `isException=true` if part of a series) |
+| `PUT` | `/incomes/{incomeId}/series` | Edit all future occurrences |
+| `DELETE` | `/incomes/{incomeId}` | Delete one; `?deleteSeries=true` deletes the series |
 
 ### Business Logic
-- When `isRepeatable=true`, all individual occurrence records are generated at creation time between `date` and `seriesEndDate` according to `repeatFrequency`, all sharing a common `seriesId`.
-- `PUT` on a single occurrence of a series sets `isException=true` on that record only; other series records are unchanged.
-- All operations filter by `userId` (Cognito sub) for per-user data isolation.
-- Lambda falls back to `userId = "local-dev"` when running under `sam local start-api` (no authorizer).
+- When `isRepeatable=true`, all occurrences between `date` and `seriesEndDate` are created up front, sharing a `seriesId`.
+- `PUT` on one occurrence of a series sets `isException=true` on that record only.
+- Every operation is scoped by `userId` (Cognito `sub`).
+- `amount <= 0` → 400.
 
 ### Tests – Phase 2
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 2.1 | `POST /incomes` with single income | 201 response; item in DynamoDB |
-| 2.2 | `POST /incomes` with monthly repeat, 3-month window | 3 occurrence records created, all sharing same `seriesId` |
-| 2.3 | `GET /incomes?from=2025-02-01&to=2025-02-28` | Returns only incomes within date range |
-| 2.4 | `PUT /incomes/{id}` on a series occurrence | Only that record updated; other occurrences unchanged |
-| 2.5 | `DELETE /incomes/{id}` | Record removed from DynamoDB |
-| 2.6 | `DELETE /incomes/{id}?deleteSeries=true` | All records with same `seriesId` removed |
+| 2.1 | `POST /incomes` single | 201; item stored |
+| 2.2 | `POST /incomes` monthly, 3-month window | 3 records sharing one `seriesId` |
+| 2.3 | `GET /incomes?from=2025-02-01&to=2025-02-28` | Only incomes in range |
+| 2.4 | `PUT /incomes/{id}` on a series member | Only that record changes |
+| 2.5 | `DELETE /incomes/{id}` | Record removed |
+| 2.6 | `DELETE /incomes/{id}?deleteSeries=true` | Whole series removed |
 
 ---
 
 ## Phase 3 – Backend: Expense CRUD + Auto-Mapping ✅
 
-### Goal
-Implement Lambda functions for Expense management, including automatic mapping to Incomes.
-
 ### Endpoints
-
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/expenses` | Create expense (single or series) |
-| `GET` | `/expenses` | List all expense occurrences (supports `?from=&to=`) |
-| `GET` | `/expenses/{expenseId}` | Get single expense |
-| `PUT` | `/expenses/{expenseId}` | Edit single occurrence |
-| `PUT` | `/expenses/{expenseId}/series` | Edit all future occurrences in a series |
-| `DELETE` | `/expenses/{expenseId}` | Delete single occurrence; pass `?deleteSeries=true` to delete entire series |
-| `GET` | `/expenses/resolve-income?date={date}` | Preview which income would be mapped for a given date |
+| `GET` | `/expenses` | List (supports `?from=&to=`) |
+| `GET` | `/expenses/{expenseId}` | Get one |
+| `PUT` | `/expenses/{expenseId}` | Edit one occurrence |
+| `PUT` | `/expenses/{expenseId}/series` | Edit all future occurrences |
+| `DELETE` | `/expenses/{expenseId}` | Delete one; `?deleteSeries=true` deletes the series |
+| `GET` | `/expenses/resolve-income?date={date}` | Preview which income a date maps to |
 
 ### Auto-Mapping Logic
-Shared helper function `resolveIncome(expenseDate, userId)`:
+`resolveIncome(expenseDate, userId)` in `expenses.mjs`:
+1. Scans `Incomes` for the user's records with `date <= expenseDate`.
+2. Takes the one with the latest date.
+3. Stores `mappedIncomeId`, `mappedIncomeSummary` and `mappedIncomeDate` on the expense.
+4. For a repeating expense, runs per occurrence date; re-runs when an expense's date changes.
 
-1. Scans the `Incomes` table for records where `date <= expenseDate` AND `userId` matches.
-2. Returns the record with the **latest date** that is still before or on `expenseDate`.
-3. Stores `mappedIncomeId`, `mappedIncomeSummary`, and `mappedIncomeDate` on the Expense record.
-4. For repeatable expenses, `resolveIncome` is applied independently for **each occurrence date**.
+`scripts/remap-expenses.mjs` re-applies the mapping to every expense in bulk.
 
 ### Tests – Phase 3
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 3.1 | `POST /expenses` (single, date=Feb 11) with incomes on Feb 10 and Feb 25 | `mappedIncomeDate` = Feb 10 |
-| 3.2 | `POST /expenses` (single, date=Mar 4) with incomes on Feb 10 and Feb 25 | `mappedIncomeDate` = Feb 25 |
-| 3.3 | `POST /expenses` repeatable monthly × 3 | Each occurrence has its own correctly mapped income |
-| 3.4 | `GET /expenses/resolve-income?date=2025-03-04` | Returns the Feb 25 income summary and date |
-| 3.5 | `PUT /expenses/{id}` changing date | `mappedIncomeId` recalculated automatically |
-| 3.6 | `DELETE /expenses/{id}?deleteSeries=true` | All records with same `seriesId` removed |
+| 3.1 | Expense on Feb 11, incomes Feb 10 and Feb 25 | Maps to Feb 10 |
+| 3.2 | Expense on Mar 4, same incomes | Maps to Feb 25 |
+| 3.3 | Monthly expense × 3 | Each occurrence mapped on its own date |
+| 3.4 | `GET /expenses/resolve-income?date=2025-03-04` | Returns the Feb 25 income |
+| 3.5 | `PUT /expenses/{id}` changing date | Mapping recalculated |
+| 3.6 | `DELETE /expenses/{id}?deleteSeries=true` | Whole series removed |
 
 ---
 
 ## Phase 4 – Frontend: Layout & Navigation ✅
 
 ### Goal
-Build the core application shell.
+The application shell.
 
 ### Layout
-- **Desktop Topbar** (horizontal, sticky): Logo/Dashboard · Add Income · Add Expense · Split Pay · Investments · Statistics · AI · Settings · Backstage · Admin (admin users only). Year selector, avatar, and Sign out button on the right.
-- **Mobile bottom tab bar**: Finance · Split Pay · Investments · Stats. Add Expense and Add Income are not tabs — they are actions inside the Finance page (mobile `/`).
-- **Main area**: page content below the Topbar.
-- **Routes**: `/`, `/add-income`, `/add-expense`, `/statistics`, `/settings`, `/backstage`, `/split-payments`, `/investments`, `/ai-news`, `/admin`.
+- **Mobile-only**: every page is a centred phone-width column (430 px) on any screen. The original desktop top bar, `Sidebar.jsx` and `useIsMobile` were removed.
+- **Top bar**: 4TURA Home wordmark, and an avatar with the user's initials that opens the **account menu** — username, session countdown, then **Settings · Admin · Sign out**. Backstage appears between Settings and Admin while enabled in App Settings; Admin only for the admin user.
+- **Bottom bar**: **Home · Finance · Books · HQ**. Finance opens a sheet with Dashboard, Add Income, Add Expense, Split Pay, Statistics and Investments.
+- A route change closes any open sheet or menu.
+- **Routes**: `/`, `/finance`, `/add-income`, `/add-expense`, `/split-payments`, `/statistics`, `/investments`, `/books-and-dev`, `/headquarters`, `/settings`, `/backstage`, `/admin`. Unknown paths go to `/`.
+- Configuration lives in `components/navConfig.js` (`navGroups`, `accountItems`).
 
 ### Tests – Phase 4
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 4.1 | Open app on desktop | Topbar visible with all navigation links |
-| 4.2 | Click `Add Income` | Navigates to `/add-income` |
-| 4.3 | Click `Add Expense` | Navigates to `/add-expense` |
-| 4.4 | Unauthenticated access | Login page shown instead of app |
-| 4.5 | Open app on mobile | Bottom tab bar shown with 4 tabs: Finance · Split Pay · Investments · Stats |
-| 4.6 | Finance page on mobile | An **Add Expense** / **Add Income** action row sits above the income card; saving returns to `/` with the same income column and the Finance tab still highlighted |
+| 4.1 | Open the app | Bottom bar shows Home · Finance · Books · HQ |
+| 4.2 | Tap Finance | Sheet lists its six pages; tapping Finance again closes it |
+| 4.3 | Tap the avatar as the admin user | Settings, Admin, Sign out (Backstage too when enabled) |
+| 4.4 | Same as another user, Backstage off | Settings, Sign out |
+| 4.5 | Unauthenticated access | Login page instead of the app |
 
 ---
 
 ## Phase 5 – Frontend: Add & Edit Income Form ✅
 
-### Goal
-Implement the Income form connected to the backend API.
-
 ### Form Fields
 | Field | Type | Validation |
 |-------|------|------------|
-| Summary | Text input | Mandatory |
-| Date | Date picker | Mandatory |
-| Amount | Number input | Mandatory, > 0 |
-| Currency | Dropdown | Mandatory, default `RON` |
-| Repeatable | Toggle | Default `false` |
-| Repeat Frequency | Dropdown (`daily`, `weekly`, `monthly`) | Mandatory only if Repeatable |
-| Series End Date | Date picker | Mandatory only if Repeatable; must be after Date |
+| Summary | Text | Required |
+| Date | Date | Required; within the current year |
+| Amount | Number | Required, > 0 |
+| Currency | Select | Required, default `RON` |
+| Repeatable | Toggle | Default off |
+| Repeat Frequency | Select (`daily`, `weekly`, `monthly`) | Required when repeatable |
+| Series End Date | Date | Required when repeatable; within the current year |
 
 ### Behavior
-- Repeat Frequency and Series End Date are hidden when Repeatable is off.
-- On submit, calls `POST /incomes`.
-- On edit (via `?id=`), pre-populates from existing record and calls `PUT /incomes/{id}`.
-- If the edited income is part of a series, a dialog asks: **"Edit this occurrence only"** or **"Edit entire series"**.
+- Frequency and end date are hidden unless Repeatable is on.
+- Submit calls `POST /incomes`; edit (`?id=`) pre-fills and calls `PUT /incomes/{id}`.
+- Editing a series member offers **This occurrence only** or **Entire series**.
+- Saving returns to the page it came from (`/finance` for links on an income card) and restores the income column.
+- The form carries `.zoom-safe-form` so inputs are 16 px on phones.
 
 ---
 
 ## Phase 6 – Frontend: Add & Edit Expense Form ✅
 
-### Goal
-Implement the Expense form with real-time income mapping preview.
-
 ### Form Fields
 | Field | Type | Validation |
 |-------|------|------------|
-| Summary | Text input | Mandatory |
-| Priority | Dropdown (`High`, `Medium`, `Low`) | Mandatory |
-| Date | Date picker | Mandatory |
-| Mapped Income | Read-only (auto-filled) | Populated via `GET /expenses/resolve-income` |
-| Amount | Number input | Mandatory, > 0 |
-| Currency | Dropdown | Mandatory, default `RON` |
-| Special | Pill toggle (`Yes` / `No`) | Default `No`; highlighted in purple when Yes |
-| Repeatable | Toggle | Default `false` |
-| Repeat Frequency | Dropdown | Mandatory only if Repeatable |
-| Series End Date | Date picker | Mandatory only if Repeatable |
+| Summary | Text | Required |
+| Priority | Select (`High`, `Medium`, `Low`) | Required |
+| Date | Date | Required; within the current year |
+| Mapped Income | Read-only | From `GET /expenses/resolve-income` |
+| Amount | Number | Required, > 0 |
+| Currency | Select | Required, default `RON` |
+| Special | Yes / No | Default No |
+| Repeatable | Toggle | Default off |
+| Repeat Frequency | Select | Required when repeatable |
+| Series End Date | Date | Required when repeatable; within the current year |
 
 ### Behavior
-- When the Date field changes, calls `GET /expenses/resolve-income?date={date}` and populates Mapped Income.
-- On submit calls `POST /expenses`; on edit calls `PUT /expenses/{id}`.
-- If part of a series: dialog asks **"Edit this occurrence only"** or **"Edit entire series"**.
+- Changing the date previews the mapped income.
+- Submit calls `POST /expenses`; edit calls `PUT /expenses/{id}`, or `/series` for the whole series.
+- An income card's **+ Add** pre-fills the date and returns to the same column after saving.
 
 ---
 
-## Phase 7 – Frontend: Column Cards – Live Data ✅
+## Phase 7 – Frontend: Finance Dashboard ✅
 
 ### Goal
-Replace placeholder column data with real data from the backend.
+Show income periods with their expenses. Route `/finance`.
 
 ### Behavior
-- On load, calls `GET /incomes` and `GET /expenses`.
-- Shows the **4 most recent income periods** as column cards.
-- Each card displays income header, amount (masked by default — hold mouse button to reveal), expense rows, and summary footer (income, total expenses, pending, balance).
-- The **current income period** (latest income with date ≤ today) has a distinct green-tinted header background to indicate it is the active period.
-- Expense rows show priority color dot, summary, date, amount, status toggle (Pending/Completed), edit link, and delete button.
-- Expense rows with `special = true` display a purple **★** icon and a dark reddish row background.
-- Delete button on a recurring expense shows a dialog: **"This occurrence"** or **"Entire series"**.
-- Clicking an income or expense opens the edit form.
+- Loads `GET /incomes` and `GET /expenses`; shows **one income-period card at a time** for the selected year.
+- Move between periods by swiping or with **← / ◎ / →** (◎ returns to the current period). Opening Dashboard from the Finance sheet jumps to the current period.
+- Header: **year stepper** (capped at the current year, shared with Statistics) and the **privacy toggle** that masks income amounts (remembered on the device).
+- The **current period** (latest income dated ≤ today) has a distinct header.
+- Each card: income header with **+ Add** expense and edit link, expense rows, and a footer splitting spent (completed / pending) against free.
+- Expense rows: priority dot, summary, date, amount, status toggle, edit (✎) and delete (🗑). `special` rows show ★ and a red background.
+- Deleting a series member asks **This occurrence / Entire series**. Deleting an income remaps its expenses to the best remaining income.
 
 ---
 
-## Phase 8 – Frontend: Statistics Panel ✅
-
-### Goal
-Implement a statistics page summarizing loaded income and expense data.
+## Phase 8 – Frontend: Statistics ✅
 
 ### Layout
-One phone-width column (`max-width: 430px`), centered on desktop as well as mobile — the same shape as Split Pay, Home Overview, and Investments. Header carries the page title, the months-with-data count, and a **year stepper** (`‹ 2026 ›`, capped at the current year) that writes to the same `YearContext` the desktop Sidebar selector uses.
+One phone-width column. Header: title, months-with-data count, and a **year stepper** (`‹ 2026 ›`, capped at the current year) sharing `YearContext` with the Dashboard.
 
-Three stacked blocks:
+Three blocks:
+1. **Monthly averages** — *Avg free / month* and *Survival / month* (`High + 80% Medium + 7,000 RON`), then High / Medium / Low averages, over months that have data.
+2. **Free amount per month** — bar chart for the year; positive and negative bars in different colours, the current month at full opacity with a dashed `now` line. The tooltip gives the full month: Income, High, Medium, Low, Free.
+3. **★ Special expenses** — expandable, collapsed by default: count and year total; expanded, each special expense and a total.
 
-1. **Monthly averages** — *Avg free / month* and *Survival / month* as a two-up stat row, then High / Medium / Low average rows. Averages are taken over the months that actually have data.
-2. **Free amount per month** — a `recharts` BarChart for the selected year; bars are indigo when positive and red when negative, the current month is drawn at full opacity, and a dashed `now` reference line marks it. Tapping a bar opens a tooltip with the **full month breakdown** — Income, High, Medium, Low, Free.
-3. **★ Special expenses** — an **expandable** block, collapsed by default. The collapsed head shows the count and the year total; expanded it lists each special expense with summary, date, and amount, plus a total footer.
+> The separate *Expenses by Priority* line chart was removed; its per-month split lives in the bar tooltip.
 
-> The separate **Expenses by Priority** line chart was removed. The per-month priority split it carried now lives in the Free-amount bar tooltip.
-
-Data is fetched per selected year via `listIncomes` / `listExpenses`; everything else is computed client-side.
+Data is loaded per year with `listIncomes` / `listExpenses` and computed client-side.
 
 ---
 
-## Phase 9 – AWS Cloud Portability ✅
-
-### Goal
-Deploy the full application to AWS and implement per-user data isolation.
+## Phase 9 – AWS Deployment & Per-User Isolation ✅
 
 ### What Was Implemented
-
-1. **Cognito User Pool** (`eu-central-1_CD7AdBFwQ`) with a Pre Sign-Up Lambda trigger (`preSignUp.mjs`) that auto-confirms all new users. New accounts become active immediately with no email verification required.
-
-2. **API Gateway Cognito Authorizer** — all routes protected. The JWT ID token is sent in the `Authorization` header (without `Bearer` prefix). The Lambda extracts `userId` from `event.requestContext.authorizer.claims.sub`.
-
-3. **Per-user data isolation** — all DynamoDB records carry a `userId` field. Every read, write, and delete operation filters or validates by `userId`.
-
-4. **Frontend auth** — `AuthContext.jsx` uses `amazon-cognito-identity-js`. On sign-in, `setAuthToken(jwt)` is called and the axios request interceptor injects `Authorization: <token>` on every API call. Session is restored from localStorage on page load.
-
-5. **S3 + CloudFront hosting** — React build served via CloudFront (`d34ylrmixnmvem.cloudfront.net`). CloudFront errors for unknown paths return `index.html` (required for client-side routing).
-
-6. **Cache-Control** — Lambda responses include `Cache-Control: no-store` to prevent API Gateway's internal CloudFront layer from caching API responses.
-
-7. **samconfig.toml** — stores deploy defaults under `[default.deploy.parameters]`: stack name `finance4tura-backend`, region `eu-central-1`, `CAPABILITY_IAM`, `resolve_s3 = true`.
+1. **Cognito User Pool** (`eu-central-1_CD7AdBFwQ`) with a Pre Sign-Up trigger (`preSignUp.mjs`) that auto-confirms new users.
+2. **API Gateway Cognito authorizer** on every route except the public ones (`/auth/google`, `GET /app-settings`, `GET /fx-rates`, `/ai-news`). The ID token goes in `Authorization` without `Bearer`; handlers read `claims.sub`.
+3. **Per-user isolation** — every record carries `userId`; every read, write and delete checks it.
+4. **Frontend auth** — the Cognito library restores the session on load; the ID token is sent on every request; a 401 signs the user out.
+5. **S3 + CloudFront** hosting at `d34ylrmixnmvem.cloudfront.net`, with 403 → `/index.html` for client-side routes.
+6. **Cache-Control: no-store** on every response, including API Gateway's default errors.
+7. **samconfig.toml** defaults under `[default.deploy.parameters]`.
 
 ### Tests – Phase 9
 | # | Test | Expected Result |
 |---|------|-----------------|
-| 9.1 | `sam build --no-cached && sam deploy` | Deploys to `finance4tura-backend` stack without errors |
-| 9.2 | Unauthenticated `GET /incomes` | Returns `{"message":"Unauthorized"}` (401) |
-| 9.3 | Authenticated `GET /incomes` with Demo token | Returns Demo user's records only |
-| 9.4 | New user sign-up | Account created and auto-confirmed; app loads with empty database |
-| 9.5 | Income amount masked on Dashboard | Amount shows `••••••` until mouse button is held down |
-| 9.6 | Local dev still works | `docker compose up` + `sam local start-api` + `npm run dev` functional |
-
----
+| 9.1 | `sam build --no-cached && sam deploy` | Stack `finance4tura-backend` updates without errors |
+| 9.2 | Unauthenticated `GET /incomes` | 401 `{"message":"Unauthorized"}` |
+| 9.3 | Authenticated `GET /incomes` | Only the caller's records |
+| 9.4 | New user sign-up | Auto-confirmed; app loads empty |
+| 9.5 | Privacy toggle on the Dashboard | Income amounts masked until toggled back |
 
 ---
 
 ## Phase 10 – Split Payments Module ✅
 
-### Goal
-A desktop-only module for logging advance payments split across multiple occurrences and tracking when the total is fully covered. Data is stored in DynamoDB and synced via the backend API.
+Payments split into instalments, tracked until settled. Route `/split-payments` (Finance sheet), plus a **Last 3** block on the Home Overview. Full spec: `SplitPayment_Requirement.md`.
 
-### Behavior
-- Accessible via **"Split Pay"** in the desktop top navigation bar (`/split-payments`). Not present in the mobile tab bar.
-- Page shows a data table of all split payment entries plus an **"Add New Split Payment"** button.
-- Data is persisted in the `SplitPayments` DynamoDB table, scoped per user via `userId`.
-- On load, calls `GET /split-payments` to fetch the user's entries.
-- Occurrence values are updated via `PUT /split-payments/{splitPaymentId}` (debounced 600ms) on every cell change.
+### Summary
+- DynamoDB-backed (`SplitPayments` table, `/split-payments` CRUD).
+- Card list in two groups, **In progress** (expanded) and **Settled** (collapsed), with per-currency "left to cover" totals.
+- Exactly `occurrenceCount` slots per entry, two per row. Amounts are typed; dates use the app's calendar sheet (no native date field). No per-slot buttons.
+- **Cover rest** and **Clear all** on amount entries.
+- Filling the last slot asks **"Mark as settled?"** before saving.
+- Slot edits save with a 600 ms debounce. Create/edit in a bottom sheet; two-step inline delete.
 
-### API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/split-payments` | List all entries for the authenticated user |
-| `POST` | `/split-payments` | Create a new split payment entry |
-| `PUT` | `/split-payments/{splitPaymentId}` | Update an existing entry (e.g. update occurrence values) |
-| `DELETE` | `/split-payments/{splitPaymentId}` | Delete an entry |
-
-### Create Form Fields
-| Field | Type | Notes |
-|-------|------|-------|
-| Date | Editable date input | Pre-filled with today's date; user can change it |
-| Title | Text input | Mandatory |
-| Amount | Number input | Mandatory, > 0 |
-| Currency | Dropdown | `RON`, `EUR`, `USD`; default `RON` |
-| No. of Occurrences | Integer input | Mandatory; 1–36 |
-| Occurrence Type | Dropdown | `amount` – cells show equal installment value; `date` – cells record payment dates |
-
-### Table Columns
-- **Fixed**: Created Date, Title, Total Amount, Currency
-- **Dynamic**: one editable input cell per occurrence (number input for `amount` type; date input for `date` type); cells turn green when a value is entered
-- **Coverage badge**: shows `paid / total`; turns green with ✓ when all occurrences are filled
-- **Delete** (✕) removes the entry from DynamoDB
+> **Replaced:** the original desktop-only table with clickable paid/unpaid cells and a ✕ per row.
 
 ### Tests – Phase 10
-| # | Test | Expected Result |
-|---|---|---|
-| 10.1 | Navigate to `/split-payments` | Page loads; entries fetched from API; empty-state message shown if none; entries sorted newest first |
-| 10.2 | Add entry with 3 amount occurrences | `POST /split-payments` called; row appears at top with 3 number inputs; coverage shows `0/3` |
-| 10.3 | Enter a value in first cell | Cell turns green; coverage updates to `1/3`; `PUT /split-payments/{id}` called after 600ms debounce |
-| 10.4 | Fill all cells | Coverage shows `3/3 ✓` |
-| 10.5 | Refresh page | Entries still present (fetched from DynamoDB) |
-| 10.6 | Delete entry | `DELETE /split-payments/{id}` called; row removed |
-| 10.7 | Open on mobile | "Split Pay" absent from bottom tab bar |
-| 10.8 | Add entry with custom date | Date field pre-filled with today; user can set a different date |
-
----
+Automated in `SplitPayment.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (23); acceptance tests in the full spec.
 
 ---
 
 ## Phase 11 – Investments Module ✅
 
-### Goal
-A **PWA-first** page (`/investments`) to track the user's investment portfolio across multiple platforms. Renders as a single phone-width column, centered on desktop as well as mobile, built from four stacked blocks. See `Documentation/Investments_Requirement.md` for the full spec.
+Portfolio tracker across six platforms. Route `/investments` (Finance sheet). Full spec: `Investments_Requirement.md`.
 
 ### Platforms
-Fixed list — no CRUD in the UI:
-
 | Platform | Default Currency |
 |---|---|
-| eToro | USD |
-| Binance | USD |
-| Fidelity | USD |
-| Tradeville | USD |
+| eToro, Binance, Fidelity, Tradeville | USD |
 | ING Funds RON | RON |
 | ING Funds EUR | EUR |
 
 ### Tables
-
-#### `InvestmentOperations`
-| Attribute | Type | Notes |
-|---|---|---|
-| `operationId` | String (PK) | UUID |
-| `userId` | String | Cognito sub |
-| `date` | String | ISO 8601 |
-| `type` | String | `Deposit` \| `Withdrawal` |
-| `platform` | String | One of the 6 platforms |
-| `amount` | Number | Always positive |
-| `currency` | String | Defaults from platform |
-| `notes` | String | Optional |
-
-GSI: `date-index` on `date`.
-
-#### `PortfolioSnapshots`
-| Attribute | Type | Notes |
-|---|---|---|
-| `snapshotId` | String (PK) | UUID |
-| `userId` | String | Cognito sub |
-| `date` | String | ISO 8601 |
-| `platform` | String | One of the 6 platforms |
-| `amount` | Number | Total value on that platform at that date |
-| `currency` | String | Defaults from platform |
-
-GSI: `date-index` on `date`. One record per platform per reading (not one wide row for all platforms).
+- `InvestmentOperations` (PK `operationId`): `userId`, `date`, `type` (`Deposit` \| `Withdrawal`), `platform`, `amount` (always positive), `currency`, `notes`.
+- `PortfolioSnapshots` (PK `snapshotId`): `userId`, `date`, `platform`, `amount`, `currency` — one record per platform per reading.
 
 ### Endpoints
-
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/investments/operations` | List; supports `?from=&to=&platform=&type=` |
-| `POST` | `/investments/operations` | Create operation |
-| `PUT` | `/investments/operations/{operationId}` | Edit operation |
-| `DELETE` | `/investments/operations/{operationId}` | Delete operation |
-| `GET` | `/investments/snapshots` | List all snapshots |
-| `GET` | `/investments/snapshots/latest` | Most recent snapshot per platform |
-| `POST` | `/investments/snapshots` | Record a new snapshot |
-| `PUT` | `/investments/snapshots/{snapshotId}` | Update an existing snapshot in-place |
-| `DELETE` | `/investments/snapshots/{snapshotId}` | Delete snapshot |
+| `GET` / `POST` | `/investments/operations` | List / create |
+| `PUT` / `DELETE` | `/investments/operations/{operationId}` | Edit / delete |
+| `GET` | `/investments/snapshots` | List |
+| `GET` | `/investments/snapshots/latest` | Latest per platform |
+| `POST` | `/investments/snapshots` | Record a reading |
+| `PUT` / `DELETE` | `/investments/snapshots/{snapshotId}` | Edit in place / delete |
 
 ### Page Blocks
+1. **Total portfolio** — expandable; EUR total, platform count, FX date; expanded, per-platform share bars for every platform still holding money.
+2. **Portfolio evolution** — EUR line chart **from 2023**, carrying forward the latest reading per platform; Total line on by default, platform lines togglable; dots on operation months.
+3. **Portfolio snapshots** — grouped by date, 3 at a time, each expandable to per-platform rows with edit, delete and *Add platform to this date*.
+4. **Operations log** — newest first, 3 at a time, expandable for notes and edit/delete.
 
-One phone-width column (`max-width: 430px`), centered on desktop as well as mobile, with four stacked blocks:
-
-1. **Total portfolio** — expandable. Collapsed: total value in EUR, platform count, FX-rate date. Expanded: one row per platform with EUR amount, share bar, share %, original currency amount, and last-snapshot date.
-2. **Portfolio evolution** — 210 px `recharts` LineChart of the actual portfolio value in EUR, **starting from 2023**. Grey **Total** line visible by default, platform lines hidden; legend toggle chips above the chart.
-3. **Portfolio snapshots** — readings grouped by date, newest first, **3 dates shown** with a *Show 3 more* / *Show less* control. Each date card expands to per-platform rows with ✎ / ✕ and an *Add platform to this date* button.
-4. **Operations log** — deposits and withdrawals, newest first, **3 shown** with the same reveal control. Each card expands to show notes and Edit / Delete.
-
-Add and edit both use **bottom sheets** at column width (rounded top, grabber, safe-area padding, 16 px inputs). Delete is a **two-step inline confirm** that auto-reverts after 4 s — no `window.confirm`.
-
-### Portfolio Evolution Chart Logic
-- Plots the **actual** portfolio value in EUR month by month. No S&P 500 simulation and no P&L chart — both were removed from the product.
-- The plotted range starts at `CHART_START` (`2023-01`); earlier snapshots and operations still feed the carry-forward but are never plotted. If the earliest data is later than `CHART_START`, the chart starts there instead.
-- Per-month values carry forward the latest snapshot per platform (`platformAt` / `portfolioAt`); the month spine ends at the latest snapshot/operation month.
-- Lines: **Total** (grey `#94a3b8`, visible by default) plus one per active platform (colour-coded, hidden by default), all with `connectNulls`.
-- Platform chips list platforms with a snapshot > 0 in the last 12 months. The Total portfolio block instead lists every platform whose latest snapshot is > 0, so its shares add up to the displayed total.
-- Dots mark months containing operations; the dot renderer guards `isNaN(cy)` to avoid phantom half-dots.
-- Amounts converted to EUR with the shared rates from `GET /fx-rates` (stored in DynamoDB, refreshed from Admin → FX Rates) — no runtime third-party fetch.
-### Seed Scripts
-| Script | Purpose |
-|---|---|
-| `backend/src/seed-investments.mjs` | Seeds 32 historical operations and ~68 snapshots (production or local) |
-| `backend/src/seed-investments-local.mjs` | Seeds operations and snapshots for `local-dev` userId |
-| `backend/src/seed-local.mjs` | Seeds incomes/expenses for `local-dev` userId |
-| `backend/src/sync-from-aws.mjs` | Syncs the AWS DynamoDB tables to local, remapping real userId → `"local-dev"` |
-| `backend/create-tables.mjs` | Creates all local DynamoDB tables programmatically |
-| `scripts/seed-local.mjs` | Convenience wrapper for `seed-local.mjs` |
+Bottom sheets for add/edit; two-step inline delete. EUR conversion uses the stored FX rates (Phase 15). No S&P 500 simulation.
 
 ### Tests – Phase 11
-| # | Test | Expected Result |
-|---|---|---|
-| 11.1 | Open `/investments` on desktop and mobile | Same phone-width column with the four stacked blocks; centered on desktop |
-| 11.2 | Mobile bottom tab bar | **Investments** tab present, after **Split Pay** |
-| 11.3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
-| 11.4 | Portfolio evolution chart after seed | Grey Total line rendered; platform lines hidden but togglable; chart starts at 2023 |
-| 11.5 | Toggle a legend chip | Line hides/shows; chip dims when hidden |
-| 11.6 | Tap an operation dot | Tooltip shows the portfolio value, that month's operations, and net cash in EUR |
-| 11.7 | Snapshots block after seed | 3 date cards, collapsed, each with its carry-forward EUR total; **Show 3 more** reveals 3 more |
-| 11.8 | Add operation | New card appears at the top of the Operations log; chart updates |
-| 11.9 | Edit operation | `PUT /investments/operations/{id}` called; card updates |
-| 11.10 | Add snapshot | Total portfolio and chart update; the date card gains a platform row |
-| 11.11 | Edit snapshot | `PUT /investments/snapshots/{id}` called; record updates in place and keeps its id |
-| 11.12 | Delete a snapshot or an operation | First tap arms the inline confirm, second tap deletes |
-| 11.13 | Refresh | All data persists |
-| 11.14 | `sync-from-aws.mjs` runs | Tables synced locally with userId remapped to `"local-dev"` |
-| 11.15 | `npx vitest run src/pages/Investments.test.jsx` | 9 tests pass |
+`Investments.test.jsx` — 9 render tests. Acceptance tests in the full spec.
 
 ---
 
-## Phase 12 – AI News Page ✅
+## Phase 12 – AI News Page ⛔ Retired
+
+An `/ai-news` page showed AI news from Google News and MIT Technology Review RSS feeds. **The page has been removed from the frontend.** The backend endpoint `GET /ai-news` (`AiNewsFunction`, optional `AnthropicApiKey` parameter) is still deployed but unused.
+
+---
+
+## Phase 13 – Home Overview ✅
 
 ### Goal
-A page (`/ai-news`) that fetches and displays AI-curated financial news from multiple sources.
+A landing page (`/`) summarising the day. The Finance Dashboard moved to `/finance`.
+
+### Blocks
+1. **Current period expenses** — the current income in a hero header; the expenses mapped to it that were outstanding when the page loaded, by priority then date. Ticking marks one Completed (unticking reverts); ticked rows stay, struck through, until the next load. Footer: **Done** and **Pending** totals for the period.
+2. **Split Payments — Last 3** — the three newest open entries, with the Split Pay slot rules and settle prompt; *View all →*.
+3. **Current Holdings** — EUR total behind a hold-to-reveal mask, active platforms, FX date.
+4. **Books & Development — Latest per Person** — persons × types, the latest entry in each.
+
+### Tests – Phase 13
+`HomeOverview.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (23).
+
+---
+
+## Phase 14 – Books & Development ✅
+
+### Goal
+A reading and training log per person. Route `/books-and-dev` — the **Books** tab.
+
+### Data
+`Books_and_Dev` (PK `bookId`): `userId`, `name` (person), `source` (Book / Voxa / Udemy / Other), `type` (Book / Audiobook / Training / Other), `author`, `title`, `dateCompleted` (`YYYY-MM`), `rating` (1–5 or null), `comments`, `createdAt`, `updatedAt`. CRUD on `/books-and-dev`, sorted by `dateCompleted` desc then title.
 
 ### Behavior
-- Accessible via **"AI"** link in the desktop top navigation bar and (optionally) the mobile tab bar.
-- Shows a feed of news articles with title, source, and link.
-- Includes a progress indicator while articles are loading.
-- HTML entities in article titles are decoded for clean display.
+- One collapsible section per person (alphabetical, Unassigned last), newest first, 5 at a time.
+- Per-person summary for the last 3 months: count, average rating, split by type.
+- Filter sheet: person, type, source, rating, text search on title/author.
+- Add/edit in a bottom sheet with a 1–5 star picker; two-step inline delete.
 
-### Tests – Phase 12
-| # | Test | Expected Result |
+### Tests – Phase 14
+`BooksAndDev.test.jsx` (5).
+
+---
+
+## Phase 15 – App Settings, FX Rates, Admin, Backstage ✅
+
+### App Settings
+- `AppSettings` table, one `global` item: `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled` (all default on).
+- `GET /app-settings` is public (the login page needs it); `PUT` is admin-only.
+
+### FX Rates
+- `FxRates` table, one `global` item with the full EUR/USD/RON matrix (`rates[FROM][TO]`) and `updatedAt`.
+- `GET /fx-rates` is public; `POST /fx-rates` (admin) fetches from frankfurter.app and stores the matrix. Pages never fetch rates from a third party.
+
+### Admin page (`/admin`)
+Shown only to username `nenciulescu`; the API requires the Cognito `admin` group.
+- **App Settings** toggles
+- **FX Rates** with **Update FX rates**
+- **Database Backup** (Phase 17)
+- **Users** — list with income/expense counts, toggle admin, delete after re-entering your password
+
+### Settings page (`/settings`)
+- Colour theme: Dusk (default), Light, Amber
+- Default visibility of income amounts
+
+### Backstage (`/backstage`)
+Raw viewer for Incomes, Expenses, Operations, Snapshots and Splits — search, 10 rows a page, delete — plus a live log of the last 50 API calls. In the avatar menu only while `backstageEnabled` is on.
+
+---
+
+## Phase 16 – Headquarters ✅
+
+Meter readings per location. Route `/headquarters` — the **HQ** tab. Full spec: `Headquarters_Requirements.md`.
+
+- Tables `HQ_Locations`, `HQ_Templates`, `HQ_Entries`; one Lambda (`HQFunction`).
+- Tabs: HQ Dashboard · one per location · Settings.
+- Templates of up to 30 parameters (`number` / `text` / `boolean`); entries auto-save with a 600 ms debounce.
+- Water templates get computed consumption columns and a dashboard chart.
+
+### Tests – Phase 16
+`Headquarters.test.jsx` (4).
+
+---
+
+## Phase 17 – Database Backup ✅
+
+**Admin → Database Backup → Backup ALL Tables** exports all 11 tables (every user) to CSV in a new dated Google Drive folder, one table per request, with live per-table status. Full spec: `Backup_Requirements.md`.
+
+---
+
+## Phase 18 – One Layout & Design System ✅
+
+### Goal
+One consistent, phone-first app.
+
+- Every page is a 430 px column on every screen; desktop layout removed.
+- Design tokens (colour, radius, elevation, spacing, type) as CSS variables in `index.css`; `designTokens.test.js` fails the build on raw values elsewhere.
+- Shared primitives in `components/ui.jsx`; categorical colours in `utils/colors.js`.
+- Themes: Dusk (default), Light, Amber; Nunito with tabular numerals.
+- 16 px form controls everywhere (no iOS zoom), guarded by `noZoom.test.jsx`.
+- App calendar sheet (`DateSheet`) where a native date field would be risky.
+- Bottom sheets for forms; two-step inline delete instead of dialogs.
+
+---
+
+## Table Summary
+
+| Table | PK | Phase |
 |---|---|---|
-| 12.1 | Navigate to `/ai-news` | Page loads; loading indicator shown; articles appear |
-| 12.2 | Article titles | No raw HTML entities (e.g. `&amp;` rendered as `&`) |
+| `Incomes` | `incomeId` | 1 |
+| `Expenses` | `expenseId` | 1 |
+| `SplitPayments` | `splitPaymentId` | 10 |
+| `InvestmentOperations` | `operationId` | 11 |
+| `PortfolioSnapshots` | `snapshotId` | 11 |
+| `Books_and_Dev` | `bookId` | 14 |
+| `AppSettings` | `settingKey` | 15 |
+| `FxRates` | `rateId` | 15 |
+| `HQ_Locations`, `HQ_Templates`, `HQ_Entries` | `hqId`, `templateId`, `entryId` | 16 |
 
 ---
 
@@ -521,21 +444,21 @@ A page (`/ai-news`) that fetches and displays AI-curated financial news from mul
 
 | Decision | Choice | Reason |
 |----------|--------|--------|
-| Repeating events storage | Expand into individual records at creation time | Simplifies queries; avoids complex recurrence expansion at read time |
-| Income mapping | Stored on Expense record (denormalized) | Fast UI rendering without joins |
-| Auth | AWS Cognito User Pool + Pre Sign-Up trigger | Portable to AWS; auto-confirms users without email verification |
-| Per-user isolation | `userId` field on every DynamoDB record | Simple filter; no separate tables per user |
-| Local DB | DynamoDB Local in Docker | Identical API to AWS DynamoDB; zero migration cost |
-| Local userId fallback | `"local-dev"` | Allows local dev without JWT; data stays isolated from cloud |
-| Frontend | React + Vite | Fast dev experience; compatible with S3/CloudFront hosting |
-| API | AWS SAM Lambda | `sam local` mirrors production; deploys unchanged to AWS |
-| API response caching | `Cache-Control: no-store` on all responses | Prevents API Gateway's internal CloudFront from caching per-user data |
-| Vite polyfill | `define: { global: 'globalThis' }` | Required for `amazon-cognito-identity-js` to run in the browser |
-| Split Payments storage | DynamoDB (`SplitPayments` table) via API | Consistent with the rest of the app; data persists across devices and browsers |
-| Split Pay nav label | "Split Pay" (shortened) | Fits the compact topbar without wrapping |
-| Investments — one phone-width layout | Same 430 px column on desktop and mobile; Investments tab added to the mobile tab bar after Split Pay | The page is used mainly from the phone as an installed PWA; a single layout removes the desktop/mobile divergence, matching Split Pay and Home Overview |
-| Investments snapshots | One DynamoDB record per platform per reading | Allows recording a single platform without entering all six; matches real usage patterns |
-| Investments chart carry-forward | Fill gaps by using the last known value for each platform | Produces continuous lines even when platforms are not updated simultaneously |
-| Local DynamoDB credentials | No explicit credentials in `dynamo.mjs`; uses host AWS credentials via Docker | Matches the credential namespace used by `init-tables.sh` and the AWS CLI; seed script uses the same pattern |
-| Statistics — one phone-width layout | Same 430 px column on desktop and mobile; Stats tab added to the mobile tab bar; Expenses-by-Priority chart dropped and its data moved into the Free-amount tooltip; Special Expenses turned into an expandable block (now visible on mobile too) | Consistent with Split Pay, Home Overview, and Investments; two 12-month charts did not fit a phone, and the priority split reads better on demand than as a second chart |
-| FX conversion | Shared rates stored in the `FxRates` DynamoDB table, refreshed manually from Admin → FX Rates | EUR is the common denominator for a multi-currency portfolio; storing the rates avoids a third-party fetch on every page load |
+| Repeating events | Expand into individual records at creation | Simple queries; no recurrence logic at read time |
+| Income mapping | Denormalized onto the expense | Fast rendering without joins |
+| Auth | Cognito User Pool + Pre Sign-Up auto-confirm | No email verification needed for a personal app |
+| Google sign-in | Custom Lambda, fresh random password per sign-in | Popup flow, nothing derivable or stored |
+| Per-user isolation | `userId` on every record | Simple filter; no per-user tables |
+| Environments | AWS only | One environment to keep correct; local stack retired |
+| Frontend | React + Vite, PWA | Fast builds; static hosting on S3/CloudFront |
+| API | AWS SAM, one Lambda per module | Simple deploys; infrastructure in one template |
+| API response caching | `Cache-Control: no-store` everywhere | Stops API Gateway's CloudFront serving stale per-user data |
+| Vite polyfill | `define: { global: 'globalThis' }` | Required by `amazon-cognito-identity-js` |
+| Layout | One 430 px column everywhere | Used mainly as an installed PWA; no desktop/mobile divergence |
+| Navigation | Four content tabs; settings and admin in the avatar menu | The bar holds only places visited daily |
+| Split Payments | DynamoDB via API; slot count fixed by the series; app calendar; settle prompt | Data on every device; no accidental slots or dates |
+| Investments snapshots | One record per platform per reading | Record one platform without entering all six |
+| Investments chart | Carry forward the last value per platform | Continuous lines when platforms update at different times |
+| FX conversion | Shared rates in `FxRates`, refreshed by an admin | EUR as common denominator without a third-party call per page load |
+| Statistics | Priority chart folded into the free-amount tooltip | Two 12-month charts didn't fit a phone |
+| Design tokens | CSS variables, enforced by a test | Consistent themes; no drift |

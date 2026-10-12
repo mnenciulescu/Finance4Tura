@@ -1,7 +1,8 @@
-# AWS Sync Guide — Updating Finance4Tura in the Cloud
+# AWS Sync Guide — Shipping Changes to 4TURA Home
 
-This guide covers how to push local changes to AWS after the initial deployment is done.
-Refer to `AWS_Deploy.md` for the one-time setup steps.
+How to push changes to AWS once the environment exists. For building the environment, see `AWS_Deploy.md`.
+
+> **There is no local environment.** `npm run dev` serves the frontend on your machine but uses the deployed API and **production data**. Test against the real app, carefully.
 
 ## Deployed Resources (Quick Reference)
 
@@ -22,24 +23,25 @@ Refer to `AWS_Deploy.md` for the one-time setup steps.
 |---|---|
 | Frontend only | `npm run build` → `s3 sync` → CloudFront invalidation |
 | Backend only | `sam build --no-cached && sam deploy` |
-| Both | Run backend first, then frontend |
-| DynamoDB schema | Update `template.yaml`, then `sam deploy` |
-| Investment seed data | `node src/seed-investments.mjs` (from `backend/`) |
-| SP500 seed data (initial) | `node src/seed-sp500.mjs` (from `backend/`) |
-| SP500 latest data (ongoing) | Settings → Data → "Get latest S&P 500 data" → Run |
-| Cognito settings | AWS Console or CLI (see section 7) |
+| Both | Backend first, then frontend |
+| New table or GSI | Edit `template.yaml`, then deploy the backend |
+| FX rates | Admin → FX Rates → **Update FX rates** |
+| App toggles (Backstage, Google sign-in, sign-up) | Admin → App Settings |
+| Database backup | Admin → Database Backup → **Backup ALL Tables** |
+| Expense ↔ income mapping drifted | `scripts/remap-expenses.mjs` (section 4) |
+| Cognito users | Admin → Users, or the CLI (section 6) |
 
 ---
 
 ## 1. Updating the Frontend
 
-Run these commands every time you change anything in `frontend/`:
-
 ```bash
 cd frontend
+npm test            # Vitest
+npm run lint
 npm run build
 
-aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete
+aws s3 sync dist s3://finance4tura-frontend --region eu-central-1 --delete
 
 aws cloudfront create-invalidation \
   --distribution-id E1O9C9K6CO439 \
@@ -47,16 +49,14 @@ aws cloudfront create-invalidation \
   --region us-east-1
 ```
 
-> The invalidation usually takes 30–60 seconds to propagate globally. Without it, users may see the old version.
-
-### One-liner
+Wait for the invalidation to finish before checking:
 
 ```bash
-cd frontend && npm run build && \
-  aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete && \
-  aws cloudfront create-invalidation \
-    --distribution-id E1O9C9K6CO439 --paths "/*" --region us-east-1
+aws cloudfront wait invalidation-completed \
+  --distribution-id E1O9C9K6CO439 --id <InvalidationId> --region us-east-1
 ```
+
+> The installed PWA caches the app through its service worker. After a deploy, close and reopen it (or reload twice in a browser) to pick up the new build.
 
 ---
 
@@ -64,12 +64,12 @@ cd frontend && npm run build && \
 
 ```bash
 cd backend
-sam build --no-cached && sam deploy
+npm test                                   # node --test
+ulimit -n 10240 && sam build --no-cached
+sam deploy
 ```
 
-> Use `--no-cached` to ensure source file changes are picked up. The `samconfig.toml` handles all deploy defaults (stack name, region, capabilities, Google Client ID parameter).
-
-SAM will detect changed Lambda functions, re-package and upload them, apply any infrastructure changes from `template.yaml`, and deploy automatically (no confirmation prompt — `confirm_changeset = false` in `samconfig.toml`).
+`--no-cached` makes sure source changes are picked up; `ulimit` avoids "too many open files" on macOS. `samconfig.toml` supplies the stack name, region, capabilities and the `GoogleClientId` parameter, and `confirm_changeset = false` means no prompt. When nothing changed, SAM reports "No changes to deploy" and exits — that's fine.
 
 ### Checking the deployed API URL
 
@@ -82,11 +82,11 @@ aws cloudformation describe-stacks \
 
 ---
 
-## 3. Updating Environment Variables
+## 3. Environment Variables
 
-### Frontend env vars
+### Frontend
 
-Edit `frontend/.env.production`, then rebuild and sync (full section 1 flow).
+Edit `frontend/.env.production` (and `.env.local`, which holds the same values), then rebuild and sync.
 
 ```env
 VITE_API_BASE_URL=https://2t55twyqmh.execute-api.eu-central-1.amazonaws.com/Prod
@@ -96,226 +96,133 @@ VITE_COGNITO_REGION=eu-central-1
 VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 ```
 
-### Backend env vars (Lambda)
+### Backend
 
-Backend environment variables are defined in `backend/template.yaml` under each function's `Environment` section. The `GoogleClientId` is passed via `samconfig.toml` `parameter_overrides`. After editing, redeploy:
+Lambda environment variables live in `backend/template.yaml` — table names under `Globals`, the rest per function. `GoogleClientId` comes from `samconfig.toml` `parameter_overrides`. Redeploy after editing.
+
+The Google Drive backup credentials are in SSM at `/finance4tura/gdrive-oauth2`. To rotate them:
 
 ```bash
-cd backend && sam build --no-cached && sam deploy
+aws ssm put-parameter --name /finance4tura/gdrive-oauth2 --type SecureString \
+  --overwrite --value '{"client_id":"…","client_secret":"…","refresh_token":"…"}' \
+  --region eu-central-1
 ```
+
+The Lambda caches them per container, so the new value applies from its next cold start.
 
 ---
 
-## 4. Seeding Investment History
+## 4. Data Maintenance
 
-The investment history (operations + portfolio snapshots) is seeded via `backend/src/seed-investments.mjs`. The S&P 500 monthly closing prices are seeded separately via `backend/src/seed-sp500.mjs`. These are one-off scripts — run them after deploying a fresh environment.
+### FX rates
 
-### Seed investments (operations + snapshots)
+**Admin → FX Rates → Update FX rates** calls `POST /fx-rates`, which fetches EUR→USD and EUR→RON from frankfurter.app, builds the full EUR/USD/RON matrix and stores it in `FxRates`. Every page reads that stored copy. Nothing refreshes it automatically.
 
-```bash
-# Production (uses your configured AWS credentials, real userId)
-cd backend
-node src/seed-investments.mjs
+### Re-mapping expenses to incomes
 
-# Local DynamoDB (uses host AWS credentials, userId = "local-dev")
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments.mjs
+Re-resolves `mappedIncomeId` / `mappedIncomeSummary` / `mappedIncomeDate` for **every expense of every user** in the cloud tables. Use it after a bulk income change leaves expenses on the wrong period. Uses your AWS CLI credentials.
 
-# Local-dev specific seed (uses "local-dev" userId explicitly)
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-investments-local.mjs
-```
+The repo root has no `package.json`, so the script's AWS SDK imports don't resolve as-is. Install them once without saving: `cd scripts && npm install --no-save @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb`, then run `node remap-expenses.mjs` from there.
 
-### Seed S&P 500 monthly data
+### Backups
 
-The seed script is used for the **initial historical backfill**. For ongoing updates (fetching the latest missing months after the app is live), use the Settings UI instead.
+**Admin → Database Backup → Backup ALL Tables** exports all 11 tables (all users) to CSV in a new dated folder under `4TURA_DB_Backups` on Google Drive. See `Backup_Requirements.md`.
 
-```bash
-# Production — initial historical seed
-cd backend
-node src/seed-sp500.mjs
+### Legacy scripts
 
-# Local DynamoDB
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-sp500.mjs
-```
-
-### Update SP500 data via Settings (recommended for ongoing use)
-
-Once the app is deployed and the SP500 table has historical data, use the built-in Settings sync to fetch any missing months:
-
-1. Open the app → **Settings** → **Data** section.
-2. Click **Run** next to "Get latest S&P 500 data".
-3. An animated terminal log shows progress. Green lines indicate stored records; a final "Done" line confirms completion.
-
-This calls `POST /sp500` with `{ sync: true }`, which triggers a Lambda that fetches missing months from Yahoo Finance and stores them in `SP500Monthly`. The Lambda has a 30-second timeout.
-
-### Seed incomes and expenses (local dev)
-
-```bash
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/seed-local.mjs
-# or via the convenience wrapper:
-node scripts/seed-local.mjs
-```
-
-> **Local DynamoDB note**: DynamoDB Local scopes tables by AWS access key + region. `init-tables.sh` and the seed scripts both use the host's real AWS credentials (no hardcoded `local`/`local`). If tables are missing locally, run `docker/init-tables.sh` first (it creates all tables including `SP500Monthly`).
+`scripts/seed-local.mjs`, `scripts/seed-investments.mjs` and `backend/create-tables.mjs` were written for DynamoDB Local, which no longer exists. Don't run them against production.
 
 ---
 
-## 5. Syncing AWS Data to Local
+## 5. DynamoDB Schema Changes
 
-`backend/src/sync-from-aws.mjs` downloads all data from the 6 live AWS DynamoDB tables and writes it into the local DynamoDB instance, remapping the real Cognito userId to `"local-dev"`. This lets you work locally with production data without modifying any real records.
-
-### Tables synced
-
-| Table | Notes |
-|---|---|
-| `Incomes` | userId remapped to `"local-dev"` |
-| `Expenses` | userId remapped to `"local-dev"` |
-| `SplitPayments` | userId remapped to `"local-dev"` |
-| `InvestmentOperations` | userId remapped to `"local-dev"` |
-| `PortfolioSnapshots` | userId remapped to `"local-dev"` |
-| `SP500Monthly` | No userId — copied as-is |
-
-### Running the sync
-
-```bash
-cd backend
-DYNAMODB_ENDPOINT=http://localhost:8000 node src/sync-from-aws.mjs
-```
-
-Prerequisites:
-- Local DynamoDB must be running (`docker compose up -d` in `docker/`)
-- All local tables must exist (`docker/init-tables.sh` or `node create-tables.mjs`)
-- AWS CLI must be configured with credentials that have read access to the production tables
-
-> After sync, start the local SAM API and frontend dev server — the app will show real production data scoped to `"local-dev"`.
-
----
-
-## 6. DynamoDB Schema Changes
-
-DynamoDB is schemaless — adding new attributes to items requires no table changes. Just update the Lambda handler code and redeploy.
-
-The only cases that require a table-level change are:
+DynamoDB is schemaless — new attributes need no table change. Update the handler and redeploy.
 
 | Change | Action required |
 |---|---|
-| Adding a new GSI (Global Secondary Index) | Update `template.yaml`, run `sam deploy` |
-| Changing the primary key | Create a new table, migrate data, update code |
-| Deleting a GSI | Update `template.yaml`, run `sam deploy` |
+| New table | Add it to `template.yaml` (and to `Globals` env, the function's policy, and the backup list in `adminBackup.mjs` + its IAM policy) |
+| New or deleted GSI | Update `template.yaml`, deploy |
+| Changing a primary key | New table, migrate data, update code |
 
 ---
 
-## 7. Cognito Changes
+## 6. Cognito
 
-### Add a user manually
+Most user admin is on **Admin → Users**: list users with their record counts, add or remove the `admin` group, delete a user (asks for your password).
 
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id eu-central-1_CD7AdBFwQ \
-  --username <username> \
-  --region eu-central-1
-
-aws cognito-idp admin-set-user-password \
-  --user-pool-id eu-central-1_CD7AdBFwQ \
-  --username <username> \
-  --password <password> \
-  --permanent \
-  --region eu-central-1
-```
-
-### List users
+From the CLI:
 
 ```bash
-aws cognito-idp list-users \
-  --user-pool-id eu-central-1_CD7AdBFwQ \
-  --region eu-central-1
+# Create a user with a permanent password
+aws cognito-idp admin-create-user --user-pool-id eu-central-1_CD7AdBFwQ \
+  --username <username> --region eu-central-1
+aws cognito-idp admin-set-user-password --user-pool-id eu-central-1_CD7AdBFwQ \
+  --username <username> --password <password> --permanent --region eu-central-1
+
+# Grant admin
+aws cognito-idp admin-add-user-to-group --user-pool-id eu-central-1_CD7AdBFwQ \
+  --username <username> --group-name admin --region eu-central-1
+
+# List / delete
+aws cognito-idp list-users --user-pool-id eu-central-1_CD7AdBFwQ --region eu-central-1
+aws cognito-idp admin-delete-user --user-pool-id eu-central-1_CD7AdBFwQ \
+  --username <username> --region eu-central-1
 ```
 
-### Delete a user
-
-```bash
-aws cognito-idp admin-delete-user \
-  --user-pool-id eu-central-1_CD7AdBFwQ \
-  --username <username> \
-  --region eu-central-1
-```
+The pool is shared with TYG. Deleting a user removes their TYG login as well.
 
 ---
 
-## 8. Viewing Logs
-
-### Lambda function logs (real-time)
+## 7. Viewing Logs
 
 ```bash
-# Tail logs for a specific function (replace <FunctionName> with the logical name)
 sam logs -n IncomesFunction --stack-name finance4tura-backend --tail
-
-# Or using CloudWatch directly
 aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 ```
 
-### Lambda log groups
+Function logical IDs: `GoogleAuthFunction`, `PreSignUpFunction`, `HealthFunction`, `IncomesFunction`, `ExpensesFunction`, `AdminFunction`, `InvestmentOperationsFunction`, `PortfolioSnapshotsFunction`, `SplitPaymentsFunction`, `BooksAndDevFunction`, `HQFunction`, `AppSettingsFunction`, `FxRatesFunction`, `AdminBackupFunction`, `AiNewsFunction`.
 
-```
-/aws/lambda/finance4tura-backend-GoogleAuthFunction-*
-/aws/lambda/finance4tura-backend-IncomesFunction-*
-/aws/lambda/finance4tura-backend-ExpensesFunction-*
-/aws/lambda/finance4tura-backend-SplitPaymentsFunction-*
-/aws/lambda/finance4tura-backend-InvestmentOperationsFunction-*
-/aws/lambda/finance4tura-backend-PortfolioSnapshotsFunction-*
-/aws/lambda/finance4tura-backend-SP500Function-*
-/aws/lambda/finance4tura-backend-AiNewsFunction-*
-/aws/lambda/finance4tura-backend-AdminFunction-*
-/aws/lambda/finance4tura-backend-HealthFunction-*
-/aws/lambda/finance4tura-backend-PreSignUpFunction-*
-```
-
-Get the exact log group names:
-
-```bash
-aws logs describe-log-groups \
-  --region eu-central-1 \
-  --query "logGroups[?contains(logGroupName, 'finance4tura')].logGroupName" \
-  --output table
-```
+The frontend also keeps a log of its last 50 API calls on the **Backstage** page (when enabled).
 
 ---
 
-## 9. Rolling Back a Bad Deploy
+## 8. Rolling Back a Bad Deploy
 
-### Frontend rollback
+### Frontend
 
-Re-run `npm run build` on the previous git commit and sync again, then invalidate CloudFront.
+Build the previous commit and sync it:
 
 ```bash
 git checkout <previous-commit> -- frontend/src
 cd frontend && npm run build
-aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete
+aws s3 sync dist s3://finance4tura-frontend --region eu-central-1 --delete
 aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" --region us-east-1
+git checkout HEAD -- src    # restore your working tree afterwards
 ```
 
-### Backend rollback
+### Backend
 
-Fix the code locally and redeploy — that's the simplest path. Alternatively, use the CloudFormation Console → Stack → Roll back.
+Fix forward and redeploy — usually simplest. A failed deploy rolls itself back; for a deploy that succeeded but misbehaves, check out the previous `backend/` and run `sam build --no-cached && sam deploy`.
 
 ---
 
-## 10. Recommended Workflow for Local → Cloud
+## 9. Recommended Workflow
 
 ```
-1. Make and test changes locally
-   (frontend: npm run dev | backend: sam local start-api)
+1. Change the code; run the tests
+   (frontend: npm test && npm run lint | backend: npm test)
 
-2. Commit changes to git
+2. Commit and push to GitHub (main)
 
-3. Deploy backend first (if changed)
-   cd backend && sam build --no-cached && sam deploy
+3. Deploy the backend first, if it changed
+   cd backend && ulimit -n 10240 && sam build --no-cached && sam deploy
 
-4. Deploy frontend (if changed)
+4. Deploy the frontend, if it changed
    cd frontend && npm run build
-   aws s3 sync dist/ s3://finance4tura-frontend --region eu-central-1 --delete
+   aws s3 sync dist s3://finance4tura-frontend --region eu-central-1 --delete
    aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" --region us-east-1
 
-5. Verify in browser at https://d34ylrmixnmvem.cloudfront.net
+5. Wait for the invalidation, then check https://d34ylrmixnmvem.cloudfront.net
 ```
 
-> Always deploy the backend before the frontend when both change, to avoid a window where the new frontend calls an API endpoint that does not exist yet.
+> Backend before frontend avoids a window where the new frontend calls an endpoint that doesn't exist yet.

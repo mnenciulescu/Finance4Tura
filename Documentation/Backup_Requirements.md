@@ -2,62 +2,72 @@
 
 ## Overview
 
-A one-click backup feature available on the **Admin page** that exports all DynamoDB tables to CSV files and saves them to a specific Google Drive folder. Intended for full-database snapshots across all users.
+A one-click backup on the **Admin page** that exports every DynamoDB table in the stack to CSV and saves the files to a new dated folder on Google Drive. It covers all users' data.
 
 ---
 
 ## Access
 
-- **Page**: `/admin` (existing Admin page, restricted to user `nenciulescu`)
-- **Section**: New "Data Backup" section, below existing sections
-- **Trigger**: Button labelled **"Backup ALL Tables"**
+- **Page**: `/admin` — shown only to username `nenciulescu`
+- **API**: `/admin/backup/*` — requires the Cognito `admin` group
+- **Section**: **Database Backup**
+- **Trigger**: **Backup ALL Tables**
 
 ---
 
 ## Flow
 
-### Step 1 — Summary modal (confirmation)
+### Step 1 — Preview
 
-Before writing anything, open a modal that shows:
+Clicking the button calls `GET /admin/backup/preview` (spinner while loading) and opens a modal with:
 
-- **Backup destination**: `4TURA_DB_Backups / <YYYY-MM-DD>` (or `<YYYY-MM-DD>_1`, `_2`, … if a folder for today already exists)
-- **Tables to be exported** (list): one row per table with table name and current item count
-- **Estimated file count**: equal to number of tables
-- **Warning**: "This will export data for ALL users."
-- Two buttons: **Confirm & Backup** and **Cancel**
+- the destination folder name — today's date, `YYYY-MM-DD`
+- one row per table with its current item count (a table that can't be counted shows an error)
+- **Confirm** and **Cancel**
 
-The item counts are fetched from the backend at the time the button is clicked (before showing the modal), so the summary is accurate.
+Nothing is written at this step.
 
-### Step 2 — Export & upload
+### Step 2 — Prepare
 
-On confirmation:
+On confirm, `POST /admin/backup/prepare` creates the folder under the backup parent folder in Drive:
 
-1. Backend scans each DynamoDB table in full (no userId filter — all users)
-2. Converts each table to CSV:
-   - First row: column headers (union of all attribute keys found across items, sorted alphabetically)
-   - Subsequent rows: one row per item; values serialised as plain strings; nested objects/arrays serialised as JSON strings; missing fields left empty
-3. Creates the destination folder in Google Drive under `4TURA_DB_Backups`:
-   - Folder name: `YYYY-MM-DD` (today's date at time of confirmation)
-   - If a folder with that name already exists under `4TURA_DB_Backups`, try `YYYY-MM-DD_1`, `YYYY-MM-DD_2`, … until a free name is found
-4. Uploads each CSV file to the newly created folder
-   - File name: `<TableName>.csv` (e.g. `Incomes.csv`, `Expenses.csv`)
-5. Returns a result summary to the frontend
+- name `YYYY-MM-DD`; if it already exists, `YYYY-MM-DD_1`, `_2`, … up to `_9`
+- returns `{ folderId, folderName, folderUrl }`
 
-### Step 3 — Result modal
+If the folder can't be created, the modal shows the error and stops.
 
-After completion, replace the confirmation modal with a result view showing:
+### Step 3 — Export, one table at a time
 
-- **Status**: Success or partial failure
-- **Folder path**: `4TURA_DB_Backups / <actual folder name used>`
-- **Google Drive link** to the folder (direct URL)
-- Per-table status: table name, row count exported, ✓ or ✗
-- **Close** button
+The browser then calls `POST /admin/backup/run-table` **once per table, in order**, with `{ tableName, folderId }`. Each call:
+
+1. scans the whole table (all users)
+2. converts it to CSV
+3. uploads `<TableName>.csv` to the folder
+4. returns `{ table, rows, ok, error? }`
+
+The modal updates each row as it goes: pending → running → ✓ or ✗ with the row count.
+
+Splitting the work per table keeps every request well under API Gateway's 29-second limit, and one failed table doesn't stop the rest.
+
+### Step 4 — Result
+
+When every table is done, the modal shows each table's status and row count, a link to the Drive folder, and **Close**.
 
 ---
 
-## Tables to Back Up
+## CSV Format
 
-All DynamoDB tables in the `finance4tura-backend` stack:
+- Header row: the union of every attribute name across the table's items, sorted alphabetically
+- One row per item; missing attributes are empty
+- Objects and arrays are written as JSON strings
+- Values containing a comma, quote or newline are quoted, with quotes doubled
+- An empty table produces an empty file
+
+---
+
+## Tables Backed Up
+
+All 11 tables in the `finance4tura-backend` stack (the `TABLES` list in `adminBackup.mjs`):
 
 | Table | Primary Key |
 |---|---|
@@ -65,13 +75,15 @@ All DynamoDB tables in the `finance4tura-backend` stack:
 | `Expenses` | `expenseId` |
 | `InvestmentOperations` | `operationId` |
 | `PortfolioSnapshots` | `snapshotId` |
-| `SP500Monthly` | `monthId` |
 | `SplitPayments` | `splitPaymentId` |
 | `AppSettings` | `settingKey` |
+| `FxRates` | `rateId` |
 | `Books_and_Dev` | `bookId` |
 | `HQ_Locations` | `hqId` |
 | `HQ_Templates` | `templateId` |
 | `HQ_Entries` | `entryId` |
+
+Adding a table to the stack means adding it to `TABLES` **and** to the function's `dynamodb:Scan` policy in `template.yaml`.
 
 ---
 
@@ -79,79 +91,71 @@ All DynamoDB tables in the `finance4tura-backend` stack:
 
 ### Authentication
 
-- Uses a **Google Service Account** with Drive API access
-- Service account credentials (JSON key) stored as a Lambda environment variable (`GOOGLE_SERVICE_ACCOUNT_JSON`)
-- The service account must be granted **Editor** access to the `4TURA_DB_Backups` folder in Google Drive
-- `4TURA_DB_Backups` folder ID stored as a Lambda environment variable (`GDRIVE_BACKUP_FOLDER_ID`)
+The backup writes as a real Google account via **OAuth2 with a refresh token** (not a service account), so the files belong to that account and use its Drive quota.
 
-### Libraries
+- Credentials `{ client_id, client_secret, refresh_token }` are stored in SSM Parameter Store as the SecureString `/finance4tura/gdrive-oauth2`.
+- The Lambda reads them once per container and exchanges the refresh token for an access token at `https://oauth2.googleapis.com/token`.
+- The parent folder (`4TURA_DB_Backups`) is the Lambda environment variable `GDRIVE_BACKUP_FOLDER_ID`.
 
-- Backend: [`googleapis`](https://www.npmjs.com/package/googleapis) Node.js client
-- No frontend changes needed for Drive auth — all Drive interaction happens server-side
+### Calls
+
+Plain `fetch` against the Drive v3 REST API — no `googleapis` dependency. Every call passes `supportsAllDrives=true`.
 
 ---
 
-## API Endpoint
+## API Endpoints
+
+All require the `admin` group. Responses carry `Cache-Control: no-store`.
 
 ### `GET /admin/backup/preview`
 
-Returns a pre-backup summary without writing anything.
-
-**Response**:
 ```json
 {
-  "folderName": "2026-03-28",
+  "folderName": "2026-10-12",
   "tables": [
     { "name": "Incomes", "count": 142 },
-    { "name": "Expenses", "count": 378 },
-    ...
+    { "name": "Expenses", "count": 378 }
   ]
 }
 ```
 
-### `POST /admin/backup/run`
+A table that fails to count returns `"count": -1` and an `"error"`.
 
-Executes the backup.
+### `POST /admin/backup/prepare`
 
-**Response**:
 ```json
 {
-  "folderName": "2026-03-28",
-  "folderUrl": "https://drive.google.com/drive/folders/...",
-  "results": [
-    { "table": "Incomes", "rows": 142, "ok": true },
-    { "table": "Expenses", "rows": 378, "ok": true },
-    ...
-  ]
+  "folderId": "1AbC…",
+  "folderName": "2026-10-12_1",
+  "folderUrl": "https://drive.google.com/drive/folders/1AbC…"
 }
 ```
 
-**Auth**: Admin-only (same guard as existing `/app-settings` PUT — checks `userId === "nenciulescu"` or the Cognito `sub` equivalent).
+### `POST /admin/backup/run-table`
+
+Body: `{ "tableName": "Incomes", "folderId": "1AbC…" }`. 400 if either is missing.
+
+```json
+{ "table": "Incomes", "rows": 142, "ok": true }
+```
+
+On failure it still returns 200, with `"ok": false` and an `"error"` message.
 
 ---
 
 ## Backend
 
-- New handler file: `backend/src/handlers/adminBackup.mjs`
-- New SAM function: `AdminBackupFunction`
-  - Runtime: `nodejs20.x`
-  - Timeout: **300 seconds** (full scan + Drive upload of 14 tables can be slow)
-  - Memory: 512 MB
-  - Environment variables:
-    - `GOOGLE_SERVICE_ACCOUNT_JSON` — stringified service account key JSON
-    - `GDRIVE_BACKUP_FOLDER_ID` — Google Drive folder ID for `4TURA_DB_Backups`
-  - IAM: `dynamodb:Scan` on all tables
-
----
+- Handler: `backend/src/handlers/adminBackup.mjs`
+- SAM function: `AdminBackupFunction`
+  - Runtime `nodejs22.x` (global), timeout **300 s**, memory **512 MB**
+  - Environment: `GDRIVE_BACKUP_FOLDER_ID`
+  - IAM: `dynamodb:Scan` on the 11 tables; `ssm:GetParameter` on `/finance4tura/gdrive-oauth2`
 
 ## Frontend
 
-- New section in `Admin.jsx`: **"Database Backup"**
-- Single button: **"Backup ALL Tables"**
-- On click:
-  1. Call `GET /admin/backup/preview` → show summary modal (spinner while loading)
-  2. User confirms → call `POST /admin/backup/run` → show progress spinner → show result modal
-- Modal reuses the existing Admin page modal style
+- `frontend/src/pages/Admin.jsx`, **Database Backup** section
+- `frontend/src/api/adminBackup.js`: `backupPreview()`, `backupPrepare()`, `backupRunTable(tableName, folderId)`
+- Modal phases: `loading` → `preview` → `running` → `done`
 
 ---
 
@@ -159,17 +163,20 @@ Executes the backup.
 
 | Scenario | Behaviour |
 |---|---|
-| Drive auth failure | Result modal shows error; partial uploads listed |
-| Single table scan failure | Continue with remaining tables; mark that table ✗ in results |
-| Folder creation conflict (race) | Retry with next suffix (`_1`, `_2`, …) up to `_9`; fail with error beyond that |
-| Lambda timeout | Frontend shows a timeout error; any completed uploads are retained in Drive |
+| Preview fails | Error shown under the button; no modal |
+| A table can't be counted | Its preview row shows an error; the backup still runs |
+| Folder can't be created (auth failure, `_9` exhausted) | Result shows the error; no tables exported |
+| One table fails to scan or upload | Marked ✗ with the error; the others continue |
+| A run-table request fails outright | Marked ✗; the others continue |
+
+Files already uploaded stay in Drive whatever happens later.
 
 ---
 
 ## Out of Scope
 
-- Scheduled / automatic backups (future phase)
+- Scheduled backups
 - Restore from backup
-- Selective table backup
-- Encryption of CSV files
-- Backup retention / cleanup policy
+- Choosing which tables to back up
+- Encrypting the CSVs
+- Retention or clean-up of old folders
