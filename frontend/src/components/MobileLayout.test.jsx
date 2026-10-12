@@ -25,7 +25,7 @@ const tab = label => within(document.querySelector("nav")).getByLabelText(label)
 describe("MobileLayout tab bar", () => {
   it("mirrors the desktop nav groups", () => {
     renderBar();
-    expect(tabLabels()).toEqual(["Home", "Finance", "Evolve", "HQ"]);
+    expect(tabLabels()).toEqual(["Home", "Finance", "Books", "HQ"]);
   });
 
   it("opens the Finance group as a sheet rather than navigating", () => {

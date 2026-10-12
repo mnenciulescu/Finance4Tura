@@ -46,8 +46,8 @@ export const navGroups = [
     match: p => financeRoutes.some(r => p === r || p.startsWith(`${r}/`)),
   },
   {
-    id: "evolve",
-    label: "Evolve",
+    id: "books",
+    label: "Books",
     Icon: IconEvolve,
     to: "/books-and-dev",
     match: p => p.startsWith("/books-and-dev"),

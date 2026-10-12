@@ -199,7 +199,7 @@ export default function Admin() {
           <div style={s.settingsCard}>
             <div style={s.settingsTitle}>App Settings</div>
             {[
-              { key: "backstageEnabled",     label: "Backstage menu",   desc: "Show or hide Backstage in the System menu for all users" },
+              { key: "backstageEnabled",     label: "Backstage menu",   desc: "Show or hide Backstage in the account menu for all users" },
               { key: "googleLoginEnabled",   label: "Google Sign-In",   desc: "Allow users to log in with their Google account" },
               { key: "createAccountEnabled", label: "Create account",   desc: "Allow new users to register from the login page" },
             ].map(({ key, label, desc }, i) => {
