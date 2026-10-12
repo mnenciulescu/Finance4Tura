@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { getAuthToken } from "../api/client";
 import { navGroups, accountItems, visibleItems } from "./navConfig";
-import { TAB_ICON_COLORS, alpha } from "../utils/colors";
 
 // ── JWT expiry timer ─────────────────────────────────────────────────────────
 
@@ -121,7 +120,6 @@ export default function MobileLayout({ children }) {
         <div style={s.dock}>
           {navGroups.map(group => {
             const active = group.match(pathname);
-            const tone   = TAB_ICON_COLORS[group.tone];
             return (
               <button
                 key={group.id}
@@ -133,15 +131,15 @@ export default function MobileLayout({ children }) {
                 <span
                   style={{
                     ...s.tabIcon,
-                    ...(active ? { background: alpha(tone.main, 0.18) } : s.tabIconIdle),
+                    ...(active ? s.tabIconActive : s.tabIconIdle),
                   }}
                 >
-                  <group.Icon size={30} />
+                  <group.Icon size={26} />
                 </span>
                 <span
                   style={{
                     ...s.tabLabel,
-                    color:      active ? tone.ink : "var(--text-muted)",
+                    color:      active ? "var(--accent)" : "var(--text-muted)",
                     fontWeight: active ? 800 : 600,
                   }}
                 >
@@ -150,7 +148,7 @@ export default function MobileLayout({ children }) {
                 <span
                   style={{
                     ...s.tabDot,
-                    background: active ? tone.main : "transparent",
+                    background: active ? "var(--accent)" : "transparent",
                   }}
                 />
               </button>
@@ -323,9 +321,10 @@ const s = {
     fontFamily:     "inherit",
     cursor:         "pointer",
   },
-  // Flat throughout: each icon sits in a capsule, and the active one is just
-  // a solid tint of its own hue — no lift, glow or gradient. Idle icons keep
-  // their colour but step back.
+  // The icon's outline is currentColor, so the capsule's colour drives it:
+  // muted when idle, the theme accent when active — the same accent-tint
+  // treatment selection gets everywhere else in the app. Each icon's soft
+  // Dusk fill stays put, which is what keeps the bar lightly colourful.
   tabIcon: {
     display:        "flex",
     alignItems:     "center",
@@ -333,10 +332,14 @@ const s = {
     width:          "58px",
     height:         "40px",
     borderRadius:   "var(--r-pill)",
-    transition:     "background 180ms ease-out, opacity 180ms ease-out",
+    transition:     "background 180ms ease-out, color 180ms ease-out",
+  },
+  tabIconActive: {
+    color:      "var(--accent)",
+    background: "var(--accent-tint-bg)",
   },
   tabIconIdle: {
-    opacity: 0.85,
+    color: "var(--text-muted)",
   },
   tabLabel: {
     fontSize:      "var(--fs-caption)",

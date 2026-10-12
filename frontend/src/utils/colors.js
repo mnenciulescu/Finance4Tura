@@ -93,31 +93,16 @@ export const TYPE_COLORS = {
 };
 
 /**
- * Bottom-bar tab icons — flat, two-tone illustrations. Deliberately brighter
- * than the muted Dusk anchors: the bar is the one place the app uses full
- * colour, one hue per tab. `main` is the body, `deep` the second tone (roof,
- * flap, cap), `ink` the active label — a mid-tone, so it reads on the navy
- * Dusk bar and on the white Light/Amber bars alike. Shared accents sit in
- * `shared`. No gradients: every shape is a single solid fill.
+ * Bottom-bar tab icons — duotone. The outline is drawn in currentColor, so it
+ * follows the theme (muted when idle, the theme accent when active); under it
+ * sits a soft fill in one Dusk anchor per tab, plus a small tan detail. Same
+ * muted hues as every other series colour in the app, so the bar belongs to
+ * the theme rather than sitting on top of it.
  */
 export const TAB_ICON_COLORS = {
-  home: {
-    main: "#ff7a66", deep: "#e5486b", door: "#7a2950", ink: "#ec5a6f",
-  },
-  finance: {
-    main: "#2fc79a", deep: "#13977d", ink: "#16b08c",
-  },
-  books: {
-    main: "#8b6ff2", deep: "#5c47c9", ink: "#8b6ff2",
-    page: "#f3efff", pageShade: "#e1d8ff", line: "#b9a8f7", ribbon: "#f472b6",
-  },
-  hq: {
-    main: "#4f8ff7", deep: "#2756c9", annex: "#9cc8ff", door: "#1d3f99",
-    drop: "#22c3e6", ink: "#3d82f0",
-  },
-  shared: {
-    gold:     "#ffcb52",
-    goldDeep: "#f0a020",
-    window:   "#ffe08a",
-  },
+  home:    DUSK.terracotta,
+  finance: DUSK.sage,
+  books:   DUSK.lilac,
+  hq:      DUSK.teal,
+  detail:  DUSK.tan,
 };

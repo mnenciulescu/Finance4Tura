@@ -10,6 +10,7 @@ vi.mock("../context/AppSettingsContext", () => ({ useAppSettings: () => appSetti
 vi.mock("../api/client", () => ({ getAuthToken: () => null }));
 
 const { default: MobileLayout } = await import("./MobileLayout");
+const { DUSK } = await import("../utils/colors");
 
 // Prints the current location so a test can see where a tab went.
 function Where() {
@@ -56,17 +57,26 @@ describe("MobileLayout tab bar", () => {
     }
   });
 
-  it("draws each tab with a flat colour icon — solid fills, no gradients or effects", () => {
+  it("draws theme-matched duotone icons: outline in currentColor over a soft Dusk fill", () => {
     renderBar();
     const svgs = [...document.querySelectorAll("nav button svg")];
     expect(svgs).toHaveLength(4);
     for (const svg of svgs) {
+      // Outline follows the theme through currentColor…
+      expect(svg.getAttribute("stroke")).toBe("currentColor");
+      // …over a translucent fill from the app's own palette; no gradients.
       expect(svg.querySelector("linearGradient, radialGradient, filter")).toBeNull();
-      const fills = [...svg.querySelectorAll("[fill]")].map(el => el.getAttribute("fill"));
-      expect(fills.some(f => f.startsWith("url("))).toBe(false);
-      // Colourful: at least three distinct colours per icon.
-      expect(new Set(fills.filter(f => f.startsWith("#"))).size).toBeGreaterThanOrEqual(3);
+      const tint = svg.querySelector("[fill-opacity]");
+      expect(tint).not.toBeNull();
+      expect(Object.values(DUSK)).toContain(tint.getAttribute("fill"));
     }
+  });
+
+  it("marks the active tab in the theme accent", () => {
+    renderBar("/finance");
+    const capsule = tab("Finance").querySelector("svg").parentElement;
+    expect(capsule.style.color).toBe("var(--accent)");
+    expect(tab("Home").querySelector("svg").parentElement.style.color).toBe("var(--text-muted)");
   });
 
   it("has no System tab", () => {

@@ -94,13 +94,14 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
   top bar (brand, avatar menu) and the bottom bar.
 - Bottom bar: a floating dock (`--surface-deep`, `--r-xl`, `--shadow-raised`)
-  inset from the screen edges. Each tab has a **flat, 2D** two-tone icon from
-  `components/TabIcons.jsx` in its own hue (`TAB_ICON_COLORS` in
-  `utils/colors.js`, picked by the tab's `tone`): coral house, emerald wallet
-  with a gold coin, violet open book, blue building with a water drop. Solid
-  fills only — no gradients, shading, highlights, glow or lift; a test enforces
-  it. The active tab gets a capsule in a flat tint of its hue, a coloured bold
-  label and a solid underline; idle icons stay coloured at reduced opacity.
+  inset from the screen edges. Each tab has a **duotone** icon from
+  `components/TabIcons.jsx`, drawn to match the theme: a rounded line drawing
+  in `currentColor` over a soft fill in one Dusk anchor per tab (terracotta
+  Home, sage Finance, lilac Books, teal HQ — `TAB_ICON_COLORS` in
+  `utils/colors.js`) plus a small tan detail. Because the outline is
+  `currentColor`, it takes `--text-muted` when idle and `--accent` when active;
+  the active tab also gets the `--accent-tint-bg` capsule, an accent bold label
+  and an accent underline — the same selection treatment as the rest of the app.
 - Tabs: **Home · Finance · Books · HQ**. Every tab navigates directly;
   there are no sheets. **Finance** opens `/finance` with `resetDashboard`
   state (back on the current income) and stays highlighted on all six Finance
@@ -138,7 +139,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Categorical series colours in `frontend/src/utils/colors.js` — the palette
   anchors (`DUSK`), `PRIORITY_COLORS`, `HTTP_METHOD_COLORS`, `CHART_COLORS`,
   `BAR_COLORS`, `PLATFORM_COLORS`, `TYPE_COLORS`, `TAB_ICON_COLORS` (the
-  bottom bar — the one deliberately bright palette, flat solid colours) and the `alpha()` tint helper.
+  bottom-bar icon fills, mapped onto Dusk anchors) and the `alpha()` tint helper.
   This is the one file allowed to hold hex literals.
 - **Two-step inline delete** is the app-wide pattern: `Delete` → `Tap to
   confirm`, reverting after 4 s. No `window.confirm`. (The Finance Dashboard
@@ -524,7 +525,7 @@ cd backend && node --test src/**/*.test.mjs
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
 | Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Dashboard` (9), `Statistics` (7), `BooksAndDev` (5), `Headquarters` (4) | 83 |
-| Frontend components | `MobileLayout` (tab bar, tab icons, account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 30 |
+| Frontend components | `MobileLayout` (tab bar, tab icons, account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 31 |
 | Frontend regression | `noZoom` (16px form controls), `appWidth`, `designTokens` (no raw colours, radii or shadows outside the token files) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |

@@ -1,108 +1,69 @@
-// Flat, two-tone icons for the bottom bar. Every shape is a single solid fill
-// — no gradients, shading, highlights or shadows — in its tab's own hue
-// (TAB_ICON_COLORS in utils/colors.js), with a shared gold accent. Drawn on a
-// 32-unit grid with simple geometry so they stay crisp down to 24 px.
+// Duotone icons for the bottom bar, in the same language as the rest of the
+// app: a rounded line drawing in currentColor — so it takes the theme's muted
+// text colour when idle and its accent when active — over a soft fill in one
+// Dusk anchor per tab (TAB_ICON_COLORS), with a small tan detail. Solid fills
+// only; drawn on a 24-unit grid with a 1.7 stroke.
 
 import { TAB_ICON_COLORS as C } from "../utils/colors";
 
-const { gold, goldDeep, window: lit } = C.shared;
+const TINT = 0.5;   // opacity of the colour fill under the outline
 
 function Svg({ size, children }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true"
+      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+    >
       {children}
     </svg>
   );
 }
 
-export function TabIconHome({ size = 30 }) {
-  const c = C.home;
+export function TabIconHome({ size = 26 }) {
   return (
     <Svg size={size}>
-      {/* chimney */}
-      <rect x="20.5" y="5" width="4" height="7" rx="1" fill={c.deep} />
-      {/* walls */}
-      <path d="M6.5 14.5 16 6.6l9.5 7.9V25.5a2.5 2.5 0 0 1-2.5 2.5H9a2.5 2.5 0 0 1-2.5-2.5Z" fill={c.main} />
-      {/* roof */}
-      <path d="M2.6 15.1 16 3.6l13.4 11.5a1.6 1.6 0 0 1-2.08 2.43L16 7.8 4.68 17.53A1.6 1.6 0 0 1 2.6 15.1Z" fill={c.deep} />
-      {/* windows */}
-      <rect x="9.2" y="16.2" width="3.8" height="3.8" rx="1" fill={lit} />
-      <rect x="19" y="16.2" width="3.8" height="3.8" rx="1" fill={lit} />
-      {/* door and knob */}
-      <path d="M13.3 28v-6a2.7 2.7 0 0 1 5.4 0v6Z" fill={c.door} />
-      <circle cx="17.3" cy="24.7" r="0.7" fill={gold} />
+      <path d="M5.5 10.2 12 4.6l6.5 5.6v8.8a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5Z" fill={C.home} fillOpacity={TINT} stroke="none" />
+      <rect x="14.2" y="11.6" width="2.4" height="2.4" rx="0.6" fill={C.detail} stroke="none" />
+      <path d="M3 11.2 12 3.5l9 7.7" />
+      <path d="M5.5 9.6V19a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5V9.6" />
+      <path d="M10 20.5v-4.3a2 2 0 0 1 4 0v4.3" />
     </Svg>
   );
 }
 
-export function TabIconFinance({ size = 30 }) {
-  const c = C.finance;
+export function TabIconFinance({ size = 26 }) {
   return (
     <Svg size={size}>
-      {/* coin */}
-      <circle cx="21.8" cy="8.4" r="5.2" fill={gold} />
-      <circle cx="21.8" cy="8.4" r="3.2" fill={goldDeep} />
-      <rect x="21.1" y="6.4" width="1.4" height="4" rx="0.7" fill={gold} />
-      {/* back flap */}
-      <path d="M5 11.5a3.3 3.3 0 0 1 3.3-3.3h10.2v4.9H5Z" fill={c.deep} />
-      {/* wallet */}
-      <rect x="3.2" y="11" width="24.6" height="17" rx="4.2" fill={c.main} />
-      {/* clasp */}
-      <rect x="18.6" y="16" width="10.6" height="7.2" rx="3.6" fill={c.deep} />
-      <circle cx="22.6" cy="19.6" r="1.7" fill={gold} />
-      {/* card slot */}
-      <rect x="6.4" y="14" width="8.6" height="1.6" rx="0.8" fill={c.deep} />
+      <rect x="3" y="7.5" width="18" height="12.5" rx="3" fill={C.finance} fillOpacity={TINT} stroke="none" />
+      <path d="M6 7.5V6a2 2 0 0 1 2-2h7.5" />
+      <rect x="3" y="7.5" width="18" height="12.5" rx="3" />
+      <path d="M21 11.3h-3.6a2.45 2.45 0 0 0 0 4.9H21" />
+      <circle cx="17.6" cy="13.75" r="1.1" fill={C.detail} stroke="none" />
     </Svg>
   );
 }
 
-export function TabIconBooks({ size = 30 }) {
-  const c = C.books;
+export function TabIconBooks({ size = 26 }) {
   return (
     <Svg size={size}>
-      {/* sparkle */}
-      <path d="M16 1.4l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1Z" fill={gold} />
-      {/* cover, opened flat */}
-      <path d="M2.8 9.6a1.6 1.6 0 0 1 1.9-1.6L16 10.2 27.3 8a1.6 1.6 0 0 1 1.9 1.6v15.2a1.6 1.6 0 0 1-1.3 1.6L16 28.6 4.1 26.4a1.6 1.6 0 0 1-1.3-1.6Z" fill={c.main} />
-      {/* pages */}
-      <path d="M5.4 9.9 15.1 11.8v14.4l-9.7-1.9Z" fill={c.page} />
-      <path d="M26.6 9.9 16.9 11.8v14.4l9.7-1.9Z" fill={c.pageShade} />
-      {/* spine */}
-      <rect x="15.4" y="11.4" width="1.2" height="16" rx="0.6" fill={c.deep} />
-      {/* lines of text */}
-      <g stroke={c.line} strokeWidth="1.2" strokeLinecap="round">
-        <path d="M7.6 14.2l5.3 1" />
-        <path d="M7.6 17.2l5.3 1" />
-        <path d="M7.6 20.2l3.6.7" />
-        <path d="M19.1 18.2l5.3-1" />
-        <path d="M19.1 21.2l5.3-1" />
-      </g>
-      {/* bookmark ribbon */}
-      <path d="M22 10.9v6.8l1.6-1.4 1.6 1.4v-7.4Z" fill={c.ribbon} />
+      <path d="M12 6.6C10 5.1 7 4.6 3.5 5.1v13.1c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5.1C17 4.6 14 5.1 12 6.6Z" fill={C.books} fillOpacity={TINT} stroke="none" />
+      <path d="M15.6 5.2v5l1.4-1.1 1.4 1.1V5" fill={C.detail} stroke="none" />
+      <path d="M12 6.6C10 5.1 7 4.6 3.5 5.1v13.1c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5.1C17 4.6 14 5.1 12 6.6Z" />
+      <path d="M12 6.6v13.1" />
     </Svg>
   );
 }
 
-export function TabIconHQ({ size = 30 }) {
-  const c = C.hq;
+export function TabIconHQ({ size = 26 }) {
   return (
     <Svg size={size}>
-      {/* annex */}
-      <rect x="17.6" y="15" width="10.4" height="13" rx="2" fill={c.annex} />
-      <rect x="21" y="18.4" width="3.4" height="2.6" rx="0.7" fill={c.main} />
-      <rect x="21" y="23" width="3.4" height="2.6" rx="0.7" fill={c.main} />
-      {/* tower */}
-      <rect x="4.6" y="8.6" width="15" height="19.4" rx="2.2" fill={c.main} />
-      <rect x="3.6" y="6.6" width="17" height="3.6" rx="1.6" fill={c.deep} />
-      {/* windows */}
-      <rect x="7.6" y="12.6" width="3.2" height="3" rx="0.7" fill={lit} />
-      <rect x="13.4" y="12.6" width="3.2" height="3" rx="0.7" fill={c.deep} />
-      <rect x="7.6" y="17.6" width="3.2" height="3" rx="0.7" fill={c.deep} />
-      <rect x="13.4" y="17.6" width="3.2" height="3" rx="0.7" fill={lit} />
-      {/* door */}
-      <rect x="10.1" y="22.6" width="4" height="5.4" rx="1.1" fill={c.door} />
-      {/* water drop — HQ tracks meters */}
-      <path d="M25.2 2.6s-4.3 4.9-4.3 7.6a4.3 4.3 0 0 0 8.6 0c0-2.7-4.3-7.6-4.3-7.6Z" fill={c.drop} />
+      <rect x="4" y="4" width="10" height="16.5" rx="1.5" fill={C.hq} fillOpacity={TINT} stroke="none" />
+      <path d="M17 12.4s-1.8 2-1.8 3.2a1.8 1.8 0 0 0 3.6 0c0-1.2-1.8-3.2-1.8-3.2Z" fill={C.detail} stroke="none" />
+      <path d="M14 20.5V5.5A1.5 1.5 0 0 0 12.5 4h-7A1.5 1.5 0 0 0 4 5.5v15" />
+      <path d="M14 9h4.5A1.5 1.5 0 0 1 20 10.5v10" />
+      <path d="M2.5 20.5h19" />
+      <path d="M7.3 8h.01M10.7 8h.01M7.3 11.5h.01M10.7 11.5h.01" strokeWidth="2.2" />
+      <path d="M7.8 20.5v-3.2h2.4v3.2" />
     </Svg>
   );
 }

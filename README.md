@@ -389,7 +389,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │   │   │   ├── Layout.jsx            # Passthrough to MobileLayout
 │   │   │   ├── MobileLayout.jsx      # Top bar, avatar menu, bottom bar
 │   │   │   ├── navConfig.js          # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu)
-│   │   │   ├── TabIcons.jsx          # Flat colour bottom-bar icons
+│   │   │   ├── TabIcons.jsx          # Duotone bottom-bar icons
 │   │   │   ├── navIcons.jsx          # Line icons for the Finance and account menus
 │   │   │   ├── IncomeCard.jsx        # Income-period card on the Dashboard
 │   │   │   ├── DateSheet.jsx         # App calendar sheet
