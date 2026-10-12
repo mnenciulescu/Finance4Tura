@@ -116,13 +116,49 @@ describe("Dashboard — controls rehomed from the desktop bar", () => {
     expect(screen.getByTitle("Next year").disabled).toBe(false);
   });
 
-  it("carries the privacy toggle that hides income amounts", async () => {
+  it("has no stand-alone privacy button on the header row", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+    expect(screen.queryByTitle(/income amounts$/)).toBeNull();
+  });
+});
 
-    const toggle = screen.getByTitle(/income amounts$/);
-    const before = toggle.title;
-    fireEvent.click(toggle);
-    expect(screen.getByTitle(/income amounts$/).title).not.toBe(before);
+// The privacy toggle moved into a menu on the header row, alongside the pages
+// the bottom bar's Finance sheet lists.
+describe("Dashboard — Finance menu", () => {
+  const openMenu = async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Salary Sep")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Finance menu"));
+    return screen.getByRole("menu");
+  };
+  const itemLabels = menu =>
+    [...menu.querySelectorAll('[role="menuitem"]')].map(b => b.textContent);
+
+  it("lists the Finance pages, then the income-amounts toggle", async () => {
+    const menu = await openMenu();
+    const labels = itemLabels(menu);
+    expect(labels.slice(0, 6)).toEqual([
+      "Dashboard", "Add Income", "Add Expense", "Split Pay", "Statistics", "Investments",
+    ]);
+    expect(labels[6]).toMatch(/^(Show|Hide) income amounts$/);
+    expect(labels).toHaveLength(7);
+  });
+
+  it("flips the income-amounts setting and closes", async () => {
+    let menu = await openMenu();
+    const before = itemLabels(menu)[6];
+    fireEvent.click(screen.getByText(before));
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Finance menu"));
+    menu = screen.getByRole("menu");
+    expect(itemLabels(menu)[6]).not.toBe(before);
+  });
+
+  it("closes on an outside tap", async () => {
+    await openMenu();
+    fireEvent.click(screen.getByRole("menu").previousSibling);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });

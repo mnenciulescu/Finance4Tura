@@ -219,7 +219,7 @@ Show income periods with their expenses. Route `/finance`.
 ### Behavior
 - Loads `GET /incomes` and `GET /expenses`; shows **one income-period card at a time** for the selected year.
 - Move between periods by swiping or with **← / ◎ / →** (◎ returns to the current period). Opening Dashboard from the Finance sheet jumps to the current period.
-- Header: **year stepper** (capped at the current year, shared with Statistics) and the **privacy toggle** that masks income amounts (remembered on the device).
+- Header row: **year stepper** (capped at the current year, shared with Statistics), the period buttons, and a **⋮ Finance menu** listing the six Finance pages plus **Show / Hide income amounts** (remembered on the device).
 - The **current period** (latest income dated ≤ today) has a distinct header.
 - Each card: income header with **+ Add** expense and edit link, expense rows, and a footer splitting spent (completed / pending) against free.
 - Expense rows: priority dot, summary, date, amount, status toggle, edit (✎) and delete (🗑). `special` rows show ★ and a red background.

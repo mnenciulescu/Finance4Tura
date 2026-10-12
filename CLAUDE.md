@@ -167,9 +167,12 @@ Route: `/finance` — Finance sheet → Dashboard. **File**: `frontend/src/pages
 
 - One income-period card (`IncomeCard`) at a time. Swipe horizontally, or use
   the ← / ◎ / → buttons (◎ returns to the current period).
-- The header owns the **year stepper** (`‹ 2026 ›`, capped at the current year,
-  shared via `YearContext` with Statistics) and the **privacy toggle** that
-  hides income amounts (persisted in `localStorage` as `incomePrivacy`).
+- The header row holds the **year stepper** (`‹ 2026 ›`, capped at the current
+  year, shared via `YearContext` with Statistics), the income ← / ◎ / → buttons,
+  and a **⋮ Finance menu**. The menu lists the Finance sheet's six pages (read
+  from `navGroups`, so the two never drift), then a divider and **Show / Hide
+  income amounts** — the privacy toggle, persisted in `localStorage` as
+  `incomePrivacy`. An outside tap, Escape, or choosing an item closes it.
 - Opening Dashboard from the Finance sheet passes `resetDashboard` state, which
   jumps back to the current income.
 - `IncomeCard` has its own `+ Add` expense button and an edit-income link.
@@ -510,7 +513,7 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
-| Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Statistics` (7), `Dashboard` (6), `BooksAndDev` (5), `Headquarters` (4) | 80 |
+| Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Dashboard` (9), `Statistics` (7), `BooksAndDev` (5), `Headquarters` (4) | 83 |
 | Frontend components | `MobileLayout` (tab bar + account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 29 |
 | Frontend regression | `noZoom` (16px form controls), `appWidth`, `designTokens` (no raw colours, radii or shadows outside the token files) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |

@@ -1,11 +1,25 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import IncomeCard from "../components/IncomeCard";
 import { listIncomes, deleteIncome } from "../api/incomes";
 import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
+import { navGroups } from "../components/navConfig";
+
+// The same pages the bottom bar's Finance sheet lists, so the two never drift.
+const FINANCE_ITEMS = navGroups.find(g => g.id === "finance").items;
+
+function EyeIcon({ off }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+      <circle cx="8" cy="8" r="2"/>
+      {off && <line x1="2" y1="2" x2="14" y2="14"/>}
+    </svg>
+  );
+}
 
 export default function Dashboard() {
   const { loading: authLoading } = useAuth();
@@ -17,11 +31,20 @@ export default function Dashboard() {
   const [error, setError]             = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [showAmounts, setShowAmounts]     = useState(getPrivacySetting());
+  const [menuOpen, setMenuOpen]           = useState(false);
+  const navigate = useNavigate();
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const location = useLocation();
   const pendingRestoreRef = useRef(location.state?.returnStartIdx ?? null);
   const thisYear = new Date().getFullYear();
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = e => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   // Incomes filtered to the selected year
   const yearIncomes = useMemo(() =>
@@ -270,24 +293,59 @@ export default function Dashboard() {
           </div>
         )}
 
-        <button
-          style={s.visToggle}
-          onClick={() => setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; })}
-          title={showAmounts ? "Hide income amounts" : "Show income amounts"}
-        >
-          {showAmounts ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
-              <circle cx="8" cy="8" r="2"/>
+        {/* Finance menu: the Finance sheet's pages, plus the privacy toggle
+            that used to be a button of its own on this row. */}
+        <div style={s.menuWrap}>
+          <button
+            style={{ ...s.menuBtn, ...(menuOpen ? s.menuBtnOpen : {}) }}
+            onClick={() => setMenuOpen(v => !v)}
+            aria-label="Finance menu"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="8" cy="3" r="1.5" />
+              <circle cx="8" cy="8" r="1.5" />
+              <circle cx="8" cy="13" r="1.5" />
             </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
-              <circle cx="8" cy="8" r="2"/>
-              <line x1="2" y1="2" x2="14" y2="14"/>
-            </svg>
+          </button>
+          {menuOpen && (
+            <>
+              <div style={s.menuScrim} onClick={() => setMenuOpen(false)} />
+              <div style={s.menu} role="menu" aria-label="Finance menu">
+                {FINANCE_ITEMS.map(item => {
+                  const { to, label, Icon, state } = item;
+                  return (
+                  <button
+                    key={to}
+                    role="menuitem"
+                    style={s.menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate(to, state ? { state: state() } : undefined);
+                    }}
+                  >
+                    <span style={s.menuIcon}><Icon size={20} /></span>
+                    {label}
+                  </button>
+                  );
+                })}
+                <div style={s.menuDivider} />
+                <button
+                  role="menuitem"
+                  style={s.menuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowAmounts(v => { const next = !v; setPrivacySetting(next); return next; });
+                  }}
+                >
+                  <span style={s.menuIcon}><EyeIcon off={showAmounts} /></span>
+                  {showAmounts ? "Hide income amounts" : "Show income amounts"}
+                </button>
+              </div>
+            </>
           )}
-        </button>
+        </div>
       </div>
 
       {error && <div style={s.errorBox}>{error}</div>}
@@ -403,18 +461,70 @@ const s = {
     color:              "var(--text)",
     fontVariantNumeric: "tabular-nums",
   },
-  visToggle: {
+  menuWrap: {
+    position:   "relative",
+    flexShrink: 0,
+  },
+  menuBtn: {
     background:     "var(--surface-2)",
     border:         "1px solid var(--border)",
     borderRadius:   "var(--r-md)",
     color:          "var(--text-muted)",
-    width:          "38px",
-    height:         "38px",
+    width:          "40px",
+    height:         "40px",
     display:        "flex",
     alignItems:     "center",
     justifyContent: "center",
     cursor:         "pointer",
-    flexShrink:     0,
+  },
+  menuBtnOpen: {
+    color:      "var(--accent)",
+    background: "var(--accent-tint-bg)",
+  },
+  // Catches the outside tap that closes the menu.
+  menuScrim: {
+    position: "fixed",
+    inset:    0,
+    zIndex:   150,
+  },
+  menu: {
+    position:      "absolute",
+    top:           "calc(100% + var(--sp-2))",
+    right:         0,
+    zIndex:        151,
+    minWidth:      "230px",
+    background:    "var(--surface)",
+    borderRadius:  "var(--r-lg)",
+    boxShadow:     "var(--shadow-raised)",
+    padding:       "var(--sp-2)",
+    display:       "flex",
+    flexDirection: "column",
+  },
+  menuItem: {
+    display:      "flex",
+    alignItems:   "center",
+    gap:          "var(--sp-3)",
+    minHeight:    "44px",
+    padding:      "0 var(--sp-3)",
+    background:   "transparent",
+    border:       "none",
+    borderRadius: "var(--r-md)",
+    color:        "var(--text)",
+    fontFamily:   "inherit",
+    fontSize:     "var(--fs-label)",
+    fontWeight:   600,
+    textAlign:    "left",
+    cursor:       "pointer",
+  },
+  menuIcon: {
+    display:    "flex",
+    flexShrink: 0,
+    color:      "var(--text-muted)",
+  },
+  menuDivider: {
+    height:     "1px",
+    background: "var(--border)",
+    margin:     "var(--sp-1) var(--sp-2)",
   },
   center: {
     display:        "flex",

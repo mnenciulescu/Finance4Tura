@@ -100,7 +100,7 @@ Google Sign-In uses a GIS popup and `POST /auth/google`. The login page hides th
 
 ## Tests
 
-Vitest + Testing Library, `jsdom`. 211 tests: util and context tests in `src/test/`, render tests next to each page and component, against mocked API modules. See CLAUDE.md for the breakdown and the currently failing date-slot tests.
+Vitest + Testing Library, `jsdom`. 214 tests: util and context tests in `src/test/`, render tests next to each page and component, against mocked API modules. See CLAUDE.md for the breakdown and the currently failing date-slot tests.
 
 ## Deploying
 
