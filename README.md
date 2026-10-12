@@ -188,14 +188,16 @@ graph TD
     MENU --> OUT[Sign out]
 
     BAR["Bottom bar"] --> HOME["Home → /"]
-    BAR --> FIN["Finance → sheet"]
+    BAR --> FIN["Finance → /finance (Dashboard)"]
     BAR --> EVO["Books → /books-and-dev"]
     BAR --> HQ["HQ → /headquarters"]
 
-    FIN --> D[Dashboard] & AI[Add Income] & AE[Add Expense] & SP[Split Pay] & ST[Statistics] & INV[Investments]
+    FIN --> FM["⋮ Finance menu on the Dashboard"]
+    FM --> D[Dashboard] & AI[Add Income] & AE[Add Expense] & SP[Split Pay] & ST[Statistics] & INV[Investments] & PRIV[Show / Hide income amounts]
 ```
 
-- **Bottom bar**: Home · Finance · Books · HQ. Finance opens a bottom sheet with its six pages.
+- **Bottom bar**: Home · Finance · Books · HQ. Every tab opens one page; Finance opens the Dashboard on the current income, and stays highlighted on all Finance pages.
+- **Finance menu** (⋮ on the Dashboard header): Dashboard, Add Income, Add Expense, Split Pay, Statistics, Investments, then Show / Hide income amounts.
 - **Avatar menu** (initials, top right): Settings, Admin and Sign out. Backstage appears between Settings and Admin while it's enabled in App Settings. Admin appears only for the admin user.
 - Tapping an item, or any route change, closes the sheet or menu.
 
@@ -386,8 +388,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │   │   ├── components/
 │   │   │   ├── Layout.jsx            # Passthrough to MobileLayout
 │   │   │   ├── MobileLayout.jsx      # Top bar, avatar menu, bottom bar
-│   │   │   ├── NavSheet.jsx          # Bottom sheet for the Finance group
-│   │   │   ├── navConfig.js          # navGroups (tabs) + accountItems (avatar menu)
+│   │   │   ├── navConfig.js          # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu)
 │   │   │   ├── navIcons.jsx          # Nav icons
 │   │   │   ├── IncomeCard.jsx        # Income-period card on the Dashboard
 │   │   │   ├── DateSheet.jsx         # App calendar sheet

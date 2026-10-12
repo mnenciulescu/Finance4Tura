@@ -11,7 +11,7 @@ A **PWA-first** page (`/investments`) to track the user's investment portfolio a
 
 Snapshots and operations are created, edited, and deleted from **bottom sheets**; deletes use a two-step inline confirm.
 
-The page is reachable from the bottom bar: **Finance → Investments**.
+The page is reachable from the ⋮ Finance menu on the Dashboard (Finance tab → ⋮ → Investments).
 
 > There is no S&P 500 simulation and no P&L Evolution chart — both were removed from the product.
 
@@ -221,7 +221,7 @@ The column is a page header plus four stacked blocks:
 ## Functional Requirements
 
 ### FR-1 Navigation
-- **Finance → Investments** in the bottom bar's Finance sheet.
+- **Investments** in the ⋮ Finance menu on the Dashboard (`/finance`).
 - Route: `/investments`, registered in `App.jsx`.
 
 ### FR-2 Block 1 — Total portfolio (expandable)
@@ -320,7 +320,7 @@ The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/se
 | # | Test | Expected Result |
 |---|---|---|
 | I-1 | Open `/investments` on a phone and on a laptop | Identical phone-width column with four stacked blocks; centered on the laptop |
-| I-2 | Finance sheet in the bottom bar | **Investments** is listed and routes to `/investments` |
+| I-2 | ⋮ Finance menu on the Dashboard | **Investments** is listed and routes to `/investments`; the Finance tab stays highlighted |
 | I-3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
 | I-4 | Portfolio evolution chart on first load | Only the grey **Total** line is drawn; platform lines hidden but togglable; the x-axis starts at 2023 |
 | I-5 | Toggle a legend chip | The matching line appears / disappears; the chip dims when hidden |

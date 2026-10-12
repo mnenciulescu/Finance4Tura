@@ -38,7 +38,7 @@ describe("phone-width column", () => {
       "pages/Investments.jsx", "pages/SplitPayment.jsx", "pages/BooksAndDev.jsx",
       "pages/Backstage.jsx", "pages/Admin.jsx", "pages/Settings.jsx",
       "pages/AddExpense.jsx", "pages/AddIncome.jsx",
-      "pages/Headquarters/styles.js", "components/NavSheet.jsx",
+      "pages/Headquarters/styles.js",
     ]) {
       expect(read(page), `${page} should not hardcode the column width`).not.toContain("430px");
     }

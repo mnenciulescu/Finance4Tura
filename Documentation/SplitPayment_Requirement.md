@@ -13,7 +13,7 @@ The module lives on its own page (`/split-payments`) and as a compact block on t
 ## Functional Requirements
 
 ### FR-1 Navigation
-- Route: `/split-payments`, opened from **Finance → Split Pay** in the bottom bar.
+- Route: `/split-payments`, opened from **Split Pay** in the ⋮ Finance menu on the Dashboard (Finance tab).
 - The Home Overview's **Split Payments — Last 3** block links to it with *View all →*.
 - One phone-width layout (430 px column) on every screen.
 

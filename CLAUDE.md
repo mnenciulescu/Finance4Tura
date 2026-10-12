@@ -93,16 +93,18 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
   shows the same UI.
 - `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
   top bar (brand, avatar menu) and the bottom bar.
-- Bottom bar: **Home · Finance · Books · HQ**. Finance opens a bottom sheet
-  (`NavSheet.jsx`) listing Dashboard, Add Income, Add Expense, Split Pay,
-  Statistics and Investments; the others navigate directly.
+- Bottom bar: **Home · Finance · Books · HQ**. Every tab navigates directly;
+  there are no sheets. **Finance** opens `/finance` with `resetDashboard`
+  state (back on the current income) and stays highlighted on all six Finance
+  routes. The other Finance pages are reached from the Dashboard's ⋮ menu,
+  listed by `financeItems`.
 - The avatar (user initials, top right) opens the account menu: username, JWT
   session countdown, then **Settings · Admin · Sign out**. Backstage appears
   between Settings and Admin only while `backstageEnabled` is on; Admin only for
   `ADMIN_USER`. There is no System tab any more. Tab groups are `navGroups`,
-  menu entries `accountItems`, both in `components/navConfig.js`; icons in
+  Finance menu entries `financeItems`, account menu entries `accountItems`, all in `components/navConfig.js`; icons in
   `components/navIcons.jsx`.
-- Any route change closes an open sheet or menu.
+- Any route change closes the account menu.
 - Routes: `/` Home Overview, `/finance` Dashboard, `/add-income`,
   `/add-expense`, `/split-payments`, `/statistics`, `/investments`,
   `/books-and-dev`, `/headquarters`, `/settings`, `/backstage`, `/admin`.
@@ -163,18 +165,17 @@ One phone-width column of four blocks, loaded together (`listIncomes`,
 
 ### Finance Dashboard
 
-Route: `/finance` — Finance sheet → Dashboard. **File**: `frontend/src/pages/Dashboard.jsx`.
+Route: `/finance` — the **Finance** tab. **File**: `frontend/src/pages/Dashboard.jsx`.
 
 - One income-period card (`IncomeCard`) at a time. Swipe horizontally, or use
   the ← / ◎ / → buttons (◎ returns to the current period).
 - The header row holds the **year stepper** (`‹ 2026 ›`, capped at the current
   year, shared via `YearContext` with Statistics), the income ← / ◎ / → buttons,
-  and a **⋮ Finance menu**. The menu lists the Finance sheet's six pages (read
-  from `navGroups`, so the two never drift), then a divider and **Show / Hide
+  and a **⋮ Finance menu**. The menu lists the six Finance pages (`financeItems`), then a divider and **Show / Hide
   income amounts** — the privacy toggle, persisted in `localStorage` as
   `incomePrivacy`. An outside tap, Escape, or choosing an item closes it.
-- Opening Dashboard from the Finance sheet passes `resetDashboard` state, which
-  jumps back to the current income.
+- The Finance tab and the menu's Dashboard item pass `resetDashboard` state,
+  which jumps back to the current income.
 - `IncomeCard` has its own `+ Add` expense button and an edit-income link.
   Both pass `from: "/finance"` and `returnStartIdx`, so saving returns to the
   same income column.
@@ -191,7 +192,7 @@ Route: `/finance` — Finance sheet → Dashboard. **File**: `frontend/src/pages
 
 ### Split Payments Module
 
-Route: `/split-payments` — Finance sheet. **File**: `frontend/src/pages/SplitPayment.jsx`
+Route: `/split-payments` — Dashboard ⋮ menu. **File**: `frontend/src/pages/SplitPayment.jsx`
 (self-contained; width-capped by the `COL_WIDTH` constant).
 
 **Layout**:
@@ -228,7 +229,7 @@ Route: `/split-payments` — Finance sheet. **File**: `frontend/src/pages/SplitP
 
 ### Investments Module
 
-Route: `/investments` — Finance sheet. **File**: `frontend/src/pages/Investments.jsx`
+Route: `/investments` — Dashboard ⋮ menu. **File**: `frontend/src/pages/Investments.jsx`
 (self-contained; width-capped by the `COL_WIDTH` constant).
 
 **Layout**: a header (`N snapshots · M operations`) plus four stacked blocks.
@@ -267,7 +268,7 @@ Route: `/investments` — Finance sheet. **File**: `frontend/src/pages/Investmen
 
 ### Statistics Module
 
-Route: `/statistics` — Finance sheet. **File**: `frontend/src/pages/Statistics.jsx`.
+Route: `/statistics` — Dashboard ⋮ menu. **File**: `frontend/src/pages/Statistics.jsx`.
 
 **Header**: title, `N months with data · now <Month>`, and a **year stepper** (`‹ 2026 ›`). It reads/writes the same `YearContext` as the Dashboard's stepper, so the two stay in sync. Stepping forward is disabled at the current year.
 
@@ -552,7 +553,7 @@ clean `main` too, so they are not caused by later changes.
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates. No runtime online fetch or localStorage buffering |
 | One phone-width layout | Every page is a centred 430 px column on any screen; the desktop layout, `Sidebar.jsx` and `useIsMobile` were removed. The app is used mainly as an installed PWA, and one layout removes the desktop/mobile divergence |
-| Navigation | Four tabs — Home · Finance · Books · HQ. Finance groups its six pages in a sheet; Add Income / Add Expense are entries there, not tabs. Settings, Backstage and Admin live in the avatar menu, so the bar holds only content |
+| Navigation | Four tabs — Home · Finance · Books · HQ. Each tab opens one page. Finance opens the Dashboard, whose ⋮ menu reaches the other Finance pages and the income-amounts toggle — the menu lives where Finance work happens, so the bar needs no sheet. Settings, Backstage and Admin live in the avatar menu, so the bar holds only content |
 | Split Payments | DynamoDB-backed card list (no table); open entries expanded, settled collapsed; slot count pinned to the series; app calendar instead of native date fields; settling asks first; debounced coverage auto-save |
 | Statistics | Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block |
 | Investments | Expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |

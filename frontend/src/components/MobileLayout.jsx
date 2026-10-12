@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { getAuthToken } from "../api/client";
-import NavSheet from "./NavSheet";
 import { navGroups, accountItems, visibleItems } from "./navConfig";
 
 // ── JWT expiry timer ─────────────────────────────────────────────────────────
@@ -59,33 +58,22 @@ export default function MobileLayout({ children }) {
   const navigate = useNavigate();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [openGroup, setOpenGroup] = useState(null);
   const [lastPath, setLastPath] = useState(pathname);
 
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?";
   const gates = { backstageEnabled: settings.backstageEnabled, username: user?.username };
 
-  // Any route change closes whatever is open, so a sheet never outlives its
-  // page — including on browser back/forward, which no click handler sees.
+  // Any route change closes the account menu — including on browser
+  // back/forward, which no click handler sees.
   if (pathname !== lastPath) {
     setLastPath(pathname);
-    setOpenGroup(null);
     setShowUserMenu(false);
   }
 
-  const groups = navGroups
-    .map(g => (g.items ? { ...g, items: visibleItems(g.items, gates) } : g))
-    .filter(g => !g.items || g.items.length > 0);
   const menuItems = visibleItems(accountItems, gates);
 
-  const sheetGroup = groups.find(g => g.id === openGroup) ?? null;
-
   function onTab(group) {
-    if (group.items) setOpenGroup(v => (v === group.id ? null : group.id));
-    else {
-      setOpenGroup(null);
-      navigate(group.to);
-    }
+    navigate(group.to, group.state ? { state: group.state() } : undefined);
   }
 
   return (
@@ -128,17 +116,9 @@ export default function MobileLayout({ children }) {
 
       <main style={s.main}>{children}</main>
 
-      {sheetGroup && (
-        <NavSheet
-          title={sheetGroup.label}
-          items={sheetGroup.items}
-          onClose={() => setOpenGroup(null)}
-        />
-      )}
-
       <nav style={s.tabBar}>
-        {groups.map(group => {
-          const active = group.match(pathname) || openGroup === group.id;
+        {navGroups.map(group => {
+          const active = group.match(pathname);
           return (
             <button
               key={group.id}

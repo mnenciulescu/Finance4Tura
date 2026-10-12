@@ -35,8 +35,7 @@ src/
 ├── components/
 │   ├── Layout.jsx          # passthrough to MobileLayout
 │   ├── MobileLayout.jsx    # top bar, avatar menu, bottom bar
-│   ├── NavSheet.jsx        # bottom sheet for the Finance group
-│   ├── navConfig.js        # navGroups (tabs), accountItems (avatar menu), ADMIN_USER
+│   ├── navConfig.js        # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu), ADMIN_USER
 │   ├── navIcons.jsx        # nav icons
 │   ├── IncomeCard.jsx      # income-period card on the Dashboard
 │   ├── DateSheet.jsx       # the app's calendar sheet (Monday first, with Clear)
@@ -70,7 +69,9 @@ src/
 **Home · Finance · Books · HQ**
 
 - **Home** → `/` (Home Overview)
-- **Finance** → opens a sheet: Dashboard, Add Income, Add Expense, Split Pay, Statistics, Investments
+- **Finance** → `/finance` (Dashboard), back on the current income. Highlighted on every Finance page.
+
+The other Finance pages are in the **⋮ Finance menu** on the Dashboard header: Dashboard, Add Income, Add Expense, Split Pay, Statistics, Investments, then Show / Hide income amounts.
 - **Books** → `/books-and-dev`
 - **HQ** → `/headquarters`
 
@@ -80,7 +81,7 @@ Username and session countdown, then **Settings · Admin · Sign out**.
 - **Backstage** appears between Settings and Admin while Admin → App Settings → Backstage is on.
 - **Admin** appears only for `ADMIN_USER` (`nenciulescu`). The `/admin` route redirects anyone else to `/`.
 
-Both lists are data in `navConfig.js`; `visibleItems()` applies the Backstage and Admin gates. A route change closes any open sheet or menu.
+All three lists are data in `navConfig.js`; `visibleItems()` applies the Backstage and Admin gates. A route change closes the account menu.
 
 ## Authentication
 

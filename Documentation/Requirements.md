@@ -150,16 +150,18 @@ The application shell.
 ### Layout
 - **Mobile-only**: every page is a centred phone-width column (430 px) on any screen. The original desktop top bar, `Sidebar.jsx` and `useIsMobile` were removed.
 - **Top bar**: 4TURA Home wordmark, and an avatar with the user's initials that opens the **account menu** — username, session countdown, then **Settings · Admin · Sign out**. Backstage appears between Settings and Admin while enabled in App Settings; Admin only for the admin user.
-- **Bottom bar**: **Home · Finance · Books · HQ**. Finance opens a sheet with Dashboard, Add Income, Add Expense, Split Pay, Statistics and Investments.
-- A route change closes any open sheet or menu.
+- **Bottom bar**: **Home · Finance · Books · HQ**. Each tab opens one page. Finance opens the Dashboard on the current income and stays highlighted on all Finance pages.
+- **Finance menu**: the ⋮ button on the Dashboard header lists Dashboard, Add Income, Add Expense, Split Pay, Statistics and Investments, then Show / Hide income amounts.
+- A route change closes the account menu.
 - **Routes**: `/`, `/finance`, `/add-income`, `/add-expense`, `/split-payments`, `/statistics`, `/investments`, `/books-and-dev`, `/headquarters`, `/settings`, `/backstage`, `/admin`. Unknown paths go to `/`.
-- Configuration lives in `components/navConfig.js` (`navGroups`, `accountItems`).
+- Configuration lives in `components/navConfig.js` (`navGroups`, `financeItems`, `accountItems`).
 
 ### Tests – Phase 4
 | # | Test | Expected Result |
 |---|------|-----------------|
 | 4.1 | Open the app | Bottom bar shows Home · Finance · Books · HQ |
-| 4.2 | Tap Finance | Sheet lists its six pages; tapping Finance again closes it |
+| 4.2 | Tap Finance | Dashboard opens on the current income; no sheet |
+| 4.2b | Open Split Pay from the ⋮ menu | Finance tab stays highlighted |
 | 4.3 | Tap the avatar as the admin user | Settings, Admin, Sign out (Backstage too when enabled) |
 | 4.4 | Same as another user, Backstage off | Settings, Sign out |
 | 4.5 | Unauthenticated access | Login page instead of the app |
@@ -218,7 +220,7 @@ Show income periods with their expenses. Route `/finance`.
 
 ### Behavior
 - Loads `GET /incomes` and `GET /expenses`; shows **one income-period card at a time** for the selected year.
-- Move between periods by swiping or with **← / ◎ / →** (◎ returns to the current period). Opening Dashboard from the Finance sheet jumps to the current period.
+- Move between periods by swiping or with **← / ◎ / →** (◎ returns to the current period). Tapping the Finance tab jumps to the current period.
 - Header row: **year stepper** (capped at the current year, shared with Statistics), the period buttons, and a **⋮ Finance menu** listing the six Finance pages plus **Show / Hide income amounts** (remembered on the device).
 - The **current period** (latest income dated ≤ today) has a distinct header.
 - Each card: income header with **+ Add** expense and edit link, expense rows, and a footer splitting spent (completed / pending) against free.
@@ -267,7 +269,7 @@ Data is loaded per year with `listIncomes` / `listExpenses` and computed client-
 
 ## Phase 10 – Split Payments Module ✅
 
-Payments split into instalments, tracked until settled. Route `/split-payments` (Finance sheet), plus a **Last 3** block on the Home Overview. Full spec: `SplitPayment_Requirement.md`.
+Payments split into instalments, tracked until settled. Route `/split-payments` (Dashboard ⋮ menu), plus a **Last 3** block on the Home Overview. Full spec: `SplitPayment_Requirement.md`.
 
 ### Summary
 - DynamoDB-backed (`SplitPayments` table, `/split-payments` CRUD).
@@ -286,7 +288,7 @@ Automated in `SplitPayment.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (
 
 ## Phase 11 – Investments Module ✅
 
-Portfolio tracker across six platforms. Route `/investments` (Finance sheet). Full spec: `Investments_Requirement.md`.
+Portfolio tracker across six platforms. Route `/investments` (Dashboard ⋮ menu). Full spec: `Investments_Requirement.md`.
 
 ### Platforms
 | Platform | Default Currency |

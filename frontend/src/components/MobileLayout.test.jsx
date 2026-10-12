@@ -1,5 +1,5 @@
 import { render, fireEvent, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { vi, describe, it, expect } from "vitest";
 
 const auth = { user: { username: "nenciulescu" }, signOut: vi.fn() };
@@ -11,15 +11,24 @@ vi.mock("../api/client", () => ({ getAuthToken: () => null }));
 
 const { default: MobileLayout } = await import("./MobileLayout");
 
-const renderBar = () =>
-  render(<MemoryRouter><MobileLayout><div /></MobileLayout></MemoryRouter>);
+// Prints the current location so a test can see where a tab went.
+function Where() {
+  const { pathname, state } = useLocation();
+  return <div data-testid="where" data-state={JSON.stringify(state ?? null)}>{pathname}</div>;
+}
+
+const renderBar = (path = "/") =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <MobileLayout><Where /></MobileLayout>
+    </MemoryRouter>
+  );
+
+const where = () => document.querySelector('[data-testid="where"]');
 
 const tabLabels = () =>
   [...document.querySelectorAll("nav button")].map(b => b.textContent);
 
-const sheet = () => document.querySelector('[role="dialog"]');
-
-// Scoped to the bar: an open sheet carries the same aria-label as its tab.
 const tab = label => within(document.querySelector("nav")).getByLabelText(label);
 
 describe("MobileLayout tab bar", () => {
@@ -28,24 +37,23 @@ describe("MobileLayout tab bar", () => {
     expect(tabLabels()).toEqual(["Home", "Finance", "Books", "HQ"]);
   });
 
-  it("opens the Finance group as a sheet rather than navigating", () => {
+  it("sends Finance straight to the Dashboard, with no sheet", () => {
     renderBar();
-    expect(sheet()).toBeNull();
-
     fireEvent.click(tab("Finance"));
 
-    const items = within(sheet()).getAllByRole("button").map(b => b.textContent);
-    expect(items).toEqual(expect.arrayContaining([
-      "Dashboard", "Add Income", "Add Expense", "Split Pay", "Statistics", "Investments",
-    ]));
+    expect(where().textContent).toBe("/finance");
+    // Asks the Dashboard to return to the current income column.
+    expect(JSON.parse(where().dataset.state)).toHaveProperty("resetDashboard");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it("closes an open sheet when its tab is tapped again", () => {
-    renderBar();
-    fireEvent.click(tab("Finance"));
-    expect(sheet()).not.toBeNull();
-    fireEvent.click(tab("Finance"));
-    expect(sheet()).toBeNull();
+  it("keeps Finance highlighted on every Finance page", () => {
+    for (const path of ["/finance", "/add-income", "/add-expense",
+                        "/split-payments", "/statistics", "/investments"]) {
+      const { unmount } = renderBar(path);
+      expect(tab("Finance").getAttribute("aria-current"), path).toBe("page");
+      unmount();
+    }
   });
 
   it("has no System tab", () => {

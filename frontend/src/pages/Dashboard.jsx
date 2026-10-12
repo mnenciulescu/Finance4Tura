@@ -6,10 +6,8 @@ import { listExpenses, updateExpense, deleteExpense } from "../api/expenses";
 import { useAuth } from "../context/AuthContext";
 import { useYear } from "../context/YearContext";
 import { getPrivacySetting, setPrivacySetting } from "./Settings";
-import { navGroups } from "../components/navConfig";
+import { financeItems } from "../components/navConfig";
 
-// The same pages the bottom bar's Finance sheet lists, so the two never drift.
-const FINANCE_ITEMS = navGroups.find(g => g.id === "finance").items;
 
 function EyeIcon({ off }) {
   return (
@@ -293,8 +291,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Finance menu: the Finance sheet's pages, plus the privacy toggle
-            that used to be a button of its own on this row. */}
+        {/* Finance menu: every Finance page, plus the privacy toggle that used
+            to be a button of its own on this row. The bottom bar's Finance tab
+            only opens this page, so this is where the others are reached. */}
         <div style={s.menuWrap}>
           <button
             style={{ ...s.menuBtn, ...(menuOpen ? s.menuBtnOpen : {}) }}
@@ -313,7 +312,7 @@ export default function Dashboard() {
             <>
               <div style={s.menuScrim} onClick={() => setMenuOpen(false)} />
               <div style={s.menu} role="menu" aria-label="Finance menu">
-                {FINANCE_ITEMS.map(item => {
+                {financeItems.map(item => {
                   const { to, label, Icon, state } = item;
                   return (
                   <button

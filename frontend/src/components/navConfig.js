@@ -1,12 +1,12 @@
-// Single source for the bottom bar and its sheets. Groups mirror the grouping
-// the desktop top bar used, so the two stayed conceptually the same when the
-// desktop layout was removed.
+// Single source for the bottom bar, the Dashboard's Finance menu and the
+// account menu.
 //
-// A group either navigates straight to `to`, or opens a sheet listing `items`.
-// `match` decides whether the group's tab renders active for a given pathname.
+// Every tab navigates straight to `to`, passing `state()` when it has one.
+// `match` decides whether the tab renders active for a given pathname.
 //
-// Settings, Backstage and Admin are not a tab: they live in the account menu
-// behind the avatar, listed by `accountItems`.
+// The Finance pages are not listed under the tab: they live in the ⋮ menu on
+// the Dashboard header, listed by `financeItems`. Settings, Backstage and Admin
+// live in the account menu behind the avatar, listed by `accountItems`.
 
 import {
   IconHome, IconFinance, IconEvolve, IconHQ,
@@ -33,16 +33,10 @@ export const navGroups = [
     id: "finance",
     label: "Finance",
     Icon: IconFinance,
-    items: [
-      // Resets the Dashboard to the current income column, as the desktop
-      // Finance dropdown did.
-      { to: "/finance", label: "Dashboard", Icon: IconDashboard, state: () => ({ resetDashboard: Date.now() }) },
-      { to: "/add-income",     label: "Add Income",  Icon: IconIncome      },
-      { to: "/add-expense",    label: "Add Expense", Icon: IconExpense     },
-      { to: "/split-payments", label: "Split Pay",   Icon: IconSplit       },
-      { to: "/statistics",     label: "Statistics",  Icon: IconStats       },
-      { to: "/investments",    label: "Investments", Icon: IconInvestments },
-    ],
+    to: "/finance",
+    // Opens the Dashboard on the current income column, even when it is
+    // already showing another one.
+    state: () => ({ resetDashboard: Date.now() }),
     match: p => financeRoutes.some(r => p === r || p.startsWith(`${r}/`)),
   },
   {
@@ -59,6 +53,15 @@ export const navGroups = [
     to: "/headquarters",
     match: p => p.startsWith("/headquarters"),
   },
+];
+
+export const financeItems = [
+  { to: "/finance",        label: "Dashboard",   Icon: IconDashboard, state: () => ({ resetDashboard: Date.now() }) },
+  { to: "/add-income",     label: "Add Income",  Icon: IconIncome      },
+  { to: "/add-expense",    label: "Add Expense", Icon: IconExpense     },
+  { to: "/split-payments", label: "Split Pay",   Icon: IconSplit       },
+  { to: "/statistics",     label: "Statistics",  Icon: IconStats       },
+  { to: "/investments",    label: "Investments", Icon: IconInvestments },
 ];
 
 export const accountItems = [
