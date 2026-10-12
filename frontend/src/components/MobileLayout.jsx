@@ -133,13 +133,7 @@ export default function MobileLayout({ children }) {
                 <span
                   style={{
                     ...s.tabIcon,
-                    ...(active
-                      ? {
-                          background: `linear-gradient(160deg, ${alpha(tone.from, 0.26)}, ${alpha(tone.to, 0.14)})`,
-                          transform:  "translateY(-2px)",
-                          filter:     `drop-shadow(0 3px 6px ${alpha(tone.to, 0.45)})`,
-                        }
-                      : s.tabIconIdle),
+                    ...(active ? { background: alpha(tone.main, 0.18) } : s.tabIconIdle),
                   }}
                 >
                   <group.Icon size={30} />
@@ -156,7 +150,7 @@ export default function MobileLayout({ children }) {
                 <span
                   style={{
                     ...s.tabDot,
-                    background: active ? `linear-gradient(90deg, ${tone.from}, ${tone.to})` : "transparent",
+                    background: active ? tone.main : "transparent",
                   }}
                 />
               </button>
@@ -329,9 +323,9 @@ const s = {
     fontFamily:     "inherit",
     cursor:         "pointer",
   },
-  // Each icon sits in a capsule. The active one is tinted in its own hue,
-  // lifted a little and given a coloured glow; idle ones keep their colour
-  // but step back.
+  // Flat throughout: each icon sits in a capsule, and the active one is just
+  // a solid tint of its own hue — no lift, glow or gradient. Idle icons keep
+  // their colour but step back.
   tabIcon: {
     display:        "flex",
     alignItems:     "center",
@@ -339,11 +333,10 @@ const s = {
     width:          "58px",
     height:         "40px",
     borderRadius:   "var(--r-pill)",
-    transition:     "transform 180ms ease-out, background 180ms ease-out, filter 180ms ease-out, opacity 180ms ease-out",
+    transition:     "background 180ms ease-out, opacity 180ms ease-out",
   },
   tabIconIdle: {
-    opacity: 0.88,
-    filter:  "saturate(0.85)",
+    opacity: 0.85,
   },
   tabLabel: {
     fontSize:      "var(--fs-caption)",

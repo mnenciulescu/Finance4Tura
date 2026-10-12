@@ -36,7 +36,7 @@ src/
 │   ├── Layout.jsx          # passthrough to MobileLayout
 │   ├── MobileLayout.jsx    # top bar, avatar menu, bottom bar
 │   ├── navConfig.js        # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu), ADMIN_USER
-│   ├── TabIcons.jsx        # full-colour bottom-bar icons (palette: TAB_ICON_COLORS)
+│   ├── TabIcons.jsx        # flat colour bottom-bar icons (palette: TAB_ICON_COLORS)
 │   ├── navIcons.jsx        # line icons for the Finance and account menus
 │   ├── IncomeCard.jsx      # income-period card on the Dashboard
 │   ├── DateSheet.jsx       # the app's calendar sheet (Monday first, with Clear)

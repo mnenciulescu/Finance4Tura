@@ -56,17 +56,17 @@ describe("MobileLayout tab bar", () => {
     }
   });
 
-  it("draws each tab with its own colour icon, gradient ids unique on the page", () => {
+  it("draws each tab with a flat colour icon — solid fills, no gradients or effects", () => {
     renderBar();
     const svgs = [...document.querySelectorAll("nav button svg")];
     expect(svgs).toHaveLength(4);
-    for (const svg of svgs) expect(svg.querySelector("linearGradient")).not.toBeNull();
-
-    // SVG ids are document-global; a clash would paint one icon with another's
-    // gradient. Render a second bar to prove instances don't collide either.
-    renderBar();
-    const ids = [...document.querySelectorAll("nav linearGradient")].map(g => g.id);
-    expect(new Set(ids).size).toBe(ids.length);
+    for (const svg of svgs) {
+      expect(svg.querySelector("linearGradient, radialGradient, filter")).toBeNull();
+      const fills = [...svg.querySelectorAll("[fill]")].map(el => el.getAttribute("fill"));
+      expect(fills.some(f => f.startsWith("url("))).toBe(false);
+      // Colourful: at least three distinct colours per icon.
+      expect(new Set(fills.filter(f => f.startsWith("#"))).size).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it("has no System tab", () => {

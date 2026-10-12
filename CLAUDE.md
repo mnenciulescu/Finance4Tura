@@ -94,13 +94,13 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - `Layout.jsx` is a passthrough to `MobileLayout.jsx`, which owns the chrome:
   top bar (brand, avatar menu) and the bottom bar.
 - Bottom bar: a floating dock (`--surface-deep`, `--r-xl`, `--shadow-raised`)
-  inset from the screen edges. Each tab has a full-colour illustrated icon from
-  `components/TabIcons.jsx` in its own hue family (`TAB_ICON_COLORS` in
-  `utils/colors.js`, picked by the tab's `tone`): coral house, emerald wallet,
-  violet book, blue building with a water drop. The active tab gets a capsule
-  tinted in its hue, a slight lift, a coloured glow, a coloured bold label and a
-  gradient underline; idle icons stay coloured but step back. Icons take their
-  gradient ids from `useId()` so copies never collide.
+  inset from the screen edges. Each tab has a **flat, 2D** two-tone icon from
+  `components/TabIcons.jsx` in its own hue (`TAB_ICON_COLORS` in
+  `utils/colors.js`, picked by the tab's `tone`): coral house, emerald wallet
+  with a gold coin, violet open book, blue building with a water drop. Solid
+  fills only — no gradients, shading, highlights, glow or lift; a test enforces
+  it. The active tab gets a capsule in a flat tint of its hue, a coloured bold
+  label and a solid underline; idle icons stay coloured at reduced opacity.
 - Tabs: **Home · Finance · Books · HQ**. Every tab navigates directly;
   there are no sheets. **Finance** opens `/finance` with `resetDashboard`
   state (back on the current income) and stays highlighted on all six Finance
@@ -138,7 +138,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - Categorical series colours in `frontend/src/utils/colors.js` — the palette
   anchors (`DUSK`), `PRIORITY_COLORS`, `HTTP_METHOD_COLORS`, `CHART_COLORS`,
   `BAR_COLORS`, `PLATFORM_COLORS`, `TYPE_COLORS`, `TAB_ICON_COLORS` (the
-  bottom bar — the one deliberately bright palette) and the `alpha()` tint helper.
+  bottom bar — the one deliberately bright palette, flat solid colours) and the `alpha()` tint helper.
   This is the one file allowed to hold hex literals.
 - **Two-step inline delete** is the app-wide pattern: `Delete` → `Tap to
   confirm`, reverting after 4 s. No `window.confirm`. (The Finance Dashboard
