@@ -255,16 +255,15 @@ export default function BooksAndDev() {
               {filtered.length} of {books.length} entr{books.length === 1 ? "y" : "ies"}
             </p>
           </div>
-          <button style={s.btnPrimary} onClick={openAdd}>+ New</button>
-        </div>
-
-        <div style={s.filterRow}>
-          <button style={s.filterBtn} onClick={() => setFilter(true)}>
-            Filters{activeFilters > 0 && <span style={s.filterCount}>{activeFilters}</span>}
-          </button>
-          {activeFilters > 0 && (
-            <button style={s.btnGhost} onClick={clearFilters}>Clear</button>
-          )}
+          <div style={s.headerActions}>
+            {activeFilters > 0 && (
+              <button style={s.btnGhost} onClick={clearFilters}>Clear</button>
+            )}
+            <button style={s.filterBtn} onClick={() => setFilter(true)}>
+              Filters{activeFilters > 0 && <span style={s.filterCount}>{activeFilters}</span>}
+            </button>
+            <button style={s.btnPrimary} onClick={openAdd}>+ New</button>
+          </div>
         </div>
 
         {loading ? (
@@ -541,11 +540,10 @@ const s = {
   title:    { margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--text)" },
   subtitle: { margin: "2px 0 0", fontSize: "11px", color: "var(--text-muted)" },
 
-  filterRow: {
+  headerActions: {
     display:    "flex",
     alignItems: "center",
-    gap:        "8px",
-    padding:    "10px 14px 0",
+    gap:        "var(--sp-2)",
     flexShrink: 0,
   },
   filterBtn: {
@@ -561,6 +559,7 @@ const s = {
     padding:      "8px 14px",
     cursor:       "pointer",
     fontFamily:   "inherit",
+    flexShrink:   0,
   },
   filterCount: {
     display:        "inline-flex",
