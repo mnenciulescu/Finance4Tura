@@ -308,7 +308,8 @@ Route: `/books-and-dev` — the **Books** tab. **File**: `frontend/src/pages/Boo
 
 - Header: `N of M entries`, a **Filters** button (with an active-filter count) and **Clear**.
 - One collapsible **section per person** (alphabetical, "Unassigned" last),
-  entries newest first, **5 at a time** with *Show more*.
+  entries newest first, **5 at a time** with *Show N more* and, beside it,
+  *Show N less* (steps back to the previous page).
 - Each section opens with a **Last 12 months** line chart: entries completed
   per month (any type or source), oldest to newest, with the 12-month total.
 - Each entry card: type badge (purple = Audiobook, teal = Training, grey =
@@ -526,7 +527,7 @@ cd backend && node --test src/**/*.test.mjs
 | Scope | Files | Tests |
 |---|---|---|
 | Frontend utils | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `colors`, `YearContext` | 86 |
-| Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Dashboard` (9), `Statistics` (7), `BooksAndDev` (5), `Headquarters` (4) | 83 |
+| Frontend pages | `HomeOverview` (13), `HomeOverview.splitPay` (23), `SplitPayment` (13), `Investments` (9), `Dashboard` (9), `Statistics` (7), `BooksAndDev` (6), `Headquarters` (4) | 84 |
 | Frontend components | `MobileLayout` (tab bar, tab icons, account menu), `IncomeCard` (row icon sizing), `ui` (shared primitives) | 31 |
 | Frontend regression | `noZoom` (16px form controls), `appWidth`, `designTokens` (no raw colours, radii or shadows outside the token files) | 16 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |

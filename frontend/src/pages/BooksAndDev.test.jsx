@@ -91,6 +91,27 @@ describe("Books & Development — per-person sections", () => {
     expect(screen.queryByText("Mihai mo2")).toBeNull();
   });
 
+  it("steps back with Show less, undoing a short last page exactly", async () => {
+    render(<BooksAndDev />);
+    await waitFor(() => expect(screen.getByText("Mihai")).toBeTruthy());
+    const mihai = () => within(section("Mihai"));
+
+    expect(mihai().queryByText(/less/)).toBeNull();          // 1 shown
+
+    fireEvent.click(mihai().getByText(/Show 5 more/));        // 6 shown
+    fireEvent.click(mihai().getByText(/Show 4 more/));        // 10 shown — all
+    expect(screen.getByText("Mihai mo5")).toBeTruthy();
+    expect(mihai().queryByText(/more/)).toBeNull();
+
+    fireEvent.click(mihai().getByText("Show 4 less"));        // back to 6
+    expect(screen.queryByText("Mihai mo2")).toBeNull();
+    expect(screen.getByText("Mihai mo1")).toBeTruthy();
+
+    fireEvent.click(mihai().getByText("Show 5 less"));        // back to 1
+    expect(screen.queryByText("Mihai m2")).toBeNull();
+    expect(mihai().queryByText(/less/)).toBeNull();
+  });
+
   it("collapses a person's section", async () => {
     render(<BooksAndDev />);
     await waitFor(() => expect(screen.getByText("Mihai")).toBeTruthy());

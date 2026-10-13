@@ -279,6 +279,9 @@ export default function BooksAndDev() {
               const sectionOpen = !collapsed[person];
               const visible     = items.slice(0, shown[person] ?? 1);
               const left        = items.length - visible.length;
+              // "Show less" steps back to the previous reveal (1, 6, 11, …), so a
+              // short last page is undone exactly.
+              const prev        = 1 + PAGE * Math.floor((visible.length - 2) / PAGE);
 
               return (
                 <div key={person} style={s.section} data-person={person}>
@@ -378,22 +381,26 @@ export default function BooksAndDev() {
                         );
                       })}
 
-                      {left > 0 && (
-                        <button
-                          style={s.moreBtn}
-                          onClick={() => setShown(m => ({ ...m, [person]: visible.length + PAGE }))}
-                        >
-                          Show {Math.min(PAGE, left)} more
-                          <span style={s.moreCount}>{visible.length}/{items.length}</span>
-                        </button>
-                      )}
-                      {left === 0 && items.length > 1 && (
-                        <button
-                          style={s.moreBtn}
-                          onClick={() => setShown(m => ({ ...m, [person]: 1 }))}
-                        >
-                          Show less
-                        </button>
+                      {(left > 0 || visible.length > 1) && (
+                        <div style={s.moreRow}>
+                          {visible.length > 1 && (
+                            <button
+                              style={s.moreBtn}
+                              onClick={() => setShown(m => ({ ...m, [person]: prev }))}
+                            >
+                              Show {visible.length - prev} less
+                            </button>
+                          )}
+                          {left > 0 && (
+                            <button
+                              style={s.moreBtn}
+                              onClick={() => setShown(m => ({ ...m, [person]: visible.length + PAGE }))}
+                            >
+                              Show {Math.min(PAGE, left)} more
+                              <span style={s.moreCount}>{visible.length}/{items.length}</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </>
                   )}
@@ -678,6 +685,11 @@ const s = {
     padding:        "9px",
     cursor:         "pointer",
     fontFamily:     "inherit",
+    flex:           1,
+  },
+  moreRow: {
+    display: "flex",
+    gap:     "var(--sp-2)",
   },
   moreCount: {
     fontSize:           "10px",
