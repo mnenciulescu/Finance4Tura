@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { listBooks, createBook, updateBook, deleteBook } from "../api/booksAndDev";
 import { TYPE_COLORS } from "../utils/colors";
 
@@ -35,7 +38,7 @@ function defaultForm() {
   return { name: "", source: "Book", type: "Book", author: "", title: "", dateCompleted: "", rating: null, comments: "" };
 }
 
-const STATS_MONTHS = 3;   // window for the per-person summary
+const STATS_MONTHS = 12;  // window for the per-person monthly chart
 const PAGE         = 5;   // entries revealed per "Show more"
 const UNASSIGNED   = "Unassigned";
 
@@ -48,17 +51,31 @@ function recentMonths(n) {
   });
 }
 
-/** Count, average rating and type split over the recent window. */
-function windowStats(items, monthKeys) {
-  const recent = items.filter(b => monthKeys.has((b.dateCompleted || "").slice(0, 7)));
-  const rated  = recent.filter(b => typeof b.rating === "number" && b.rating > 0);
-  const byType = {};
-  recent.forEach(b => { const t = b.type || "Other"; byType[t] = (byType[t] ?? 0) + 1; });
-  return {
-    count: recent.length,
-    avg:   rated.length ? rated.reduce((sum, b) => sum + b.rating, 0) / rated.length : null,
-    byType: Object.entries(byType).sort((a, b) => b[1] - a[1]),
-  };
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/** Entries completed per month over the window, oldest first — every type and
+ *  source counts. */
+function monthlyCounts(items, monthKeys) {
+  const counts = new Map(monthKeys.map(k => [k, 0]));
+  for (const b of items) {
+    const k = (b.dateCompleted || "").slice(0, 7);
+    if (counts.has(k)) counts.set(k, counts.get(k) + 1);
+  }
+  return [...monthKeys].reverse().map(k => ({
+    key:   k,
+    label: MONTH_ABBR[+k.slice(5, 7) - 1],
+    count: counts.get(k),
+  }));
+}
+
+function MonthTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const { key, label, count } = payload[0].payload;
+  return (
+    <div style={s.tooltip}>
+      {label} {key.slice(0, 4)} · <strong>{count}</strong> completed
+    </div>
+  );
 }
 
 // Two-step inline confirm, reverting after 4s — the pattern the rest of the app uses.
@@ -137,7 +154,7 @@ export default function BooksAndDev() {
   // structure now; the flat list made it impossible to see how any one person
   // was actually doing.
   const sections = useMemo(() => {
-    const monthKeys = new Set(recentMonths(STATS_MONTHS));
+    const monthKeys = recentMonths(STATS_MONTHS);
     const byPerson  = new Map();
     for (const b of filtered) {
       const key = b.name?.trim() || UNASSIGNED;
@@ -149,7 +166,7 @@ export default function BooksAndDev() {
         const sorted = [...items].sort((a, b) =>
           (b.dateCompleted || "").localeCompare(a.dateCompleted || "") ||
           (a.title || "").localeCompare(b.title || ""));
-        return { person, items: sorted, stats: windowStats(sorted, monthKeys) };
+        return { person, items: sorted, monthly: monthlyCounts(sorted, monthKeys) };
       })
       .sort((a, b) =>
         // Unassigned last, everyone else alphabetical.
@@ -258,7 +275,7 @@ export default function BooksAndDev() {
           <div style={s.empty}>No entries found.</div>
         ) : (
           <div style={s.list}>
-            {sections.map(({ person, items, stats }) => {
+            {sections.map(({ person, items, monthly }) => {
               const sectionOpen = !collapsed[person];
               const visible     = items.slice(0, shown[person] ?? 1);
               const left        = items.length - visible.length;
@@ -277,29 +294,49 @@ export default function BooksAndDev() {
 
                   {sectionOpen && (
                     <>
-                      <div style={s.statsBlock}>
-                        <span style={s.statsLabel}>Last {STATS_MONTHS} months</span>
-                        <div style={s.statsRow}>
-                          <div style={s.stat}>
-                            <span style={s.statValue} data-stat="count">{stats.count}</span>
-                            <span style={s.statKey}>completed</span>
-                          </div>
-                          <div style={s.stat}>
-                            <span style={s.statValue} data-stat="avg">
-                              {stats.avg == null ? "—" : `★ ${stats.avg.toFixed(1)}`}
+                      <div
+                        style={s.statsBlock}
+                        data-chart="monthly"
+                        data-counts={monthly.map(m => m.count).join(",")}
+                      >
+                        <div style={s.statsHead}>
+                          <span style={s.statsLabel}>Last {STATS_MONTHS} months</span>
+                          <span style={s.statKey}>
+                            <span style={s.statValue} data-stat="count">
+                              {monthly.reduce((sum, m) => sum + m.count, 0)}
                             </span>
-                            <span style={s.statKey}>avg rating</span>
-                          </div>
+                            {" "}completed
+                          </span>
                         </div>
-                        {stats.byType.length > 0 && (
-                          <div style={s.typeSplit}>
-                            {stats.byType.map(([type, n]) => (
-                              <span key={type} style={{ ...s.badge, ...typeBadge(type) }}>
-                                {type} {n}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <ResponsiveContainer width="100%" height={120}>
+                          <LineChart data={monthly} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
+                            <CartesianGrid stroke="var(--border)" vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fill: "var(--text-dim)", fontSize: 10 }}
+                              tickLine={false}
+                              axisLine={false}
+                              interval={0}
+                            />
+                            <YAxis
+                              allowDecimals={false}
+                              tick={{ fill: "var(--text-dim)", fontSize: 10 }}
+                              tickLine={false}
+                              axisLine={false}
+                              width={22}
+                            />
+                            <Tooltip cursor={{ stroke: "var(--border)" }} content={<MonthTooltip />} />
+                            <Line
+                              type="monotone"
+                              dataKey="count"
+                              stroke="var(--accent)"
+                              strokeWidth={2}
+                              dot={{ r: 2.5, fill: "var(--accent)", strokeWidth: 0 }}
+                              activeDot={{ r: 4 }}
+                              isAnimationActive={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
 
                       <span style={s.listLabel}>
@@ -595,18 +632,10 @@ const s = {
     textTransform: "uppercase",
     letterSpacing: "0.06em",
   },
-  statsRow: {
-    display:             "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap:                 "10px",
-  },
-  stat: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "2px",
-    background:    "var(--surface-2)",
-    borderRadius:  "var(--r-md)",
-    padding:       "8px 10px",
+  statsHead: {
+    display:        "flex",
+    alignItems:     "baseline",
+    justifyContent: "space-between",
   },
   statValue: {
     fontSize:           "18px",
@@ -619,10 +648,13 @@ const s = {
     fontSize: "10px",
     color:    "var(--text-muted)",
   },
-  typeSplit: {
-    display:  "flex",
-    flexWrap: "wrap",
-    gap:      "6px",
+  tooltip: {
+    background:   "var(--surface-2)",
+    color:        "var(--text)",
+    fontSize:     "12px",
+    padding:      "6px 10px",
+    borderRadius: "var(--r-sm)",
+    boxShadow:    "var(--shadow-raised)",
   },
   listLabel: {
     fontSize:      "10px",

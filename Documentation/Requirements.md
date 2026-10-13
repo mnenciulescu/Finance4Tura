@@ -356,7 +356,7 @@ A reading and training log per person. Route `/books-and-dev` — the **Books** 
 
 ### Behavior
 - One collapsible section per person (alphabetical, Unassigned last), newest first, 5 at a time.
-- Per-person summary for the last 3 months: count, average rating, split by type.
+- Per-person line chart for the last 12 months: entries completed per month, any type or source, with the total.
 - Filter sheet: person, type, source, rating, text search on title/author.
 - Add/edit in a bottom sheet with a 1–5 star picker; two-step inline delete.
 

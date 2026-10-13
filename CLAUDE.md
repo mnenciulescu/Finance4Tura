@@ -309,8 +309,8 @@ Route: `/books-and-dev` — the **Books** tab. **File**: `frontend/src/pages/Boo
 - Header: `N of M entries`, a **Filters** button (with an active-filter count) and **Clear**.
 - One collapsible **section per person** (alphabetical, "Unassigned" last),
   entries newest first, **5 at a time** with *Show more*.
-- Each section has a summary over the **last 3 calendar months**: completed
-  count, average rating, and split by type.
+- Each section opens with a **Last 12 months** line chart: entries completed
+  per month (any type or source), oldest to newest, with the 12-month total.
 - Each entry card: type badge (purple = Audiobook, teal = Training, grey =
   Book), title, author, source, read-only stars, `dateCompleted`, comments.
 - **Filter sheet**: person, type (Book/Audiobook/Training/Other), source
@@ -569,7 +569,7 @@ clean `main` too, so they are not caused by later changes.
 | Split Payments | DynamoDB-backed card list (no table); open entries expanded, settled collapsed; slot count pinned to the series; app calendar instead of native date fields; settling asks first; debounced coverage auto-save |
 | Statistics | Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block |
 | Investments | Expandable total, chart from 2023, snapshots and operations revealed 3 at a time; bottom sheets for add/edit; two-step inline delete |
-| Books & Development | Books tab; per-person sections with a 3-month summary, star ratings, filter sheet |
+| Books & Development | Books tab; per-person sections with a 12-month completion chart, star ratings, filter sheet |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only |
 | Admin | Page restricted to username `nenciulescu` in the frontend; admin API routes require the Cognito `admin` group |
 | Cognito auth flows | App client allows `USER_SRP_AUTH`, `REFRESH_TOKEN_AUTH` and `ADMIN_USER_PASSWORD_AUTH` only; `USER_PASSWORD_AUTH` is off. This narrows the surface but is **not** a defence against a known password — SRP authenticates with the password too. The real protection is that no password is derivable (see Google Sign-In below) |
