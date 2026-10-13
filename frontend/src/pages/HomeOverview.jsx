@@ -17,7 +17,7 @@ import {
 import { T, TYPE } from "../components/tokens";
 import DateSheet from "../components/DateSheet";
 import {
-  Card, SectionHeader, StatTile, Pill, StatusDot, Checkbox,
+  Card, SectionHeader, StatTile, Pill, Checkbox,
 } from "../components/ui";
 
 // ── Investment constants (shared with Investments page) ────────────────────────
@@ -127,55 +127,46 @@ function PendingExpenses({ incomes, expenses, pendingAtLoad, onToggle }) {
         <span style={st.heroTitle}>{currentIncome.summary}</span>
       </div>
 
-      {/* Expense list */}
-      <div style={{ flex: 1, padding: "var(--sp-2) var(--sp-2)" }}>
+      {/* Expense list — the same row format as IncomeCard on the Finance
+          Dashboard (one line: checkbox, priority dot, name, date, amount), minus
+          its edit and delete icons. */}
+      <div style={{ flex: 1, padding: "var(--sp-2) 0" }}>
         {items.length === 0 ? (
-          <div style={{ ...TYPE.label, color: T.muted, padding: "var(--sp-3) var(--sp-2)" }}>
+          <div style={{ ...TYPE.label, color: T.muted, padding: "var(--sp-3) var(--sp-4)" }}>
             {periodExpenses.length === 0
               ? "No expenses for this period."
               : "Nothing left to pay."}
           </div>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--sp-1)" }}>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {items.map(exp => {
               const isDone = exp.status === "Completed";
+              const struck = isDone
+                ? { color: T.dim, textDecoration: "line-through", textDecorationColor: T.dim }
+                : { textDecoration: "none" };
               return (
                 <li key={exp.expenseId} style={{
                   ...st.row,
-                  // A special expense keeps its own tint, now a dusty terracotta
-                  // wash rather than the previous alarm red.
-                  ...(exp.special && !isDone ? { background: "var(--error-bg)" } : {}),
+                  ...(exp.special ? { background: "var(--error-bg)" } : {}),
                   ...(isDone ? { opacity: 0.6 } : {}),
                 }}>
-                  <Checkbox
-                    checked={isDone}
-                    onChange={() => onToggle?.(exp)}
-                    title={isDone ? "Mark as Pending" : "Mark as Completed"}
-                  />
-                  <div style={st.rowMain}>
-                    <div style={st.rowTop}>
-                      <StatusDot color={PRIORITY_COLOR[exp.priority] ?? PRIORITY_FALLBACK} />
-                      {exp.special && <span style={st.star}>★</span>}
-                      <span
-                        title={exp.summary}
-                        style={{
-                          ...st.name,
-                          ...(isDone
-                            ? { color: T.dim, textDecoration: "line-through", textDecorationColor: T.dim }
-                            : { textDecoration: "none" }),
-                        }}
-                      >
-                        {exp.summary}
-                      </span>
-                    </div>
+                  <div style={st.rowLeft}>
+                    <Checkbox
+                      checked={isDone}
+                      onChange={() => onToggle?.(exp)}
+                      title={isDone ? "Mark as Pending" : "Mark as Completed"}
+                    />
+                    <span
+                      style={{ ...st.dot, background: PRIORITY_COLOR[exp.priority] ?? PRIORITY_FALLBACK }}
+                      title={`Priority: ${exp.priority}`}
+                    />
+                    {exp.special && <span style={st.star} title="Special">★</span>}
+                    <span title={exp.summary} style={{ ...st.name, ...struck }}>
+                      {exp.summary}
+                    </span>
                     <span style={st.rowDate}>{exp.date.slice(5)}</span>
                   </div>
-                  <span style={{
-                    ...st.amount,
-                    ...(isDone
-                      ? { color: T.dim, textDecoration: "line-through", textDecorationColor: T.dim }
-                      : { textDecoration: "none" }),
-                  }}>
+                  <span style={{ ...st.amount, ...struck }}>
                     {fmtDec(exp.amount ?? 0)}
                   </span>
                 </li>
@@ -235,50 +226,53 @@ const st = {
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
   },
+  // Mirrors IncomeCard's expenseRow and its children.
   row: {
-    display:      "flex",
-    alignItems:   "center",
-    gap:          "var(--sp-3)",
-    minHeight:    "52px",
-    padding:      "var(--sp-2) var(--sp-3)",
-    borderRadius: "var(--r-md)",
+    display:        "flex",
+    justifyContent: "space-between",
+    alignItems:     "center",
+    minHeight:      "44px",
+    padding:        "var(--sp-3) var(--sp-4)",
+    borderBottom:   "1px solid var(--border)",
+    gap:            "var(--sp-2)",
   },
-  rowMain: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "1px",
-    flex:          1,
-    minWidth:      0,
-  },
-  rowTop: {
+  rowLeft: {
     display:    "flex",
     alignItems: "center",
-    gap:        "var(--sp-2)",
-    minWidth:   0,
+    gap:        "7px",
+    overflow:   "hidden",
+    flex:       1,
+  },
+  dot: {
+    width:        "9px",
+    height:       "9px",
+    borderRadius: "50%",
+    flexShrink:   0,
   },
   name: {
-    ...TYPE.body,
-    fontWeight:   500,
-    color:        T.text,
+    fontSize:     "15px",
+    color:        "var(--text)",
     overflow:     "hidden",
     textOverflow: "ellipsis",
     whiteSpace:   "nowrap",
   },
   rowDate: {
-    ...TYPE.caption,
-    color: T.muted,
+    fontSize:   "12px",
+    color:      "var(--text-muted)",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   star: {
-    fontSize:   "11px",
-    color:      T.overdue,
-    flexShrink: 0,
+    fontSize:   "12px",
+    color:      "var(--accent)",
     lineHeight: 1,
+    flexShrink: 0,
   },
   amount: {
-    ...TYPE.bodyNum,
-    color:      T.text,
-    flexShrink: 0,
-    marginLeft: "var(--sp-2)",
+    fontSize:           "15px",
+    color:              "var(--text)",
+    fontVariantNumeric: "tabular-nums",
+    flexShrink:         0,
   },
   footer: {
     padding: "var(--sp-2) var(--sp-4) var(--sp-4)",
