@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { PRIORITY_COLORS as PRIORITY_COLOR, BAR_COLORS as BAR_COLOR } from "../utils/colors";
 import { Checkbox } from "./ui";
+import { incomeHeader } from "./incomeHeader";
 
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 const fmt    = (n) => n.toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -48,19 +49,19 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
         // off-white on the plain navy one.
         "--on-header": isCurrent ? "var(--on-hero)" : "var(--text)",
       }}>
-        <div style={{ ...s.headerRow, padding: "var(--sp-3) var(--sp-4) var(--sp-4)" }}>
+        <div style={s.headerRow}>
           {/* Row 1: date badge + current pill + add */}
           <div style={s.headerTop}>
             {(() => { const { month, day, year } = monthParts(income.date); return (
               <div style={s.dateBadge}>
-                <span style={{ ...s.badgeMonth, fontSize: "17px" }}>{month}</span>
-                <span style={{ ...s.badgeDay,   fontSize: "17px" }}>{day}</span>
-                <span style={{ ...s.badgeYear,  fontSize: "15px" }}>{year}</span>
+                <span style={s.badgeMonth}>{month}</span>
+                <span style={s.badgeDay}>{day}</span>
+                <span style={s.badgeYear}>{year}</span>
                 <span style={s.badgeSep}>·</span>
-                <span style={{ ...s.badgeDow, fontSize: "14px" }}>{getDow(income)}</span>
+                <span style={s.badgeDow}>{getDow(income)}</span>
               </div>
             ); })()}
-            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.addBtn, fontSize: "13px", padding: "5px 12px" }} title="Add expense">
+            <Link to={`/add-expense?incomeId=${income.incomeId}&date=${income.date}`} state={{ from: financeHome, returnStartIdx: dashboardStartIdx }} style={{ ...s.addBtn, fontSize: "13px", padding: "3px 12px" }} title="Add expense">
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="7" y1="2" x2="7" y2="12"/>
                 <line x1="2" y1="7" x2="12" y2="7"/>
@@ -71,7 +72,7 @@ export default function IncomeCard({ income, expenses, onToggleStatus, onDeleteE
 
           {/* Row 2: income name + delete + edit + hidden amount */}
           <div style={s.summaryRow}>
-            <span style={{ ...s.summary, fontSize: "15px" }} title={income.summary}>{income.summary}</span>
+            <span style={s.summary} title={income.summary}>{income.summary}</span>
             <button style={s.deleteIncomeBtn} title="Delete income" onClick={() => setShowDeleteDialog(true)}>
               <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1,3 13,3"/>
@@ -279,65 +280,7 @@ const s = {
     background:   "var(--header-current-bg)",
     borderBottom: "none",
   },
-  headerRow: {
-    display:       "flex",
-    flexDirection: "column",
-    gap:           "var(--sp-2)",
-    padding:       "var(--sp-4) var(--sp-4) var(--sp-5)",
-    overflow:      "hidden",
-  },
-  headerTop: {
-    display:    "flex",
-    alignItems: "center",
-    gap:        "7px",
-  },
-  dateBadge: {
-    display:    "flex",
-    alignItems: "center",
-    gap:        "5px",
-    flex:       1,
-    lineHeight: 1,
-  },
-  badgeMonth: {
-    fontSize:      "13px",
-    fontWeight:    800,
-    color:         "var(--on-header)",
-    letterSpacing: "0.08em",
-  },
-  badgeDay: {
-    fontSize:      "13px",
-    fontWeight:    800,
-    color:         "var(--on-header)",
-    letterSpacing: "0.04em",
-  },
-  badgeYear: {
-    fontSize:      "12px",
-    fontWeight:    600,
-    color:         "var(--on-header)",
-    opacity:       0.75,
-    letterSpacing: "0.04em",
-  },
-  badgeSep: {
-    fontSize:   "11px",
-    color:      "var(--on-header)",
-    opacity:    0.5,
-    lineHeight: 1,
-  },
-  badgeDow: {
-    fontSize:      "11px",
-    fontWeight:    700,
-    color:         "var(--on-header)",
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-  },
-  summary: {
-    fontWeight:   700,
-    fontSize:     "var(--fs-h3)",
-    color:        "var(--on-header)",
-    overflow:     "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace:   "nowrap",
-  },
+  ...incomeHeader,
   iconLink: {
     color:          "var(--on-header)",
     textDecoration: "none",

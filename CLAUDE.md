@@ -154,7 +154,9 @@ One phone-width column of four blocks, loaded together (`listIncomes`,
 `getFxRates`):
 
 1. **Current period expenses** — hero header with the current income (latest
-   `date ≤ today`) and its date. Lists the expenses mapped to that income that
+   `date ≤ today`) and its date, styled exactly like the Dashboard's income
+   header (`components/incomeHeader.js`, shared by both). Rows use the
+   Dashboard's expense-row format without the edit/delete icons. Lists the expenses mapped to that income that
    were **outstanding when the page loaded**, sorted by priority then date.
    Ticking one marks it Completed (and unticking reverts it); the row stays,
    struck through, until the next load so a mistap can be undone. Footer:

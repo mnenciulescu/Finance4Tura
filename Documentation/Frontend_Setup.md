@@ -39,6 +39,7 @@ src/
 │   ├── TabIcons.jsx        # duotone bottom-bar icons (fills: TAB_ICON_COLORS)
 │   ├── navIcons.jsx        # line icons for the Finance and account menus
 │   ├── IncomeCard.jsx      # income-period card on the Dashboard
+│   ├── incomeHeader.js     # header styles shared by IncomeCard and the Home hero
 │   ├── DateSheet.jsx       # the app's calendar sheet (Monday first, with Clear)
 │   ├── ui.jsx              # shared primitives: Card, Sheet, Button, Pill, StatTile, …
 │   ├── tokens.js           # design tokens as strings (T, TYPE) for inline styles

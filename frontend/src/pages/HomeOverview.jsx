@@ -16,6 +16,7 @@ import {
 } from "../utils/colors";
 import { T, TYPE } from "../components/tokens";
 import DateSheet from "../components/DateSheet";
+import { incomeHeader as hs } from "../components/incomeHeader";
 import {
   Card, SectionHeader, StatTile, Pill, Checkbox,
 } from "../components/ui";
@@ -117,14 +118,23 @@ function PendingExpenses({ incomes, expenses, pendingAtLoad, onToggle }) {
   return (
     <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }}>
 
-      {/* Hero header — the one gradient element on the screen. No stripe and no
-          divider rule: the gradient itself separates it from the list. */}
-      <div style={st.hero}>
-        <div style={st.heroTop}>
-          <span style={st.heroDate}>{month} {day} {year} · {dow}</span>
-          <Pill>Expenses</Pill>
+      {/* Hero header — the same layout and type as the current income's
+          header on the Finance Dashboard (shared via incomeHeader), with the
+          Expenses pill where that one has + Add. */}
+      <div style={{ ...st.hero, "--on-header": "var(--on-hero)" }}>
+        <div style={hs.headerRow}>
+          <div style={hs.headerTop}>
+            <div style={hs.dateBadge}>
+              <span style={hs.badgeMonth}>{month}</span>
+              <span style={hs.badgeDay}>{day}</span>
+              <span style={hs.badgeYear}>{year}</span>
+              <span style={hs.badgeSep}>·</span>
+              <span style={hs.badgeDow}>{dow}</span>
+            </div>
+            <Pill>Expenses</Pill>
+          </div>
+          <span style={hs.summary} title={currentIncome.summary}>{currentIncome.summary}</span>
         </div>
-        <span style={st.heroTitle}>{currentIncome.summary}</span>
       </div>
 
       {/* Expense list — the same row format as IncomeCard on the Finance
@@ -204,27 +214,6 @@ function PendingExpenses({ incomes, expenses, pendingAtLoad, onToggle }) {
 const st = {
   hero: {
     background: T.heroGrad,
-    padding:    "var(--sp-4) var(--sp-4) var(--sp-5)",
-    display:        "flex",
-    flexDirection:  "column",
-    gap:            "var(--sp-2)",
-  },
-  heroTop: {
-    display:        "flex",
-    alignItems:     "center",
-    justifyContent: "space-between",
-    gap:            "var(--sp-2)",
-  },
-  heroDate: {
-    ...TYPE.overline,
-    color: "var(--on-hero)",
-  },
-  heroTitle: {
-    ...TYPE.h2,
-    color:        "var(--on-hero)",
-    overflow:     "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace:   "nowrap",
   },
   // Mirrors IncomeCard's expenseRow and its children.
   row: {
