@@ -342,10 +342,6 @@ export default function BooksAndDev() {
                         </ResponsiveContainer>
                       </div>
 
-                      <span style={s.listLabel}>
-                        {visible.length === 1 ? "Latest" : `Latest ${visible.length}`}
-                      </span>
-
                       {visible.map(b => {
                         const open = !!expanded[b.bookId];
                         return (
@@ -662,14 +658,6 @@ const s = {
     padding:      "6px 10px",
     borderRadius: "var(--r-sm)",
     boxShadow:    "var(--shadow-raised)",
-  },
-  listLabel: {
-    fontSize:      "10px",
-    fontWeight:    700,
-    color:         "var(--text-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    paddingLeft:   "2px",
   },
   moreBtn: {
     display:        "flex",
