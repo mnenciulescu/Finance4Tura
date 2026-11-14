@@ -1,0 +1,1292 @@
+# 4TURA Home — Frontend Redesign Proposal
+
+**Status:** proposal, not implemented. Written 2026-11-14 against `main` at the
+time of writing. This document is the implementation brief for a full frontend
+redesign; nothing in the backend or the API changes.
+
+**Goal:** replace the current Dusk / Light / Amber look and the current
+navigation with a modern, Apple-style (iOS Human Interface Guidelines–inspired)
+design that is built for an installed, phone-only PWA. It ships with two themes,
+**Light** and **Dark** (plus an *Automatic* setting that follows the device),
+on a token system that makes more themes cheap to add. Every existing feature
+is kept; some are reached in a different way.
+
+---
+
+## Contents
+
+1. [Principles](#1-principles)
+2. [What exists today](#2-what-exists-today)
+3. [Design language](#3-design-language)
+4. [Theme system](#4-theme-system)
+5. [Information architecture and navigation](#5-information-architecture-and-navigation)
+6. [Component library](#6-component-library)
+7. [Sensitive information](#7-sensitive-information)
+8. [Screen-by-screen specification](#8-screen-by-screen-specification)
+9. [Interaction patterns](#9-interaction-patterns)
+10. [PWA and platform details](#10-pwa-and-platform-details)
+11. [Accessibility](#11-accessibility)
+12. [Technical architecture](#12-technical-architecture)
+13. [Testing](#13-testing)
+14. [Implementation plan](#14-implementation-plan)
+15. [Open decisions](#15-open-decisions)
+16. [Appendix A — feature parity checklist](#appendix-a--feature-parity-checklist)
+17. [Appendix B — route map](#appendix-b--route-map)
+
+---
+
+## 1. Principles
+
+1. **One phone layout, installed first.** The app is used as a home-screen PWA
+   on iPhone. Design for a 390–430 pt wide viewport in standalone mode, with
+   safe areas, no browser chrome and thumb reach. Larger screens show the same
+   centred column (as today, `max-width: 430px`).
+2. **Native feel, not native imitation.** Borrow iOS structure — large titles,
+   grouped inset lists, translucent bars, sheets with detents, swipe actions,
+   segmented controls, action sheets — and its type and colour logic. Do not
+   copy Apple artwork, SF Symbols glyphs or Apple branding (see §12.6 on
+   licensing).
+3. **Content first, chrome quiet.** Bars are translucent material; colour is
+   reserved for meaning (priority, status, platform, money in/out) and for the
+   single accent that marks what is interactive.
+4. **Feature parity is a hard requirement.** Appendix A lists every current
+   behaviour; each one must have a home in the new design before the old screen
+   is removed.
+5. **Fewer full-page detours.** Creating and editing things happens in sheets
+   over the current screen, so the user never loses their place (today, Add
+   Expense is a separate page that has to route back with `returnStartIdx`).
+6. **Theming is data.** Components only read semantic tokens. A new theme is
+   one CSS block plus one entry in a theme registry.
+7. **Keep what already works.** The API layer, contexts (`AuthContext`,
+   `AppSettingsContext`, `YearContext`), business logic in `utils/`, the
+   16 px form-control rule, the no-native-date-input rule and the two-step
+   delete safety all carry over.
+
+---
+
+## 2. What exists today
+
+A short audit, so the proposal's changes are traceable.
+
+### 2.1 Stack
+
+React 19 + Vite 7, `react-router-dom` 7, `recharts` 3, `dayjs`, `axios`,
+`amazon-cognito-identity-js`, `vite-plugin-pwa`. ~13.7 k lines of frontend
+source. **All styling is inline style objects** (`const s = {…}` per file)
+reading CSS custom properties from `src/index.css`; `components/tokens.js`
+mirrors them as strings. `src/test/designTokens.test.js` bans raw hex, radii
+and shadows outside `utils/colors.js` and `pages/Settings.jsx`.
+
+### 2.2 Navigation
+
+- Top bar: brand + avatar (initials). The avatar opens the account menu:
+  username, JWT countdown, Settings, Backstage (gated by `backstageEnabled`),
+  Admin (gated by username `nenciulescu`), Sign out.
+- Bottom bar (floating dock): **Home · Finance · Books · HQ**.
+- Finance opens the Dashboard; the other five Finance pages (Add Income, Add
+  Expense, Split Pay, Statistics, Investments) live in the Dashboard's ⋮ menu,
+  together with the Show / Hide income amounts toggle.
+
+### 2.3 Screens
+
+| Screen | File | Size |
+|---|---|---|
+| Login | `pages/Login.jsx` | 355 |
+| Home Overview | `pages/HomeOverview.jsx` | 993 |
+| Finance Dashboard | `pages/Dashboard.jsx` + `components/IncomeCard.jsx` | 629 + 618 |
+| Add / Edit Expense | `pages/AddExpense.jsx` | 504 |
+| Add / Edit Income | `pages/AddIncome.jsx` | 333 |
+| Split Payments | `pages/SplitPayment.jsx` | 1070 |
+| Statistics | `pages/Statistics.jsx` | 649 |
+| Investments | `pages/Investments.jsx` | 1634 |
+| Books & Development | `pages/BooksAndDev.jsx` | 924 |
+| Headquarters | `pages/Headquarters/*` | ~2 000 |
+| Settings | `pages/Settings.jsx` | 341 |
+| Backstage | `pages/Backstage.jsx` | 521 |
+| Admin | `pages/Admin.jsx` | 618 |
+
+### 2.4 Pain points the redesign addresses
+
+- **Inline styles everywhere.** No `:active` press states, no media queries per
+  component, no `prefers-reduced-motion`, no `:focus-visible`; every pressed or
+  hovered state needs React state. Files are long mostly because of style
+  objects.
+- **Finance is a hub hidden behind ⋮.** Four sibling areas (budget, split,
+  stats, investments) sit in an overflow menu; nothing on screen says they
+  exist.
+- **Add / Edit are full pages** that must remember where to return
+  (`from`, `returnStartIdx`).
+- **Three ad-hoc themes** with hand-tuned values (Dusk's canvas lighter than its
+  cards, etc.). Adding a fourth means re-tuning dozens of tokens.
+- **Inconsistent patterns** between modules: Headquarters has its own
+  `Modal.jsx` and `styles.js`; Investments and Split each define their own
+  bottom sheet; the Dashboard uses a centred dialog for delete-series while the
+  rest uses two-step inline delete.
+- **Custom touch-swipe** on the Dashboard pager instead of native scroll
+  snapping (no momentum, no accessibility).
+
+---
+
+## 3. Design language
+
+### 3.1 Typography
+
+Use the platform font. On iOS this resolves to SF Pro (Text / Display picked
+automatically by size), which is what makes the app feel native; elsewhere it
+falls back to the system UI font.
+
+```css
+--font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+             Roboto, "Helvetica Neue", Arial, sans-serif;
+--font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif; /* big numbers */
+--font-mono: ui-monospace, "SF Mono", Menlo, monospace;                   /* Backstage */
+```
+
+Nunito is dropped (one fewer network font, faster first paint offline).
+Tabular numerals stay global: `font-variant-numeric: tabular-nums`.
+
+Type scale — the iOS default ("Large" content size) scale, in `rem` so a future
+text-size setting can scale it (§11):
+
+| Token | Size / line | Weight | Use |
+|---|---|---|---|
+| `--type-large-title` | 34 / 41 | 700 | Screen title (collapses on scroll) |
+| `--type-title1` | 28 / 34 | 700 | Hero figures (portfolio total) |
+| `--type-title2` | 22 / 28 | 700 | Card titles, period name |
+| `--type-title3` | 20 / 25 | 600 | Section-level emphasis |
+| `--type-headline` | 17 / 22 | 600 | Row titles, button labels |
+| `--type-body` | 17 / 22 | 400 | Default text, **all form inputs** |
+| `--type-callout` | 16 / 21 | 400 | Secondary body |
+| `--type-subheadline` | 15 / 20 | 400 | Row subtitles |
+| `--type-footnote` | 13 / 18 | 400 | Section footers, metadata |
+| `--type-caption1` | 12 / 16 | 400 | Chart axes, badges |
+| `--type-caption2` | 11 / 13 | 400 | Tab-bar labels |
+
+Section headers in grouped lists use footnote size, uppercase, secondary label
+colour (the iOS grouped-list header style).
+
+Body at 17 px also satisfies the existing iOS zoom rule (controls ≥ 16 px), so
+`.zoom-safe-form` and its `!important` override can be deleted.
+
+### 3.2 Layout and spacing
+
+- 8-pt grid with 4-pt half steps: `--space-1` 4 · `--space-2` 8 · `--space-3`
+  12 · `--space-4` 16 · `--space-5` 20 · `--space-6` 24 · `--space-8` 32.
+- Screen margin **16 pt** (`--space-4`); inset grouped lists and cards sit 16 pt
+  from the screen edge.
+- Minimum tap target **44 × 44 pt**.
+- Rows: 44 pt min height for single-line rows, 60 pt for two-line rows.
+
+### 3.3 Shape
+
+| Token | Value | Use |
+|---|---|---|
+| `--radius-xs` | 6 px | Badges, small chips |
+| `--radius-sm` | 10 px | Buttons, inputs, segmented control |
+| `--radius-md` | 12 px | Inset grouped lists, cards |
+| `--radius-lg` | 16 px | Widgets on Today, large cards |
+| `--radius-xl` | 22 px | Sheets (top corners) |
+| `--radius-full` | 9999 px | Pills, avatar, toggles |
+
+Progressive enhancement for iOS-style continuous corners:
+`@supports (corner-shape: squircle) { .card { corner-shape: squircle; } }`.
+Where unsupported, ordinary rounded corners are used — no visual break.
+
+### 3.4 Materials and elevation
+
+iOS separates layers with **materials** (translucent blur) and background
+levels rather than heavy shadows.
+
+```css
+--material-bar: color-mix(in srgb, var(--bg-primary) 72%, transparent);
+.material { background: var(--material-bar);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px); }
+```
+
+- Navigation bar and tab bar: material, with a 0.5 px separator that only
+  appears once content scrolls under it (scroll-edge appearance, §6.2).
+- Cards and grouped lists: flat, on `--bg-grouped-secondary`; no shadow in
+  Dark, a barely-there shadow in Light (`--shadow-card`).
+- Sheets and menus: `--shadow-overlay` plus a dimming scrim
+  (`--scrim`, 40 % black in Light, 60 % in Dark).
+
+### 3.5 Iconography
+
+A single custom SVG icon set, drawn to read like iOS symbols: 24-unit grid,
+rounded caps and joins, 1.75 stroke for "regular", filled variants for selected
+tab items. `currentColor` only, so icons follow theme and state. Roughly 45
+glyphs cover the app (tab icons, plus, ellipsis, chevrons, eye / eye-slash,
+trash, pencil, checkmark, calendar, chart, filter, search, person, gear, shield,
+sign-out, wallet, book, building, drop, arrow-up/down, star, etc.). Lives in
+`src/ui/icons/` as one React component per glyph with a shared `<Icon>`
+wrapper (`size`, `weight`, `filled`).
+
+The duotone tab icons and `TAB_ICON_COLORS` are retired.
+
+### 3.6 Motion
+
+- Durations: `--dur-fast` 150 ms (press), `--dur-base` 250 ms (toggles, list
+  changes), `--dur-slow` 350 ms (sheets, screen transitions).
+- Curves: `--ease-standard: cubic-bezier(.2, .8, .2, 1)`; sheets use a spring
+  approximation `cubic-bezier(.32, .72, 0, 1)`.
+- Screen push / pop: the **View Transitions API** (`document.startViewTransition`)
+  for a horizontal slide on push and a reverse slide on pop, cross-fade for tab
+  switches. Feature-detect and fall back to no animation.
+- Press feedback: `:active { transform: scale(.97); opacity: .85 }` on tappable
+  cards; list rows darken to `--fill-pressed`.
+- Everything is disabled under `@media (prefers-reduced-motion: reduce)`.
+
+---
+
+## 4. Theme system
+
+### 4.1 Token layers
+
+Three layers, so a new theme only touches the middle one:
+
+1. **Primitives** — the raw palette, per theme (`--blue-500` style is *not*
+   used; primitives are named after iOS system colours).
+2. **Semantic tokens** — what components read: `--bg-*`, `--label-*`,
+   `--fill-*`, `--separator`, `--tint`, `--status-*`, `--series-*`.
+3. **Component tokens** (optional, sparing) — e.g. `--tabbar-height`,
+   `--sheet-grabber`. Defined once, from semantic tokens.
+
+Components never reference primitives. A test enforces it (§13).
+
+### 4.2 Theme registry
+
+`src/theme/themes.js`:
+
+```js
+export const THEMES = [
+  { id: "light", label: "Light", scheme: "light", metaColor: "#F2F2F7" },
+  { id: "dark",  label: "Dark",  scheme: "dark",  metaColor: "#000000" },
+];
+export const THEME_SETTINGS = ["auto", ...THEMES.map(t => t.id)]; // stored value
+```
+
+- Stored in `localStorage` under a **new key** `uiTheme`
+  (`"auto" | "light" | "dark"`, default `"auto"`).
+- `auto` follows `prefers-color-scheme` live (a `matchMedia` listener flips
+  `data-theme` without reload).
+- Applied as `<html data-theme="light|dark">` before first render (inline
+  script in `index.html`, so there is no flash of the wrong theme on launch).
+- The `<meta name="theme-color">` is updated with the theme (`metaColor`), and
+  `color-scheme` is set per theme so native controls, scrollbars and
+  autofill render correctly (keeps the current behaviour).
+- **Migration:** the old `appTheme` key is read once: `dark`/`dusk`/`prism`/
+  `ember`/`amber` → `dark`, `light` → `light`, then `appTheme` is removed. Dusk,
+  Light (old) and Amber are deleted.
+
+Adding a third theme later = one `[data-theme="x"]` block in
+`src/theme/themes.css` + one registry entry. The Settings picker renders from
+the registry.
+
+### 4.3 Theme values
+
+Values follow Apple's published iOS system colours (default, not
+high-contrast).
+
+| Semantic token | Light | Dark | Meaning |
+|---|---|---|---|
+| `--bg-primary` | `#FFFFFF` | `#000000` | Plain screens, bars base |
+| `--bg-grouped` | `#F2F2F7` | `#000000` | Screen behind grouped lists |
+| `--bg-grouped-secondary` | `#FFFFFF` | `#1C1C1E` | Cards, list groups |
+| `--bg-grouped-tertiary` | `#F2F2F7` | `#2C2C2E` | Inputs and tiles inside cards |
+| `--bg-elevated` | `#FFFFFF` | `#1C1C1E` | Sheets, menus |
+| `--label` | `#000000` | `#FFFFFF` | Primary text |
+| `--label-secondary` | `rgba(60,60,67,.60)` | `rgba(235,235,245,.60)` | Subtitles, metadata |
+| `--label-tertiary` | `rgba(60,60,67,.30)` | `rgba(235,235,245,.30)` | Placeholders, disabled |
+| `--separator` | `rgba(60,60,67,.29)` | `rgba(84,84,88,.65)` | Hairlines (0.5 px) |
+| `--fill` | `rgba(120,120,128,.20)` | `rgba(120,120,128,.36)` | Toggles off, segmented track |
+| `--fill-secondary` | `rgba(120,120,128,.16)` | `rgba(120,120,128,.32)` | Chips, search field |
+| `--fill-pressed` | `rgba(0,0,0,.06)` | `rgba(255,255,255,.08)` | Row press state |
+| `--tint` | `#007AFF` | `#0A84FF` | Accent: links, buttons, selection |
+| `--on-tint` | `#FFFFFF` | `#FFFFFF` | Text on tint |
+| `--status-positive` | `#34C759` | `#30D158` | Done, deposit, free, settled |
+| `--status-negative` | `#FF3B30` | `#FF453A` | Over budget, withdrawal, delete |
+| `--status-warning` | `#FF9500` | `#FF9F0A` | Pending, medium priority |
+| `--status-special` | `#AF52DE` | `#BF5AF2` | ★ special expenses |
+| `--shadow-card` | `0 1px 2px rgba(0,0,0,.04)` | `none` | |
+| `--shadow-overlay` | `0 10px 40px rgba(0,0,0,.18)` | `0 10px 40px rgba(0,0,0,.6)` | Sheets, menus |
+| `--scrim` | `rgba(0,0,0,.40)` | `rgba(0,0,0,.60)` | Behind sheets |
+
+**Categorical series colours** (`--series-1 … --series-8`) map onto iOS system
+colours, with the Dark variant automatically brighter:
+
+| Series | Light | Dark |
+|---|---|---|
+| 1 blue | `#007AFF` | `#0A84FF` |
+| 2 green | `#34C759` | `#30D158` |
+| 3 orange | `#FF9500` | `#FF9F0A` |
+| 4 purple | `#AF52DE` | `#BF5AF2` |
+| 5 teal | `#30B0C7` | `#40C8E0` |
+| 6 pink | `#FF2D55` | `#FF375F` |
+| 7 indigo | `#5856D6` | `#5E5CE6` |
+| 8 yellow | `#FFCC00` | `#FFD60A` |
+
+Domain colour mapping (replaces `utils/colors.js` constants; the file becomes a
+map of domain keys → `var(--series-n)` / `var(--status-*)` strings, no hex):
+
+| Domain | Mapping |
+|---|---|
+| Priority | High → `--status-negative`, Medium → `--status-warning`, Low → `--series-5` (teal) |
+| Budget bar | Done → `--status-positive`, Pending → `--status-warning`, Free → `--tint`, Over → `--status-negative` |
+| Platforms | eToro `--series-2`, Binance `--series-8`, Fidelity `--series-1`, Tradeville `--series-7`, ING Funds RON `--series-3`, ING Funds EUR `--series-6` (six distinct; check adjacent-line contrast in the chart before finalising) |
+| Book types | Audiobook `--series-4`, Training `--series-5`, Book `--label-secondary`, Other `--series-7` |
+| HTTP methods (Backstage) | GET `--series-1`, POST `--series-2`, PUT `--series-3`, DELETE `--status-negative` |
+| Statistics bars | Free ≥ 0 → `--tint`, Free < 0 → `--status-negative` |
+
+Charts read the same variables at runtime through a `useChartTheme()` hook
+(reads `getComputedStyle(document.documentElement)` and re-reads on theme
+change), because Recharts needs concrete colour strings for some props.
+
+---
+
+## 5. Information architecture and navigation
+
+### 5.1 Tab bar
+
+Four tabs, iOS tab bar (translucent material, full width, labels under
+icons, selected item in `--tint` with a filled icon):
+
+| Tab | Root screen | Contains |
+|---|---|---|
+| **Today** | `/` | The current Home Overview, as widgets |
+| **Money** | `/money` | Budget · Split · Stats · Invest (segmented) |
+| **Library** | `/library` | Books & Development |
+| **HQ** | `/hq` | Headquarters |
+
+Names are proposals (see §15). The tab bar is a standard edge-to-edge bar with
+`padding-bottom: env(safe-area-inset-bottom)`, height 49 pt + inset — the
+floating dock is retired.
+
+Behaviour:
+
+- Each tab keeps its own navigation stack and scroll position (re-selecting a
+  tab returns to where the user was).
+- **Tapping the already-selected tab** pops to its root and scrolls to the top;
+  on Money → Budget it also jumps back to the current income period (today's
+  `resetDashboard` behaviour, now triggered by the iOS convention).
+
+### 5.2 Money: from hidden menu to visible structure
+
+The ⋮ Finance menu disappears. Money's large-title header carries a
+**segmented control** directly under the title:
+
+```
+Money                                  (avatar)
+[ Budget | Split | Stats | Invest ]
+```
+
+- Each segment is its own route (`/money`, `/money/split`, `/money/stats`,
+  `/money/invest`), so deep links, back and refresh work.
+- The segmented control is sticky under the collapsed navigation bar while
+  scrolling.
+- **Add Income / Add Expense** move to a `+` button in the navigation bar
+  (trailing). On Budget it opens a pull-down menu: *New Expense*, *New Income*.
+  On Split: *New Split Payment*. On Invest: *New Snapshot*, *New Operation*.
+  Each opens a form sheet (§6.7), not a page.
+- **Show / Hide income amounts** becomes an eye button in the navigation bar
+  on Budget (eye / eye-slash icon), with the same persisted behaviour (§7).
+- **Year selection** (`YearContext`, shared by Budget and Stats) becomes a
+  pull-down button in the navigation bar showing the year (`2026 ⌄`), listing
+  available years, capped at the current year. Keeps the shared state.
+
+### 5.3 Account
+
+The initials avatar stays — at the trailing edge of every tab's large title,
+like the account button in Apple's own apps. Tapping it opens an **Account
+sheet** (medium detent):
+
+```
+┌───────────────────────────────┐
+│            ───                │
+│  (MN)  nenciulescu            │
+│        Session · 47 min left  │
+├───────────────────────────────┤
+│  ⚙  Settings               ›  │
+│  ⌘  Backstage              ›  │  ← only while backstageEnabled
+│  🛡  Admin                  ›  │  ← only for ADMIN_USER
+├───────────────────────────────┤
+│        Sign Out  (red)        │
+└───────────────────────────────┘
+```
+
+Settings, Backstage and Admin are pushed full screens (with a back button to
+the tab they were opened from). Gating rules are unchanged
+(`visibleItems()` from `navConfig.js` survives as `src/app/navigation.js`).
+
+### 5.4 Routing
+
+- A `<TabShell>` owns four `<Outlet>` stacks; React Router 7 nested routes per
+  tab.
+- **Modal routes** for sheets that should survive refresh and be linkable:
+  `location.state.background` pattern — the sheet renders over the background
+  route; on direct load it renders over the tab root.
+  - `/money/expense/new?incomeId=&date=`
+  - `/money/expense/:expenseId`
+  - `/money/income/new`, `/money/income/:incomeId`
+- Old routes redirect (Appendix B) so bookmarks and the installed PWA's start
+  URL keep working.
+- `/admin` stays guarded by username in the router, as today.
+
+---
+
+## 6. Component library
+
+A new folder `src/ui/` replaces `components/ui.jsx`, `tokens.js`,
+`navIcons.jsx`, `TabIcons.jsx`, `DateSheet.jsx`, `Headquarters/Modal.jsx` and
+the per-page sheets. Each component has a CSS Module and a short test.
+
+### 6.1 Shell
+
+- **`AppShell`** — root layout: safe-area padding, `100dvh`, the centred
+  430 px column, tab bar, toast host, sheet host.
+- **`TabBar`** — §5.1. `aria-label="Main"`, `aria-current="page"` on the
+  selected tab.
+
+### 6.2 `NavigationBar` + `LargeTitle`
+
+- Large title (34 pt) at the top of each root screen, with optional trailing
+  actions (avatar, `+`, eye, year menu).
+- On scroll, a sentinel observed with `IntersectionObserver` collapses it: the
+  large title scrolls away and a 17 pt inline title fades into a material bar.
+  The bar's hairline separator appears only after content passes under it.
+- Pushed screens use the compact bar from the start: `‹ Back` (label is the
+  previous screen's title), centred title, trailing actions.
+- Optional bottom accessory slot (the Money segmented control, Library search).
+
+### 6.3 Lists
+
+- **`List`** — `variant="insetGrouped" | "plain"`. Inset grouped: 16 pt side
+  margin, `--radius-md`, `--bg-grouped-secondary`, hairline separators inset to
+  the text start.
+- **`ListSection`** — header (footnote, uppercase, secondary) and footer
+  (footnote, secondary); collapsible variant with a disclosure chevron (used
+  for Settled, Special expenses, per-person Library sections).
+- **`ListRow`** — slots: `leading` (icon tile, checkbox, dot), `title`,
+  `subtitle`, `trailing` (value, badge, toggle, chevron). Variants: navigation
+  (chevron), toggle, value, destructive. Press state, `:focus-visible` ring.
+- **`SwipeActions`** — wraps a row. Swipe left reveals trailing actions
+  (Edit — grey/blue, Delete — red); a full swipe triggers the first
+  destructive action's *confirm* state, not the delete itself (§9.2). Built on
+  pointer events + `touch-action: pan-y`; every action is also reachable from a
+  long-press context menu and from the edit sheet, so swipe is never the only
+  path.
+
+### 6.4 Controls
+
+- **`Button`** — `filled` (tint), `tinted` (tint at 15 % behind tint label),
+  `gray` (fill + label), `plain` (text only), `destructive`. Sizes `large`
+  (50 pt, full width in sheets) / `medium` (34 pt) / `small` (28 pt).
+- **`IconButton`** — 44 pt hit area, 28 pt visual circle optional.
+- **`SegmentedControl`** — iOS look (fill track, elevated white/grey thumb that
+  slides). Keyboard and `role="tablist"` semantics when it switches views;
+  `role="radiogroup"` when it is a form value (Deposit / Withdrawal, Track by).
+- **`Toggle`** — iOS switch, 51 × 31, `--status-positive` when on;
+  `role="switch"`.
+- **`Checkbox`** — iOS-style circular check (Reminders style): outlined circle
+  → filled tint circle with checkmark; 28 pt visual, 44 pt hit area.
+- **`Stepper`** — − / value / + (occurrence count, rating if desired).
+- **`TextField`** — 17 px, grouped-row style (label left, value right) or
+  stacked style; clear button; `inputMode` set per field
+  (`decimal` for amounts).
+- **`SearchField`** — rounded fill, magnifier, cancel button.
+- **`Picker`** — row that opens a pull-down menu (Priority, Currency, Source,
+  Type, Frequency, Platform).
+- **`DateField`** + **`DatePickerSheet`** — the current `DateSheet` (Monday
+  first, Clear action) restyled as an iOS inline calendar inside a sheet.
+  **Native `<input type="date">` stays banned** for the same reason as today.
+  `MonthField` variant for `dateCompleted` (YYYY-MM) shows a month-year wheel
+  made of two scroll-snap columns.
+- **`Rating`** — five stars, tap to set, tap the current value to clear
+  (keeps `null` support).
+
+### 6.5 Display
+
+- **`Card`** / **`Widget`** — `--bg-grouped-secondary`, `--radius-lg`, padding
+  16; widget variant has a header row (icon + title in tint, trailing chevron
+  link).
+- **`StatTile`** — big rounded-font value, caption, optional dot.
+- **`Badge`** / **`Chip`** — small capsule, tinted background at 15 % of the
+  series colour with the series colour as text.
+- **`ProgressBar`** — capsule track (`--fill`), segmented fill; **`ProgressRing`**
+  for Split coverage (`paid / occurrenceCount`).
+- **`EmptyState`** — icon, headline, footnote, optional button.
+- **`Skeleton`** — shimmer blocks, disabled under reduced motion.
+- **`PrivateValue`** — §7.
+
+### 6.6 Overlays
+
+- **`Sheet`** — bottom sheet with detents (`medium` ≈ 50 %, `large` ≈ 92 %),
+  grabber, drag-to-dismiss with velocity, scrim tap to dismiss, Escape to
+  dismiss, focus trap, `role="dialog" aria-modal="true"`, restores focus to the
+  opener. One implementation for every sheet in the app.
+- **`FormSheet`** — `Sheet` at `large` with a nav bar: *Cancel* (leading),
+  title, *Save* / *Add* (trailing, bold, disabled until valid). Dismissing a
+  dirty form asks via action sheet: *Discard Changes* / *Keep Editing*.
+- **`ActionSheet`** — bottom-anchored list of choices + separate Cancel. Used
+  for: delete series choice, edit-series scope, discard changes. (Sign out
+  stays one tap, as today.)
+- **`Alert`** — centred iOS alert (title, message, up to 3 buttons, optional
+  secure text field). Used for: "Mark as settled?", Delete user (password),
+  errors that need acknowledgement.
+- **`Menu`** — pull-down menu anchored to a button (nav bar `+`, year picker,
+  `…` card menus, filter pickers); also used as the long-press context menu
+  on rows.
+- **`Toast`** — top-of-screen capsule for non-blocking results
+  ("Saved", "Could not save the change", "FX rates updated"), auto-dismiss
+  3 s, `role="status"`.
+
+---
+
+## 7. Sensitive information
+
+Today the app hides two kinds of value:
+
+| Value | Current behaviour |
+|---|---|
+| Income amount on the Dashboard income header | Hidden by default according to Settings → Privacy (`incomePrivacy` in `localStorage`); toggled from the ⋮ menu; persisted. When hidden, text is transparent (keeps its width). |
+| Portfolio total and per-platform amounts on Home → Current Holdings | Masked as `••••`; **press and hold** the eye button to reveal; released → masked again. Never persisted. |
+| Password in Admin → Delete user | Password input; required before the delete call. |
+
+The redesign keeps each one exactly and puts it on one mechanism.
+
+### 7.1 `PrivacyContext`
+
+```js
+const { incomeVisible, setIncomeVisible } = usePrivacy();
+```
+
+- Initialised from `localStorage.incomePrivacy` (same key, so the user's current
+  preference carries over).
+- Settings → Privacy edits the **default** (as today: the value written to
+  storage); the Budget eye button toggles the current state *and* persists it
+  (as the ⋮ toggle does today).
+
+### 7.2 `<PrivateValue>`
+
+```jsx
+<PrivateValue mode="toggle" visible={incomeVisible}>{fmt(amount)} RON</PrivateValue>
+<PrivateValue mode="hold" group="holdings">{fmt(total)} EUR</PrivateValue>
+```
+
+- Hidden rendering: a rounded **redaction capsule** the width of the value
+  (`--fill`, like iOS's redacted placeholders) instead of transparent text, so
+  the user can see there *is* a value. Screen readers get "Hidden amount".
+- `mode="toggle"` — follows the context flag.
+- `mode="hold"` — paired with a `<RevealButton group="holdings">` (eye icon).
+  Pointer-down (mouse or touch) reveals every `PrivateValue` in the group;
+  pointer-up, pointer-cancel, pointer-leave or the page becoming hidden masks
+  them again. Keyboard: Space held = reveal. Matches today's hold-to-reveal and
+  adds the safety of re-masking on app switch.
+- Values are not rendered into the DOM at all while hidden (the capsule is a
+  placeholder), so they cannot be read from the accessibility tree or by
+  selecting text.
+
+### 7.3 Where it applies
+
+| Screen | Value | Mode |
+|---|---|---|
+| Money → Budget, period header | Income amount | toggle |
+| Today → Holdings widget | Total and per-platform amounts | hold |
+| Admin → Delete user | Password | `Alert` secure text field (`type="password"`, `autocomplete="current-password"`) |
+| Login | Password / confirm | secure fields with show/hide eye (new, optional — see §15) |
+
+**Unchanged on purpose:** the budget-bar figures on Budget and the Investments
+screen totals are visible today and stay visible. §15 lists extending privacy
+to them as an option, not a default.
+
+### 7.4 App switcher snapshot (optional)
+
+When `document.visibilityState` becomes `hidden`, add a blur overlay class to
+`<body>` so the iOS app switcher snapshot does not show figures. Off by
+default; a Settings → Privacy toggle "Hide content in app switcher".
+
+---
+
+## 8. Screen-by-screen specification
+
+Wireframes are schematic; spacing and type come from §3.
+
+### 8.1 Login
+
+```
+        (app icon, 80 pt)
+        4TURA Home              ← large title
+        Sign in to continue     ← subheadline, secondary
+
+  ┌──────────────────────────┐
+  │ Username                 │
+  │──────────────────────────│
+  │ Password            (eye)│
+  │──────────────────────────│
+  │ Confirm password         │  ← sign-up mode only
+  └──────────────────────────┘
+  [        Sign In          ]   ← filled, large
+           or
+  [  Google Sign-In button  ]   ← GIS-rendered, only if googleLoginEnabled
+  Don't have an account? Create one   ← only if createAccountEnabled
+```
+
+- Same logic: SRP sign-in, sign-up with password match check, GIS popup →
+  `/auth/google`. Errors inline under the group in `--status-negative`.
+- The Google button keeps Google's own rendered button (branding rules); its
+  `theme` option follows the app theme (`outline` in Light, `filled_black` in
+  Dark).
+
+### 8.2 Today (Home Overview)
+
+A vertical stack of **widgets** under the large title "Today" and the date
+(footnote, e.g. "Friday, 14 November"):
+
+1. **This Period** (widget, full width)
+   - Header: income date (`NOV 10 2026 · MON`) and income name in title2;
+     `Expenses` capsule.
+   - List: the expenses outstanding at load, priority then date. Row: circular
+     checkbox, priority dot, ★ if special, summary, date (`11-14`), amount.
+     Ticking strikes through and dims, row stays until reload (unchanged).
+     Special rows keep a `--status-special` 12 % tint.
+   - Footer: two `StatTile`s — **Done** and **Pending** for the whole period.
+   - Empty states unchanged ("No expenses for this period." / "Nothing left to
+     pay.").
+   - Tapping the header opens Money → Budget on the current period.
+2. **Split Payments** — three newest open entries. Each: title, coverage ring
+   (`2/6`), total, and the slot grid (two per row; amount fields typed, date
+   slots open `DatePickerSheet`; 600 ms debounce; "Mark as settled?" `Alert`
+   on the last empty slot, Cancel restores). Header link: *See All ›* →
+   Money → Split.
+3. **Holdings** — portfolio total (title1, rounded font) and platform rows with
+   coloured dots, all `PrivateValue mode="hold"`; eye `RevealButton` in the
+   widget header ("Hold to reveal"); footnote with the FX date.
+4. **Library** — persons × types grid, each cell the latest entry (title,
+   month). Header link → Library.
+
+Pull-to-refresh reloads all five API calls (new; uses a custom indicator since
+standalone PWAs have no native pull-to-refresh on iOS).
+
+### 8.3 Money → Budget (Finance Dashboard)
+
+```
+Money                       2026⌄  👁  +  (MN)
+[ Budget | Split | Stats | Invest ]
+‹  Period 23 of 26  ›          [Today]
+┌──────────────────────────────────────┐
+│ NOV 10 2026 · MON              ···   │
+│ Monthly salary          ▬▬▬▬ (hidden)│
+│ ┌──────────────────────────────────┐ │
+│ │■■■■■■■■■■■■■□□□□□□░░░░░░░░░░░░░░░│ │  segmented capsule
+│ └──────────────────────────────────┘ │
+│ ● Done 4 200  ● Pending 1 150  ● Free 2 650 │
+├──────────────────────────────────────┤
+│ ◯ ● Rent               11-12  3 500,00│  ← swipe: Edit · Delete
+│ ◯ ● Electricity        11-15    240,00│
+│ ◉ ● Internet  (struck) 11-11     60,00│
+│ + Add Expense                        │
+└──────────────────────────────────────┘
+```
+
+- **Period pager:** a horizontal **CSS scroll-snap** carousel of period cards
+  (one per income in the selected year), replacing the custom touch handlers.
+  Native momentum and VoiceOver support. Pager label (`Period 23 of 26`) with
+  ‹ › buttons, and a **Today** button that appears only when the current
+  period is off-screen (replaces ◎). Re-tapping the Money tab also returns to
+  today (§5.1).
+- **Period header:** date line (same shared header styles as Today's widget,
+  keeping the "two designs in sync" rule), income name, income amount as
+  `PrivateValue mode="toggle"`. Trailing `···` menu: *Edit Income*, *Add
+  Expense to This Period*, *Delete Income* (destructive).
+- **Budget bar:** one capsule bar with Done / Pending / Free (or Over) segments
+  and a legend row with the four figures (Total spent, Done, Pending, Free or
+  Over). Same arithmetic as `IncomeCard` today, including the minimum-segment
+  rule so labels fit; labels move to the legend so the bar can be slimmer
+  (12 pt).
+- **Expense rows:** circular checkbox toggles Completed / Pending; priority
+  dot; ★ special with tint; summary; `MM-DD`; amount (struck when done).
+  Tap row → Edit Expense sheet. Swipe left → *Edit*, *Delete*. Long-press →
+  context menu with the same, plus *Mark as Completed/Pending*.
+- **Delete:** single expense → swipe/menu Delete → confirm (§9.2). Series member
+  → `ActionSheet` *Delete This Occurrence* / *Delete Entire Series* / Cancel.
+  Deleting an income: `ActionSheet` with the same series choice when
+  applicable; affected expenses remap optimistically (unchanged logic).
+- Sorting: priority then date (unchanged).
+
+### 8.4 Expense and Income sheets (replace `/add-expense`, `/add-income`)
+
+`FormSheet`, large detent. Title *New Expense* / *Edit Expense*.
+
+**Expense** — inset grouped form:
+
+| Group | Rows |
+|---|---|
+| Details | Summary (text), Amount (decimal, currency suffix), Date (`DateField`) |
+| Mapping | *Maps to: Monthly salary · Nov 10* — live preview from `/expenses/resolve-income` (footnote style, updates on date change) |
+| Classification | Priority (`Picker`: High / Medium / Low with dots), Status (segmented Pending / Completed), Special (toggle, ★) |
+| Repeat | Repeat (toggle) → Frequency (`Picker` daily / weekly / monthly), Ends (`DateField`, required when repeating) |
+
+- Validation unchanged (date within current year, amount > 0, required fields,
+  series end date). Errors shown under the offending row in
+  `--status-negative`; *Save* disabled until valid.
+- Editing a series member: on *Save*, `ActionSheet` *Save for This Occurrence
+  Only* / *Save for All Future Occurrences* (replaces the "Edit scope" field;
+  same `PUT /{id}` vs `PUT /{id}/series` calls).
+- Opened from a period's `+ Add Expense` or `···` → pre-fills `date` and the
+  mapped income, as today's `incomeId`/`date` query does.
+- On save the sheet closes and the Budget pager stays on the same period —
+  `returnStartIdx` and `from` are no longer needed because the page never
+  unmounts.
+- Delete button at the bottom of the edit sheet (destructive, with confirm).
+
+**Income** — same pattern: Summary, Amount, Currency, Date, Repeat (frequency,
+ends). Series edit scope via `ActionSheet`.
+
+### 8.5 Money → Split
+
+```
+Money                                  +  (MN)
+[ Budget | Split | Stats | Invest ]
+  3 open · 5 settled
+  Left to cover: 4 200 RON · 350 EUR
+
+IN PROGRESS
+┌──────────────────────────────────────┐
+│ ◔ 2/6  Laptop            1 200 RON ⌄ │  ring = coverage
+│        Nov 2 · 800 RON left      ··· │
+│  #1 [ 200 ] #2 [ 200 ]               │
+│  #3 [     ] #4 [     ]               │
+│  #5 [     ] #6 [     ]               │
+└──────────────────────────────────────┘
+SETTLED (5)                           ⌄
+```
+
+- Same grouping, expand/collapse defaults (open expanded, settled collapsed),
+  per-card overrides.
+- Card `···` menu: *Cover Rest* (amount-tracked only), *Clear All*, *Edit*,
+  *Delete*. Cover Rest keeps the remainder-absorbing split.
+- Slot rules unchanged: exactly `occurrenceCount` slots, two per row, amount
+  inputs 17 px with `inputMode="decimal"`, date slots → `DatePickerSheet`,
+  "Mark as settled?" `Alert` (*Mark Settled* / *Cancel*), 600 ms debounce,
+  "Could not save the change." → `Toast`.
+- New / Edit: `FormSheet` with Title, Date, Total, Currency (`Picker`),
+  Occurrences (`Stepper` 1–36), Track By (segmented Amount / Date — disabled
+  once a slot is filled, with a footnote explaining why).
+
+### 8.6 Money → Stats
+
+```
+Money                       2026⌄        (MN)
+[ Budget | Split | Stats | Invest ]
+  9 months with data · now November
+
+┌───────────────┐ ┌───────────────┐
+│ Avg free/month│ │ Survival/month│
+│   2 340       │ │  11 850       │
+└───────────────┘ └───────────────┘
+AVERAGES
+│ ● High    4 100 │ ● Medium 2 300 │ ● Low 900 │
+
+FREE AMOUNT PER MONTH
+┌──────────────────────────────────────┐
+│  bar chart, Jan–Dec, "now" marker    │
+└──────────────────────────────────────┘
+
+★ SPECIAL EXPENSES · 4 in 2026 · 6 300   ⌄
+```
+
+- All calculations unchanged (`monthsWithData`, `SURVIVAL_BASELINE`, null for
+  future months).
+- Chart restyled: rounded bar tops (`radius={[6,6,0,0]}`), no grid verticals,
+  axis labels caption1 secondary, current month full opacity and others 50 %,
+  dashed "now" line in `--label-tertiary`, zero line. Tooltip becomes a
+  callout bubble with Income / High / Medium / Low / Free.
+- Tapping a bar selects the month (persisted highlight) and shows the
+  breakdown in a fixed panel under the chart — better on touch than hover
+  tooltips. The tooltip remains for pointer devices.
+
+### 8.7 Money → Invest
+
+Four sections, same data rules as today:
+
+1. **Total Portfolio** — collapsible card: total EUR (title1), platform count,
+   `FX Nov 13` / `No FX rates set`. Expanded: per-platform rows with dot, EUR
+   amount, share bar in platform colour, share %, original amount + currency,
+   last snapshot date (`heldPlatforms`).
+2. **Evolution** — line chart from `CHART_START` (2023-01), Total visible,
+   platforms toggled by chips (`activePlatforms`) in a horizontally scrolling
+   chip row; operation-month dots; tooltip with value, that month's operations
+   and net cash. Add a range segmented control *1Y · 3Y · All* (new, view-only;
+   default All so current behaviour is preserved).
+3. **Snapshots** — grouped by date, newest first, 3 at a time with
+   *Show 3 More* / *Show Less* (unchanged counts). Collapsed row: date, count
+   badge, platform dots, carry-forward total. Expanded: platform rows with
+   amount, `≈ N EUR`, swipe Edit / Delete; *Add Platform to This Date* row.
+4. **Operations** — rows with platform dot, name, Deposit / Withdrawal badge
+   (positive / negative colour), date, signed amount; tap expands notes; swipe
+   Edit / Delete. Same 3-at-a-time reveal.
+
+`+` menu: *New Snapshot*, *New Operation* → `FormSheet`s (type as segmented
+Deposit / Withdrawal; currency pre-filled from platform default, editable).
+
+### 8.8 Library (Books & Development)
+
+```
+Library                          +  (MN)
+[🔍 Search title or author        ] [Filter ⌄(2)]
+  3 people · 42 of 58 entries          Clear
+
+MIHAI  (24)                              ⌄
+┌──────────────────────────────────────┐
+│ Last 12 months             10 completed│
+│  line chart, Dec–Nov                  │
+└──────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ Atomic Habits                         │
+│ James Clear · Voxa                    │
+│ [Audiobook] ★★★★☆           2026-09  │
+└──────────────────────────────────────┘
+[ Show Less ]        [ Show 5 More  6/24 ]
+```
+
+- Search moves out of the filter sheet into a `SearchField` under the title
+  (iOS search-in-nav pattern); the rest of the filters (person, type, source,
+  rating) stay in a filter sheet behind the **Filter** button, which shows the
+  active count; **Clear** resets all. Filtering semantics unchanged (the
+  per-person chart counts filtered entries, as today).
+- Per-person collapsible sections, alphabetical, "Unassigned" last; the
+  12-month line chart; entry cards; reveal 1 → 6 → 11… with *Show N More* /
+  *Show N Less* side by side (current behaviour).
+- Entry card: tap to expand comments; stars are tappable inline to re-rate
+  (current behaviour); swipe or `···` → Edit / Delete.
+- New / Edit: `FormSheet` — Person (text with suggestions from existing names),
+  Title, Author, Type (`Picker`), Source (`Picker`), Completed (`MonthField`,
+  YYYY-MM), Rating (`Rating`), Comments (multi-line).
+
+### 8.9 HQ (Headquarters)
+
+- Large title "HQ"; under it a horizontally scrolling **chip bar**: *Overview*
+  · one chip per location · (no Settings chip). Settings moves to a `···`
+  button in the navigation bar → pushed **HQ Settings** screen.
+- **Overview** (today's HQ Dashboard): per location, water-consumption chart
+  for water templates (Consum Apa Rece / Calda), read-only latest entries for
+  other templates.
+- **Location**: one inset section per template with a *New Entry* button in
+  the section header. Entries as cards, newest first; tapping a card expands
+  stacked labelled fields (number / text / boolean→`Toggle`, with units as
+  trailing labels); auto-save 600 ms debounce with a subtle "Saved" footnote;
+  computed consumption columns shown as read-only value rows; delete with
+  confirm.
+- **HQ Settings**: Locations section (rows → edit sheet: name, address; delete
+  disabled with footnote while templates exist) and Templates section (rows →
+  edit sheet: location picker, name, parameters list with add / reorder (drag
+  handle) / delete, each parameter title + type `Picker` + unit; 1–30 limit
+  with counter).
+- `Headquarters/Modal.jsx`, `LocationModal.jsx`, `TemplateModal.jsx` and
+  `styles.js` are replaced by `FormSheet`s and the shared library.
+
+### 8.10 Settings
+
+Pushed from the Account sheet. Inset grouped list:
+
+| Section | Rows |
+|---|---|
+| Appearance | Theme — three-way picker with live mini-previews: **Automatic** · **Light** · **Dark** |
+| Privacy | Show Income Amounts by Default (toggle; writes `incomePrivacy`) · Hide Content in App Switcher (toggle, optional §7.4) |
+| About | Version (build hash), Session expires in … |
+
+Saving is immediate (iOS settings convention) rather than the current draft +
+Save button; theme previews no longer need hard-coded hex because each preview
+is rendered inside a `data-theme` scope of its own.
+
+### 8.11 Backstage
+
+Pushed from Account (only while `backstageEnabled`).
+
+- Segmented / `Picker` table selector: Incomes, Expenses, Operations,
+  Snapshots, Splits.
+- `SearchField`; results as a plain list with monospace secondary line
+  (id, key fields); 10 per page with a pager row (‹ 1 / 7 ›).
+- Swipe → Delete (with confirm).
+- **API Log** section: last 50 calls from `opLog`, method badge coloured by
+  HTTP method, path, status, duration; newest first; tap a row to expand
+  request/response summary.
+
+### 8.12 Admin
+
+Pushed from Account (only for `ADMIN_USER`). Inset grouped sections:
+
+1. **App Settings** — three toggles: Backstage, Google Login, Create Account.
+2. **FX Rates** — 3 × 3 matrix as a compact table card, *Updated Nov 13*;
+   *Update FX Rates* button (tinted) → spinner in button → `Toast`.
+3. **Database Backup** — *Back Up All Tables* (filled) → progress list (one row
+   per table with spinner → checkmark / error and item count), final link to
+   the Drive folder name.
+4. **Users** — rows: username, email, income/expense counts, *Admin* badge.
+   Tap → user detail sheet: Admin role toggle, *Delete User and All Data*
+   (destructive) → `Alert` with secure password field ("Enter your password to
+   confirm"); wrong password shows the alert's error line, same
+   `verifyPassword` flow.
+
+---
+
+## 9. Interaction patterns
+
+### 9.1 Create / edit
+
+Always a `FormSheet` over the current screen. Cancel with unsaved changes asks
+to discard. Save closes and shows the change in place; failures keep the sheet
+open with an inline error.
+
+### 9.2 Delete (replaces the 4 s two-step inline confirm)
+
+The safety property kept: **one accidental tap never deletes**.
+
+- From a swipe action or context menu: tapping **Delete** turns the action
+  into **Confirm Delete** (red, wider) for 4 s; a second tap deletes. A full
+  swipe also lands on the confirm state, never deletes directly. (This is the
+  current two-step pattern expressed with iOS swipe actions.)
+- From an edit sheet's Delete button: `ActionSheet` *Delete Expense* / Cancel.
+- Series choice and income deletion use `ActionSheet` (§8.3).
+- After a delete, a `Toast` with **Undo** for 5 s (new): the API delete is
+  deferred until the toast expires or the screen is left. Optional — see §15;
+  if not adopted, the toast is informational only.
+
+### 9.3 Auto-save
+
+Split slots and HQ entries keep 600 ms debounced saves. A small "Saving…" →
+"Saved" footnote in the card replaces silent saves; errors go to `Toast`.
+
+### 9.4 Reveal more
+
+Lists that page locally (Library, Snapshots, Operations) use a pair of plain
+buttons at the end of the list: *Show Less* (when more than the first page is
+shown) and *Show N More* with an `n/total` counter.
+
+### 9.5 Gestures
+
+| Gesture | Where | Fallback |
+|---|---|---|
+| Horizontal scroll-snap | Budget periods | ‹ › buttons, Today button |
+| Swipe left on row | Expenses, entries, snapshots, operations, users, Backstage rows | Context menu, edit sheet |
+| Long-press | Rows (context menu); Holdings eye (reveal) | `···` menus; Space key for reveal |
+| Drag down | Sheets | Cancel / scrim / Escape |
+| Pull to refresh | Today, Budget, Library, HQ | — (data also reloads on focus) |
+| Edge swipe back | Pushed screens (Settings, Admin, Backstage, HQ Settings) | Back button |
+
+Edge-swipe back is implemented only inside the app's own stacks, not as
+browser history, to avoid fighting iOS Safari's own gesture (standalone mode
+has none, so the app provides it).
+
+---
+
+## 10. PWA and platform details
+
+- **Manifest:** `display: "standalone"`, `orientation: "portrait"`,
+  `background_color` and `theme_color` matching Light (`#F2F2F7`); name
+  "4TURA Home"; new icon set (maskable 512 + 192, `apple-touch-icon` 180)
+  redrawn for the new style.
+- **Status bar:** `<meta name="apple-mobile-web-app-status-bar-style"
+  content="black-translucent">` so content runs under the status bar; the
+  navigation bar pads with `env(safe-area-inset-top)`.
+- **Theme colour:** two `<meta name="theme-color">` tags with
+  `media="(prefers-color-scheme: …)"` for Automatic, overwritten by JS when a
+  fixed theme is chosen.
+- **Viewport:** `width=device-width, initial-scale=1, viewport-fit=cover`.
+  Pinch-zoom stays allowed (current accessibility decision).
+- **Heights:** `100dvh` for the shell; the keyboard pushes sheets up using the
+  `visualViewport` resize event so the active field stays visible.
+- **Scrolling:** `overscroll-behavior: none` on the shell (no rubber-band
+  exposing the background), `contain` on inner scrollers and sheets.
+- **Text selection / callouts:** `-webkit-user-select: none` and
+  `-webkit-touch-callout: none` on chrome (bars, buttons, rows), left on
+  content values so amounts can still be copied — except hidden
+  `PrivateValue`s, which have nothing to copy.
+- **Tap highlight:** `-webkit-tap-highlight-color: transparent`; press states
+  come from CSS `:active`.
+- **Splash screens:** `apple-touch-startup-image` for common iPhone sizes in
+  both schemes (generated at build time).
+- **Offline:** existing service worker kept; add an offline banner (material
+  capsule under the nav bar) when `navigator.onLine` is false, and disable
+  write actions with a footnote rather than failing silently.
+- **Update prompt:** when the service worker finds a new version, a `Toast`
+  "New version available — Reload" (fixes the current "close and reopen the
+  app" step).
+
+---
+
+## 11. Accessibility
+
+- Contrast: all label/background pairs meet WCAG AA; Apple's system colours
+  used as text on fills are checked (`--status-warning` on white fails for
+  small text, so it is only used for dots, fills and large text; text uses
+  `--label`).
+- Every interactive element ≥ 44 × 44 pt; visible `:focus-visible` ring
+  (2 px `--tint`, 2 px offset).
+- Semantics: tab bar = `nav`, segmented view switchers = `tablist`, sheets =
+  `dialog` with focus trap, alerts = `alertdialog`, toggles = `switch`,
+  checkboxes keep native `input type="checkbox"` under the custom visual.
+- Charts: each chart has a visually hidden table or `aria-label` summary
+  (e.g. "Free amount per month, highest June 4 200").
+- Text size: the type scale is in `rem`; Settings can later offer a text-size
+  slider by changing the root font size (not in scope for the first release).
+- Reduced motion and reduced transparency (`prefers-reduced-transparency`:
+  materials fall back to solid `--bg-primary`).
+- Colour is never the only signal: priority dots have text labels in the edit
+  sheet and `title`/`aria-label` in rows; budget segments have a legend.
+
+---
+
+## 12. Technical architecture
+
+### 12.1 Styling: CSS Modules + tokens
+
+Move from inline style objects to **CSS Modules** (built into Vite, no new
+dependency).
+
+- Enables `:active`, `:focus-visible`, `@media`, `@supports`, `@container`,
+  reduced-motion and transitions without React state.
+- Shrinks page files substantially (style objects are roughly a third of most
+  page files today).
+- Inline `style` stays allowed only for genuinely dynamic values (bar widths,
+  chart colours, CSS custom-property injection like `--seg-width`).
+
+```
+src/
+├── theme/
+│   ├── tokens.css          # spacing, radii, type, motion, z-index (theme-independent)
+│   ├── themes.css          # [data-theme="light"], [data-theme="dark"] semantic tokens
+│   ├── themes.js           # registry (§4.2)
+│   ├── ThemeProvider.jsx   # auto / light / dark, matchMedia, meta theme-color
+│   ├── domainColors.js     # priority, platform, type, HTTP → var(--…)
+│   └── useChartTheme.js
+├── ui/                      # component library (§6), one folder per component
+│   ├── Button/ Button.jsx Button.module.css Button.test.jsx
+│   ├── List/ … Sheet/ … SegmentedControl/ … PrivateValue/ …
+│   └── icons/
+├── app/
+│   ├── AppShell.jsx  TabBar.jsx  NavigationBar.jsx
+│   ├── navigation.js        # tabs, account items, visibleItems(), ADMIN_USER
+│   └── routes.jsx           # route tree, modal routes, legacy redirects
+├── features/                # one folder per area, replacing pages/
+│   ├── today/  money/{budget,split,stats,invest,forms}/  library/  hq/
+│   ├── account/{settings,backstage,admin}/  auth/
+├── context/                 # Auth, AppSettings, Year (unchanged) + Privacy (new)
+├── api/                     # unchanged
+└── utils/                   # unchanged business logic (expandDates, incomeMapping, …)
+```
+
+### 12.2 State
+
+No new state library. Contexts stay; add `PrivacyContext` and
+`ThemeContext`. Server data stays in per-screen `useEffect` loads, but each
+feature gets a small hook (`useBudgetData`, `useSplitPayments`, …) that owns
+loading / error / optimistic updates, so screens become presentational. This
+also makes pull-to-refresh and "reload on focus" one call each.
+
+### 12.3 Shared header
+
+`components/incomeHeader.js` (shared by Home and Dashboard today) becomes the
+`PeriodHeader` component in `features/money/budget/`, used by both Today's
+widget and the Budget card, preserving the "keep the two designs in sync"
+requirement.
+
+### 12.4 Charts
+
+Keep Recharts. A `ChartFrame` wrapper supplies `ResponsiveContainer`, theme
+colours from `useChartTheme`, axis defaults (caption1, secondary label, no tick
+lines), the callout tooltip, and the accessible summary.
+
+### 12.5 Dependencies
+
+No required additions. Optional, evaluated during implementation:
+
+| Package | Why | Default |
+|---|---|---|
+| `vaul` (or similar) | Battle-tested drag-to-dismiss sheets with detents | Build in-house first; adopt only if gesture quality falls short |
+| `@floating-ui/react` | Positioning for pull-down and context menus | Optional |
+
+### 12.6 Licensing notes
+
+- Do **not** bundle SF Pro or SF Symbols. Their licence limits use to Apple
+  platform apps; the system font stack already renders SF Pro on Apple devices
+  without shipping it.
+- The icon set is original artwork in a similar style.
+- Google Sign-In keeps Google's rendered button to stay within its branding
+  rules.
+
+---
+
+## 13. Testing
+
+- **Keep** all business-logic tests in `src/test/` unchanged (`expandDates`,
+  `incomeMapping`, `dateValidation`, `formValidation`, `statistics`,
+  `YearContext`).
+- **Rewrite** page tests against the new screens with the same assertions of
+  behaviour (they test logic through the DOM): Home/Today (13 + 23 split),
+  Split (13), Investments (9), Dashboard/Budget (9), Statistics (7), Library
+  (6), HQ (4). Assertions tied to old chrome — `MobileLayout.test.jsx` tab
+  labels, the ⋮ Finance menu tests in `Dashboard.test.jsx`, duotone icon
+  tests — are replaced by TabBar, segmented-control and nav-bar-action tests.
+- **New component tests** for every `src/ui` primitive: keyboard and ARIA
+  roles, `Sheet` focus trap and dismiss paths, `SwipeActions` two-step
+  confirm, `PrivateValue` (hidden values absent from the DOM, hold releases on
+  pointer-cancel and visibility change), `ThemeProvider` (auto follows
+  `matchMedia`, legacy `appTheme` migration).
+- **Replace `designTokens.test.js`** with a new guard:
+  - hex / `rgb()` only in `src/theme/themes.css`;
+  - no primitive tokens referenced outside `src/theme/`;
+  - `border-radius`, `box-shadow`, `font-size` in CSS Modules only via tokens;
+  - no inline `style` containing colour, radius or shadow literals.
+- **Keep** `noZoom` (controls ≥ 16 px) and `appWidth` (430 px column)
+  regressions, adapted to CSS Modules (assert computed styles).
+- **Visual check:** render each screen in both themes with the stubbed preview
+  recipe (no real credentials, fixtures only) and headless Chrome screenshots
+  at 393 × 852; compare before merging each phase.
+- The 9 currently failing date-slot tests should be fixed (or rewritten)
+  during Phase 4 since the slot UI is rebuilt anyway.
+
+---
+
+## 14. Implementation plan
+
+Each phase ships to production on its own and leaves the app fully usable.
+Screens are migrated one at a time behind the new shell; old screens render
+inside the new shell until replaced.
+
+| Phase | Scope | Exit criteria |
+|---|---|---|
+| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, new design-token guard test, icon set | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily) |
+| **1. Component library** | `src/ui/` primitives (§6) with tests; `PrivacyContext` + `PrivateValue` | Component tests green; preview page renders every primitive in both themes |
+| **2. Shell and navigation** | `AppShell`, `TabBar`, `NavigationBar` with large title, Account sheet, route tree with legacy redirects, per-tab stacks | All current routes reachable; old URLs redirect; Settings/Backstage/Admin gated as today |
+| **3. Money → Budget + forms** | Budget screen, period pager, `PeriodHeader`, budget bar, expense rows with swipe, Expense and Income `FormSheet`s, year menu, eye toggle, `+` menu | Parity rows A.2–A.4 ticked; `/add-expense`, `/add-income` redirect to sheets |
+| **4. Today** | Four widgets, hold-to-reveal holdings, split slots, pull-to-refresh | Parity A.1 ticked; date-slot tests fixed |
+| **5. Split, Stats, Invest** | Remaining Money segments | Parity A.5–A.7 |
+| **6. Library and HQ** | Library with search + filter sheet; HQ chips, Overview, location entries, HQ Settings | Parity A.8–A.9; `Headquarters/Modal.jsx` and `styles.js` deleted |
+| **7. Account screens and Login** | Settings, Backstage, Admin, Login | Parity A.10–A.13 |
+| **8. Clean-up** | Delete `index.css` legacy tokens, `components/tokens.js`, `ui.jsx`, `TabIcons.jsx`, `navIcons.jsx`, `DateSheet.jsx`, `incomeHeader.js`, `TAB_ICON_COLORS` and the Dusk/Amber palette; update CLAUDE.md, README, Frontend_Setup, module requirement docs; PWA icons and splash screens | No references to removed files; docs describe the new UI; Lighthouse PWA and accessibility ≥ 95 |
+
+Rough size: phases 0–2 are the bulk of new code (~3–4 k lines); each screen
+phase is mostly a rewrite of presentation around unchanged logic.
+
+---
+
+## 15. Open decisions
+
+Defaults are chosen so implementation can start without answers; each can be
+flipped cheaply.
+
+| # | Decision | Default in this proposal |
+|---|---|---|
+| 1 | Tab names | Today · Money · Library · HQ (alternatives: Home · Finance · Books · HQ, as today) |
+| 2 | Accent colour | iOS blue. Could be user-selectable later (tint token is one variable) |
+| 3 | Dark theme base | True black `#000000` (OLED, iOS default). Alternative: elevated grey `#1C1C1E` canvas |
+| 4 | Undo-on-delete toast | Informational only in v1; deferred delete with Undo as a follow-up |
+| 5 | Extend privacy to budget-bar figures and Investments totals | No (mimics current behaviour) |
+| 6 | Show/hide eye on Login password fields | Yes |
+| 7 | Hide content in app switcher | Available, off by default |
+| 8 | Investments chart range control (1Y / 3Y / All) | Included, default All |
+| 9 | Pull-to-refresh | Included on Today, Budget, Library, HQ |
+| 10 | Settings saves immediately (no Save button) | Yes |
+
+---
+
+## Appendix A — feature parity checklist
+
+Every row must be ticked before the old implementation is removed.
+
+**A.1 Today (Home Overview)**
+- [ ] Current income = latest income with `date ≤ today`; header with date and name
+- [ ] Lists expenses mapped to it that were outstanding at load; priority then date
+- [ ] Tick/untick toggles Completed/Pending with optimistic update and revert on error
+- [ ] Ticked rows stay struck through until next load
+- [ ] Done / Pending totals for the whole period; both empty states
+- [ ] Split: 3 newest open entries; exact slot count; amount typed / date via calendar; 600 ms debounce; settle confirm; cancel restores; View all link
+- [ ] Holdings: latest snapshot per platform, EUR via stored FX; platforms > 0 in last 12 months; FX date; hold-to-reveal mask
+- [ ] Library grid: persons alphabetical × types, latest entry per cell
+
+**A.2 Budget**
+- [ ] One period at a time; previous / next / back to current
+- [ ] Year selection capped at current year, shared with Stats
+- [ ] Income amount privacy toggle, persisted in `incomePrivacy`
+- [ ] Budget bar: total, done, pending, free / over, minimum segment sizing
+- [ ] Expense rows: status toggle, priority, ★ special tint, date, amount, edit, delete
+- [ ] Add expense pre-filled for a period; edit income; delete income with optimistic remap
+- [ ] Delete series member: this occurrence / entire series
+- [ ] Returning from add/edit lands on the same period
+
+**A.3 Expense form**
+- [ ] Summary, amount > 0, date within current year, priority, status, special, repeat (frequency, end date required)
+- [ ] Live mapped-income preview via `/expenses/resolve-income`
+- [ ] Edit scope for series members: single (`isException`) vs future (`/series`)
+
+**A.4 Income form**
+- [ ] Summary, amount > 0, currency, date within current year, repeat
+- [ ] Edit scope for series members
+
+**A.5 Split**
+- [ ] Header counts and per-currency left to cover
+- [ ] In progress / Settled groups; expand defaults and per-card overrides
+- [ ] Exact `occurrenceCount` slots; padding/trimming; full-count writes
+- [ ] Cover rest (remainder to last slot), Clear all
+- [ ] Settle confirm on last empty slot (typed, calendar, cover rest); cancel restores
+- [ ] Create/edit sheet; Track by locked once filled; count change preserves values; delete with confirm
+
+**A.6 Stats**
+- [ ] Months with data; Avg free / month; Survival / month (`SURVIVAL_BASELINE`)
+- [ ] High / Medium / Low averages
+- [ ] Free per month chart; negative colour; now marker; zero line; future months blank; full breakdown on selection
+- [ ] Special expenses list with total
+
+**A.7 Invest**
+- [ ] Total portfolio with FX date or "no FX rates set"; per-platform shares of `heldPlatforms`
+- [ ] Evolution from `CHART_START`; carry-forward; Total + toggleable platforms (`activePlatforms`); operation dots; tooltip with ops and net cash
+- [ ] Snapshots grouped by date, 3 at a time, show more / less; edit, delete; add platform to date
+- [ ] Operations newest first, 3 at a time; notes; edit, delete
+- [ ] Create/edit sheets; currency default per platform; snapshot edit keeps id
+
+**A.8 Library**
+- [ ] Per-person sections, alphabetical, Unassigned last; collapsible
+- [ ] 12-month completion line chart per person (filtered entries), total
+- [ ] Reveal 1 → +5; show N more / show N less
+- [ ] Filters: person, type, source, rating, search; active count; clear
+- [ ] Inline re-rating; create / edit / delete
+
+**A.9 HQ**
+- [ ] Overview with water-consumption chart and read-only lists
+- [ ] Location entries per template; new entry; 600 ms auto-save; delete
+- [ ] Computed Consum Apa Rece / Calda
+- [ ] Locations CRUD (no delete while templates exist); templates CRUD with 1–30 typed parameters and units
+
+**A.10 Settings** — [ ] theme choice; [ ] default income-amount visibility
+
+**A.11 Backstage** — [ ] gated by `backstageEnabled`; [ ] 5 tables; [ ] search; [ ] 10 per page; [ ] row delete; [ ] last 50 API calls
+
+**A.12 Admin** — [ ] gated by username (frontend) / `admin` group (API); [ ] 3 app-setting toggles; [ ] FX matrix + update; [ ] backup all tables to Drive with per-table progress; [ ] users list with counts; [ ] admin role toggle; [ ] delete user after password re-entry
+
+**A.13 Shell and auth** — [ ] SRP sign-in; [ ] sign-up (when enabled) with password match; [ ] Google sign-in (when enabled); [ ] account menu with username and JWT countdown; [ ] sign out; [ ] 401 → sign out; [ ] route change closes menus/sheets appropriately; [ ] unknown paths → `/`; [ ] error boundary around routes; [ ] offline PWA
+
+---
+
+## Appendix B — route map
+
+| Current | New | Notes |
+|---|---|---|
+| `/` | `/` | Today |
+| `/finance` | `/money` | Budget segment |
+| `/add-expense` | `/money/expense/new` | Sheet over Budget; `?incomeId=&date=` kept |
+| `/add-expense?id=X` | `/money/expense/X` | Edit sheet |
+| `/add-income` | `/money/income/new` | Sheet |
+| `/add-income?id=X` | `/money/income/X` | Edit sheet |
+| `/split-payments` | `/money/split` | |
+| `/statistics` | `/money/stats` | |
+| `/investments` | `/money/invest` | |
+| `/books-and-dev` | `/library` | |
+| `/headquarters` | `/hq` | `/hq/:locationId`, `/hq/settings` added |
+| `/settings` | `/settings` | Pushed from Account sheet |
+| `/backstage` | `/backstage` | Gated |
+| `/admin` | `/admin` | Gated |
+| `*` | `/` | Unchanged |
+
+Every "Current" path redirects with `replace`, preserving query strings, so
+existing bookmarks and the installed PWA keep working.
