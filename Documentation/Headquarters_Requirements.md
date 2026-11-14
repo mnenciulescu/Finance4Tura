@@ -117,16 +117,12 @@ There are no GSIs: list calls scan and filter by `userId` (plus `hqId` / `templa
 
 ```
 frontend/src/pages/Headquarters/
-├── index.jsx              # Tabs, data loading, mutation handlers
-├── DashboardTab.jsx       # HQ Dashboard (incl. water charts)
-├── LocationTab.jsx        # One location; computed consumption columns
-├── SettingsTab.jsx        # Locations + templates
-├── EntryTable.jsx         # Entry cards with auto-saving edit mode
-├── LocationModal.jsx      # Add/Edit location
-├── TemplateModal.jsx      # Add/Edit template
-├── Modal.jsx              # Shared modal shell
-├── styles.js              # Shared styles
-└── (tests) features/hq/Hq.test.tsx — render tests (6)
+├── HqScreen.tsx           # /hq and /hq/:locationId — chip bar, Overview, one location
+├── TemplateSection.tsx    # A template on a location: entries, auto-saving editor, SMS text
+├── WaterChart.tsx         # Consumption chart (lazy-loaded)
+├── HqSettings.tsx         # /hq/settings — locations and templates (form sheets)
+├── hqMath.ts              # Water calculations, computed columns, SMS text
+└── Hq.test.tsx            # Render and maths tests (6)
 ```
 
 ---
