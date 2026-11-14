@@ -1,8 +1,8 @@
 # 4TURA Home — Frontend Redesign Proposal
 
 **Status:** proposal, not implemented. Written 2026-11-14 against `main` at the
-time of writing. This document is the implementation brief for a full frontend
-redesign; nothing in the backend or the API changes.
+time of writing; updated the same day for cross-platform behaviour (§10).
+This document is the implementation brief for a full frontend redesign; nothing in the backend or the API changes.
 
 **Goal:** replace the current Dusk / Light / Amber look and the current
 navigation with a modern, Apple-style (iOS Human Interface Guidelines–inspired)
@@ -10,6 +10,13 @@ design that is built for an installed, phone-only PWA. It ships with two themes,
 **Light** and **Dark** (plus an *Automatic* setting that follows the device),
 on a token system that makes more themes cheap to add. Every existing feature
 is kept; some are reached in a different way.
+
+**Platforms:** the app should **feel like an iPhone app on every phone**, and
+**behave natively on each one**. The look (layout, type, colour, components,
+motion) is the same everywhere. Behaviour that the operating system owns —
+the Android back button, keyboards, installation, haptics, system text size —
+follows the platform, so nothing feels broken on Android or other phones.
+§10 is the full cross-platform specification.
 
 ---
 
@@ -24,7 +31,7 @@ is kept; some are reached in a different way.
 7. [Sensitive information](#7-sensitive-information)
 8. [Screen-by-screen specification](#8-screen-by-screen-specification)
 9. [Interaction patterns](#9-interaction-patterns)
-10. [PWA and platform details](#10-pwa-and-platform-details)
+10. [PWA and cross-platform behaviour](#10-pwa-and-cross-platform-behaviour)
 11. [Accessibility](#11-accessibility)
 12. [Technical architecture](#12-technical-architecture)
 13. [Testing](#13-testing)
@@ -37,27 +44,32 @@ is kept; some are reached in a different way.
 
 ## 1. Principles
 
-1. **One phone layout, installed first.** The app is used as a home-screen PWA
-   on iPhone. Design for a 390–430 pt wide viewport in standalone mode, with
-   safe areas, no browser chrome and thumb reach. Larger screens show the same
-   centred column (as today, `max-width: 430px`).
-2. **Native feel, not native imitation.** Borrow iOS structure — large titles,
+1. **One phone layout, installed first, on any phone.** The app is used as a
+   home-screen PWA. Design for a **360–430 px** wide viewport (360 covers common
+   Android phones, 390–430 covers iPhones) in standalone mode, with safe areas,
+   no browser chrome and thumb reach. Larger screens show the same centred
+   column (as today, `max-width: 430px`).
+2. **iPhone feel everywhere, native behaviour everywhere.** One visual design
+   for all phones. Where an OS has its own convention for *how things work*
+   (back navigation, install, keyboard, haptics, text size), the app follows
+   that OS. Platform detection decides behaviour only, never appearance (§10.2).
+3. **Native feel, not native imitation.** Borrow iOS structure — large titles,
    grouped inset lists, translucent bars, sheets with detents, swipe actions,
    segmented controls, action sheets — and its type and colour logic. Do not
    copy Apple artwork, SF Symbols glyphs or Apple branding (see §12.6 on
    licensing).
-3. **Content first, chrome quiet.** Bars are translucent material; colour is
+4. **Content first, chrome quiet.** Bars are translucent material; colour is
    reserved for meaning (priority, status, platform, money in/out) and for the
    single accent that marks what is interactive.
-4. **Feature parity is a hard requirement.** Appendix A lists every current
+5. **Feature parity is a hard requirement.** Appendix A lists every current
    behaviour; each one must have a home in the new design before the old screen
    is removed.
-5. **Fewer full-page detours.** Creating and editing things happens in sheets
+6. **Fewer full-page detours.** Creating and editing things happens in sheets
    over the current screen, so the user never loses their place (today, Add
    Expense is a separate page that has to route back with `returnStartIdx`).
-6. **Theming is data.** Components only read semantic tokens. A new theme is
+7. **Theming is data.** Components only read semantic tokens. A new theme is
    one CSS block plus one entry in a theme registry.
-7. **Keep what already works.** The API layer, contexts (`AuthContext`,
+8. **Keep what already works.** The API layer, contexts (`AuthContext`,
    `AppSettingsContext`, `YearContext`), business logic in `utils/`, the
    16 px form-control rule, the no-native-date-input rule and the two-step
    delete safety all carry over.
@@ -131,18 +143,33 @@ and shadows outside `utils/colors.js` and `pages/Settings.jsx`.
 
 ### 3.1 Typography
 
-Use the platform font. On iOS this resolves to SF Pro (Text / Display picked
-automatically by size), which is what makes the app feel native; elsewhere it
-falls back to the system UI font.
+The type is a large part of the iPhone feel, so it must look the same on
+every phone.
+
+- **Apple devices:** the system font, which is SF Pro (Text / Display picked
+  automatically by size). Nothing is downloaded.
+- **Every other device:** **Inter** (variable, self-hosted `woff2`, SIL Open
+  Font Licence), a close match for SF Pro's proportions and numerals. Android's
+  Roboto and Samsung's One UI font are deliberately *not* used, because they
+  change the character of the design.
 
 ```css
---font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-             Roboto, "Helvetica Neue", Arial, sans-serif;
---font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif; /* big numbers */
---font-mono: ui-monospace, "SF Mono", Menlo, monospace;                   /* Backstage */
+--font-sans: -apple-system, BlinkMacSystemFont, "InterVariable", "Inter",
+             "Segoe UI", Roboto, sans-serif;
+--font-rounded: ui-rounded, "SF Pro Rounded", var(--font-sans);   /* big numbers */
+--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; /* Backstage */
 ```
 
-Nunito is dropped (one fewer network font, faster first paint offline).
+`-apple-system` comes first, so Apple browsers render with SF Pro and never
+fetch Inter (browsers only download a web font they actually need). On Android
+the first two names are unknown, so Inter is used. The Inter file (~ 340 KB,
+Latin subset ~ 100 KB) is precached by the service worker, so it works offline
+and does not flash on launch (`font-display: swap` plus `<link rel="preload">`
+only when `-apple-system` is unavailable — detected by the platform script,
+§10.2). Inter's `cv11` (single-storey a) is off and `tnum` is on, to stay close
+to SF Pro.
+
+Nunito is dropped.
 Tabular numerals stay global: `font-variant-numeric: tabular-nums`.
 
 Type scale — the iOS default ("Large" content size) scale, in `rem` so a future
@@ -191,6 +218,8 @@ Body at 17 px also satisfies the existing iOS zoom rule (controls ≥ 16 px), so
 Progressive enhancement for iOS-style continuous corners:
 `@supports (corner-shape: squircle) { .card { corner-shape: squircle; } }`.
 Where unsupported, ordinary rounded corners are used — no visual break.
+(Chrome on Android supports `corner-shape`; Safari does not yet — the
+difference is subtle and acceptable.)
 
 ### 3.4 Materials and elevation
 
@@ -236,6 +265,12 @@ The duotone tab icons and `TAB_ICON_COLORS` are retired.
 - Press feedback: `:active { transform: scale(.97); opacity: .85 }` on tappable
   cards; list rows darken to `--fill-pressed`.
 - Everything is disabled under `@media (prefers-reduced-motion: reduce)`.
+- **Haptics** — a `haptic("light" | "success" | "warning")` helper is called on
+  checkbox ticks, swipe-to-confirm, settle confirmation and segmented-control
+  changes. Android: `navigator.vibrate(8–20 ms)`. iPhone: Safari exposes no
+  vibration API, so the helper is a no-op there, except for toggles rendered as
+  `<input type="checkbox" switch>`, which give the system haptic on recent iOS.
+  Respects a Settings → Haptics toggle (default on).
 
 ---
 
@@ -369,6 +404,8 @@ Behaviour:
 - **Tapping the already-selected tab** pops to its root and scrolls to the top;
   on Money → Budget it also jumps back to the current income period (today's
   `resetDashboard` behaviour, now triggered by the iOS convention).
+- **System back (Android)** follows §10.3: it closes the top overlay, then pops
+  the tab's stack, then returns to Today, then leaves the app.
 
 ### 5.2 Money: from hidden menu to visible structure
 
@@ -522,7 +559,8 @@ the per-page sheets. Each component has a CSS Module and a short test.
 
 - **`Sheet`** — bottom sheet with detents (`medium` ≈ 50 %, `large` ≈ 92 %),
   grabber, drag-to-dismiss with velocity, scrim tap to dismiss, Escape to
-  dismiss, focus trap, `role="dialog" aria-modal="true"`, restores focus to the
+  dismiss, **system back to dismiss** (via the overlay manager, §10.3), focus
+  trap, `role="dialog" aria-modal="true"`, restores focus to the
   opener. One implementation for every sheet in the app.
 - **`FormSheet`** — `Sheet` at `large` with a nav bar: *Cancel* (leading),
   title, *Save* / *Add* (trailing, bold, disabled until valid). Dismissing a
@@ -970,48 +1008,175 @@ shown) and *Show N More* with an `n/total` counter.
 | Horizontal scroll-snap | Budget periods | ‹ › buttons, Today button |
 | Swipe left on row | Expenses, entries, snapshots, operations, users, Backstage rows | Context menu, edit sheet |
 | Long-press | Rows (context menu); Holdings eye (reveal) | `···` menus; Space key for reveal |
-| Drag down | Sheets | Cancel / scrim / Escape |
+| Drag down | Sheets | Cancel / scrim / Escape / system back |
 | Pull to refresh | Today, Budget, Library, HQ | — (data also reloads on focus) |
-| Edge swipe back | Pushed screens (Settings, Admin, Backstage, HQ Settings) | Back button |
+| Edge swipe back | **iPhone only:** pushed screens (Settings, Admin, Backstage, HQ Settings) | Back button |
+| System back button / gesture | **Android:** everywhere (§10.3) | Back button in the nav bar |
 
-Edge-swipe back is implemented only inside the app's own stacks, not as
-browser history, to avoid fighting iOS Safari's own gesture (standalone mode
-has none, so the app provides it).
+The app's own edge swipe exists because an installed iPhone PWA has no back
+gesture. On Android it is **disabled**, because the system back gesture uses
+the same screen edges; Android users get the system back instead, wired into
+the same navigation stack. Both end in the same state.
+
+Long-press on Android normally starts text selection or Chrome's own context
+menu. Rows that have an app context menu call `preventDefault()` on
+`contextmenu` and set `user-select: none` / `-webkit-touch-callout: none`, so
+the app's menu is the only one that appears, on both platforms.
 
 ---
 
-## 10. PWA and platform details
+## 10. PWA and cross-platform behaviour
 
-- **Manifest:** `display: "standalone"`, `orientation: "portrait"`,
-  `background_color` and `theme_color` matching Light (`#F2F2F7`); name
-  "4TURA Home"; new icon set (maskable 512 + 192, `apple-touch-icon` 180)
-  redrawn for the new style.
-- **Status bar:** `<meta name="apple-mobile-web-app-status-bar-style"
-  content="black-translucent">` so content runs under the status bar; the
-  navigation bar pads with `env(safe-area-inset-top)`.
-- **Theme colour:** two `<meta name="theme-color">` tags with
-  `media="(prefers-color-scheme: …)"` for Automatic, overwritten by JS when a
-  fixed theme is chosen.
-- **Viewport:** `width=device-width, initial-scale=1, viewport-fit=cover`.
-  Pinch-zoom stays allowed (current accessibility decision).
-- **Heights:** `100dvh` for the shell; the keyboard pushes sheets up using the
-  `visualViewport` resize event so the active field stays visible.
-- **Scrolling:** `overscroll-behavior: none` on the shell (no rubber-band
-  exposing the background), `contain` on inner scrollers and sheets.
-- **Text selection / callouts:** `-webkit-user-select: none` and
-  `-webkit-touch-callout: none` on chrome (bars, buttons, rows), left on
-  content values so amounts can still be copied — except hidden
-  `PrivateValue`s, which have nothing to copy.
-- **Tap highlight:** `-webkit-tap-highlight-color: transparent`; press states
-  come from CSS `:active`.
-- **Splash screens:** `apple-touch-startup-image` for common iPhone sizes in
-  both schemes (generated at build time).
-- **Offline:** existing service worker kept; add an offline banner (material
-  capsule under the nav bar) when `navigator.onLine` is false, and disable
-  write actions with a footnote rather than failing silently.
-- **Update prompt:** when the service worker finds a new version, a `Toast`
-  "New version available — Reload" (fixes the current "close and reopen the
-  app" step).
+### 10.1 Supported platforms
+
+| Platform | Browser engine | Minimum | Notes |
+|---|---|---|---|
+| iPhone (installed or Safari) | WebKit | iOS 17 | Primary target; all iOS browsers use WebKit |
+| Android (installed or browser) | Chrome / Chromium | Chrome 120 | Includes Edge, Brave, Opera |
+| Samsung phones | Samsung Internet | 24 | Chromium-based; test separately (own UI chrome) |
+| Android | Firefox | current | Can't install as standalone like Chrome; works in the browser |
+| Desktop browsers | any of the above | — | Same 430 px column, as today |
+
+Every feature used is either supported on all of these or has a defined
+fallback:
+
+| Feature | iOS Safari | Chrome Android | Fallback |
+|---|---|---|---|
+| `backdrop-filter` (materials) | ✓ (`-webkit-` prefix) | ✓ | Solid bar colour |
+| CSS scroll-snap (period pager) | ✓ | ✓ | — |
+| `100dvh`, `env(safe-area-inset-*)` | ✓ | ✓ | `100vh` |
+| `color-mix()` | ✓ | ✓ | Pre-mixed token values |
+| View Transitions | ✓ (18+) | ✓ | No animation |
+| `corner-shape: squircle` | ✗ | ✓ | Rounded corners |
+| `navigator.vibrate` (haptics) | ✗ | ✓ | No haptic |
+| `beforeinstallprompt` | ✗ | ✓ | Install instructions sheet |
+| Pointer events (swipes, sheets) | ✓ | ✓ | — |
+
+### 10.2 Platform detection — behaviour only
+
+`src/app/platform.js` runs before first render (inline in `index.html`) and
+sets `<html data-platform="ios|android|other" data-standalone="true|false">`.
+
+- iOS: `navigator.maxTouchPoints > 1` with an Apple platform / UA (covers
+  iPadOS reporting as Mac); Android: UA-CH `navigator.userAgentData.platform`
+  or UA fallback; standalone: `matchMedia("(display-mode: standalone)")` or
+  `navigator.standalone`.
+- **Allowed uses:** edge-swipe back (iOS only), back-button integration
+  (all, matters on Android), install flow, haptics, font preload, keyboard
+  handling.
+- **Not allowed:** changing colours, layout, components or wording per platform.
+  A lint rule / review checklist item: `data-platform` selectors may not set
+  visual properties.
+
+### 10.3 Back navigation (Android back button and gesture)
+
+Android's system back must never skip past what the user is looking at, and
+must never leave the app by accident. The app keeps an **overlay stack**
+(sheets, alerts, action sheets, menus, the filter sheet, the date picker) on
+top of the router's screen stack, and mirrors both in browser history:
+
+1. Opening an overlay calls `history.pushState({ overlay: id }, "")`.
+2. `popstate` closes the **top overlay** if there is one.
+3. Closing an overlay from the UI (Cancel, scrim, drag down, Save) calls
+   `history.back()` so history and UI stay in step; a guard flag stops the
+   resulting `popstate` from closing a second overlay.
+4. With no overlay open, back pops the current tab's screen stack (Settings →
+   previous tab, HQ Settings → HQ, etc.).
+5. At a tab's root that is not Today, back returns to **Today** (tab switches
+   use `replace`, except leaving Today, which pushes once).
+6. At Today's root, back leaves the app (Android's normal behaviour).
+
+Unsaved forms: back on a dirty `FormSheet` opens the *Discard Changes* action
+sheet instead of closing (the history entry is re-pushed).
+
+Modal routes (`/money/expense/:id`, §5.4) are already URL entries, so they
+follow the same rules without extra state.
+
+On iPhone the same code runs; installed iPhone PWAs have no system back, so it
+is simply never triggered there except by the app's own edge swipe and back
+buttons, which use the same path.
+
+### 10.4 Install and launch
+
+- **Manifest** (shared): `display: "standalone"`, `orientation: "portrait"`,
+  `start_url: "/"`, `scope: "/"`, `id: "/"`, name / short name "4TURA Home",
+  `background_color` and `theme_color` `#F2F2F7`; icons: `any` 192 + 512,
+  **maskable** 512 (Android adaptive icons crop to circles/squircles, so the
+  artwork stays within the 80 % safe zone), `monochrome` 512 (Android themed
+  icons).
+- **iPhone:** `apple-touch-icon` 180; `apple-mobile-web-app-capable`;
+  `apple-touch-startup-image` splash images for current iPhone sizes in both
+  schemes (generated at build time).
+- **Android:** the splash screen is generated by the OS from the manifest
+  (name, maskable icon, `background_color`); nothing extra is needed.
+- **Install prompt:**
+  - Android / Chromium: capture `beforeinstallprompt`; show an **Install App**
+    row in Settings → About and a one-time dismissible banner on Today.
+  - iPhone Safari (not standalone): the same row opens an instructions sheet
+    (Share → Add to Home Screen) with an illustration.
+  - Already installed (`display-mode: standalone`): hidden.
+- **Updates:** when the service worker finds a new version, a `Toast`
+  "New version available — Reload" on every platform (fixes the current
+  "close and reopen the app" step).
+
+### 10.5 System bars and safe areas
+
+- **Viewport:** `width=device-width, initial-scale=1, viewport-fit=cover,
+  interactive-widget=resizes-content`. Pinch-zoom stays allowed (current
+  accessibility decision).
+- **Top:** iPhone uses `apple-mobile-web-app-status-bar-style:
+  black-translucent`, so content runs under the status bar; the navigation bar
+  pads with `env(safe-area-inset-top)`. Android colours its status bar from
+  `theme-color`, which is updated with the theme (two `<meta name="theme-color">`
+  tags with `media="(prefers-color-scheme: …)"` for Automatic, overwritten by
+  JS for a fixed theme). Both read as one continuous bar.
+- **Bottom:** the tab bar pads with `env(safe-area-inset-bottom)`, which covers
+  the iPhone home indicator and the Android gesture bar / 3-button bar on
+  edge-to-edge devices. Where Android reports `0` but draws a navigation bar,
+  the OS places the bar below the viewport, so nothing overlaps.
+- **Display cutouts and rounded screens:** handled by the same insets; no
+  content within 16 px of the side edges.
+
+### 10.6 Keyboard and input
+
+- **Layout:** Android Chrome resizes the layout viewport when the keyboard opens
+  (`interactive-widget=resizes-content`); iPhone does not, so a
+  `visualViewport` resize listener lifts sheets and scrolls the focused field
+  into view. One `useKeyboardInset()` hook hides the difference.
+- **Amounts:** `inputMode="decimal"`. Android keyboards show `.` or `,`
+  depending on language, and some show only one; parsing accepts **both**
+  `,` and `.` as the decimal separator (the app formats in `ro-RO`, which uses
+  `,`). Display formatting is unchanged.
+- **Sizes:** all inputs 17 px — above iOS's 16 px zoom threshold; harmless on
+  Android.
+- **Dates:** the app's own `DatePickerSheet` on every platform (native date
+  inputs stay banned), so date entry is identical on iPhone and Android.
+- **Pickers:** custom `Menu`s instead of native `<select>`, so Priority,
+  Currency, etc. look the same everywhere (native selects would show the
+  Android Material dialog).
+- `autocomplete`, `enterkeyhint` and `autocapitalize` set on every field, which
+  both keyboards honour.
+
+### 10.7 Scrolling, touch and refresh
+
+- `overscroll-behavior: none` on `html, body` and the shell. This removes the
+  iOS rubber-band that exposes the background **and** disables Chrome's own
+  pull-to-refresh, so the app's pull-to-refresh is the only one, on all
+  platforms.
+- `contain` on inner scrollers and sheets.
+- `-webkit-tap-highlight-color: transparent`; press states from CSS `:active`
+  (Android Chrome otherwise flashes a blue box on tap).
+- `-webkit-user-select: none` and `-webkit-touch-callout: none` on chrome (bars,
+  buttons, rows); content values stay selectable so amounts can still be
+  copied — except hidden `PrivateValue`s, which have nothing to copy.
+- `touch-action: pan-y` on swipeable rows, `manipulation` on buttons (removes
+  the double-tap-zoom delay everywhere).
+
+### 10.8 Offline
+
+The existing service worker is kept. An offline banner (material capsule under
+the nav bar) appears when `navigator.onLine` is false, and write actions are
+disabled with a footnote rather than failing silently. Same on all platforms.
 
 ---
 
@@ -1028,8 +1193,15 @@ has none, so the app provides it).
   checkboxes keep native `input type="checkbox"` under the custom visual.
 - Charts: each chart has a visually hidden table or `aria-label` summary
   (e.g. "Free amount per month, highest June 4 200").
-- Text size: the type scale is in `rem`; Settings can later offer a text-size
-  slider by changing the root font size (not in scope for the first release).
+- **System text size:** the type scale is in `rem`, so it follows the
+  platform's larger-text setting.
+  - Android: Chrome applies the system font scale to the root font size, so the
+    whole scale grows with it.
+  - iPhone: PWAs do not get Dynamic Type by default; the root font size is set
+    from `font: -apple-system-body` (WebKit-only) so the scale follows the iOS
+    Text Size setting too.
+  - Layouts are checked at 130 % to make sure rows wrap rather than clip.
+- **Screen readers:** tested with VoiceOver (iPhone) and TalkBack (Android).
 - Reduced motion and reduced transparency (`prefers-reduced-transparency`:
   materials fall back to solid `--bg-primary`).
 - Colour is never the only signal: priority dots have text labels in the edit
@@ -1105,6 +1277,8 @@ No required additions. Optional, evaluated during implementation:
 |---|---|---|
 | `vaul` (or similar) | Battle-tested drag-to-dismiss sheets with detents | Build in-house first; adopt only if gesture quality falls short |
 | `@floating-ui/react` | Positioning for pull-down and context menus | Optional |
+| `@fontsource-variable/inter` | Self-hosted Inter for non-Apple devices (§3.1) | Yes (or vendor the `woff2` directly) |
+| `@playwright/test` (dev) | Device-emulation tests for iPhone and Android (§13) | Yes |
 
 ### 12.6 Licensing notes
 
@@ -1112,6 +1286,7 @@ No required additions. Optional, evaluated during implementation:
   platform apps; the system font stack already renders SF Pro on Apple devices
   without shipping it.
 - The icon set is original artwork in a similar style.
+- Inter is SIL Open Font Licence — free to self-host and bundle.
 - Google Sign-In keeps Google's rendered button to stay within its branding
   rules.
 
@@ -1141,8 +1316,20 @@ No required additions. Optional, evaluated during implementation:
 - **Keep** `noZoom` (controls ≥ 16 px) and `appWidth` (430 px column)
   regressions, adapted to CSS Modules (assert computed styles).
 - **Visual check:** render each screen in both themes with the stubbed preview
-  recipe (no real credentials, fixtures only) and headless Chrome screenshots
-  at 393 × 852; compare before merging each phase.
+  recipe (no real credentials, fixtures only), screenshotted at three sizes:
+  **360 × 780** (small Android), **393 × 852** (iPhone / Pixel), **430 × 932**
+  (large iPhone); compare before merging each phase.
+- **Cross-platform behaviour tests** (Playwright with device emulation, against
+  the stubbed preview): iPhone 15 (WebKit) and Pixel 7 (Chromium) profiles.
+  Cover: back closes the top sheet → then pops the screen → then returns to
+  Today; back on a dirty form asks to discard; edge swipe works on iOS and is
+  inactive on Android; keyboard does not cover the focused field; decimal input
+  accepts `,` and `.`; long-press shows only the app's menu; `PrivateValue`
+  hold re-masks on `pointercancel`.
+- **Real-device pass** at the end of each phase: one iPhone (installed PWA),
+  one Pixel or similar (installed via Chrome), one Samsung (Samsung Internet).
+  A short checklist: install, launch splash, safe areas top and bottom,
+  keyboard, back button, haptics, theme switching, offline banner.
 - The 9 currently failing date-slot tests should be fixed (or rewritten)
   during Phase 4 since the slot UI is rebuilt anyway.
 
@@ -1151,20 +1338,22 @@ No required additions. Optional, evaluated during implementation:
 ## 14. Implementation plan
 
 Each phase ships to production on its own and leaves the app fully usable.
+Every phase's exit criteria include the cross-platform checks in §13
+(Playwright on iPhone and Pixel profiles, plus the real-device pass).
 Screens are migrated one at a time behind the new shell; old screens render
 inside the new shell until replaced.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, new design-token guard test, icon set | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily) |
+| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, new design-token guard test, icon set, Inter font for non-Apple devices, `platform.js`, Playwright setup with iPhone and Pixel profiles | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily); type renders the same on iPhone and Android |
 | **1. Component library** | `src/ui/` primitives (§6) with tests; `PrivacyContext` + `PrivateValue` | Component tests green; preview page renders every primitive in both themes |
-| **2. Shell and navigation** | `AppShell`, `TabBar`, `NavigationBar` with large title, Account sheet, route tree with legacy redirects, per-tab stacks | All current routes reachable; old URLs redirect; Settings/Backstage/Admin gated as today |
+| **2. Shell and navigation** | `AppShell`, `TabBar`, `NavigationBar` with large title, Account sheet, route tree with legacy redirects, per-tab stacks, **overlay manager and history integration (§10.3)**, iOS-only edge swipe, safe areas, keyboard hook | All current routes reachable; old URLs redirect; Settings/Backstage/Admin gated as today; Android back behaves per §10.3 in Playwright and on a real device |
 | **3. Money → Budget + forms** | Budget screen, period pager, `PeriodHeader`, budget bar, expense rows with swipe, Expense and Income `FormSheet`s, year menu, eye toggle, `+` menu | Parity rows A.2–A.4 ticked; `/add-expense`, `/add-income` redirect to sheets |
 | **4. Today** | Four widgets, hold-to-reveal holdings, split slots, pull-to-refresh | Parity A.1 ticked; date-slot tests fixed |
 | **5. Split, Stats, Invest** | Remaining Money segments | Parity A.5–A.7 |
 | **6. Library and HQ** | Library with search + filter sheet; HQ chips, Overview, location entries, HQ Settings | Parity A.8–A.9; `Headquarters/Modal.jsx` and `styles.js` deleted |
 | **7. Account screens and Login** | Settings, Backstage, Admin, Login | Parity A.10–A.13 |
-| **8. Clean-up** | Delete `index.css` legacy tokens, `components/tokens.js`, `ui.jsx`, `TabIcons.jsx`, `navIcons.jsx`, `DateSheet.jsx`, `incomeHeader.js`, `TAB_ICON_COLORS` and the Dusk/Amber palette; update CLAUDE.md, README, Frontend_Setup, module requirement docs; PWA icons and splash screens | No references to removed files; docs describe the new UI; Lighthouse PWA and accessibility ≥ 95 |
+| **8. Clean-up** | Delete `index.css` legacy tokens, `components/tokens.js`, `ui.jsx`, `TabIcons.jsx`, `navIcons.jsx`, `DateSheet.jsx`, `incomeHeader.js`, `TAB_ICON_COLORS` and the Dusk/Amber palette; update CLAUDE.md, README, Frontend_Setup, module requirement docs; PWA icons and splash screens | No references to removed files; docs describe the new UI; Lighthouse PWA and accessibility ≥ 95; install flow checked on iPhone, Android Chrome and Samsung Internet |
 
 Rough size: phases 0–2 are the bulk of new code (~3–4 k lines); each screen
 phase is mostly a rewrite of presentation around unchanged logic.
@@ -1188,6 +1377,10 @@ flipped cheaply.
 | 8 | Investments chart range control (1Y / 3Y / All) | Included, default All |
 | 9 | Pull-to-refresh | Included on Today, Budget, Library, HQ |
 | 10 | Settings saves immediately (no Save button) | Yes |
+| 11 | Look on Android | Same iPhone look as on iPhone (behaviour adapts, §10). Alternative: Material styling on Android — rejected by default, it doubles the design work |
+| 12 | Font on non-Apple devices | Bundled Inter (~100 KB subset). Alternative: device font (Roboto etc.) — no download, but looks less like iPhone |
+| 13 | Haptics | On where the platform allows (Android), with a Settings toggle |
+| 14 | Install banner on Today | One-time, dismissible, only when not installed |
 
 ---
 
@@ -1265,6 +1458,8 @@ Every row must be ticked before the old implementation is removed.
 **A.12 Admin** — [ ] gated by username (frontend) / `admin` group (API); [ ] 3 app-setting toggles; [ ] FX matrix + update; [ ] backup all tables to Drive with per-table progress; [ ] users list with counts; [ ] admin role toggle; [ ] delete user after password re-entry
 
 **A.13 Shell and auth** — [ ] SRP sign-in; [ ] sign-up (when enabled) with password match; [ ] Google sign-in (when enabled); [ ] account menu with username and JWT countdown; [ ] sign out; [ ] 401 → sign out; [ ] route change closes menus/sheets appropriately; [ ] unknown paths → `/`; [ ] error boundary around routes; [ ] offline PWA
+
+**A.14 Cross-platform** — [ ] same look on iPhone, Android Chrome and Samsung Internet at 360–430 px; [ ] Android back closes overlays, then pops screens, then returns to Today, then exits; [ ] back on a dirty form asks to discard; [ ] edge swipe on iOS only; [ ] keyboard never covers the focused field; [ ] decimal entry accepts `,` and `.`; [ ] install flow on each platform; [ ] safe areas on notch, home indicator and Android gesture bar; [ ] larger system text does not clip
 
 ---
 
