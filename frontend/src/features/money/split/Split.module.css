@@ -1,0 +1,173 @@
+/* ── Slots: two per row ─────────────────────────────────────────────────── */
+.slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-grouped-tertiary);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+  min-width: 0;
+}
+.slotFilled {
+  background: var(--tint-soft);
+}
+.slotIdx {
+  font-size: var(--fs-caption1);
+  line-height: var(--lh-caption1);
+  font-weight: 700;
+  color: var(--label-secondary);
+  flex-shrink: 0;
+}
+.slotFilled .slotIdx {
+  color: var(--tint);
+}
+.slotInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--fs-control);
+  font-weight: 600;
+  color: var(--label);
+}
+.slotInput::placeholder {
+  font-weight: 400;
+}
+.slotButton {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  text-align: left;
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+  color: var(--label-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slotFilled .slotButton {
+  color: var(--label);
+}
+
+/* ── Entry card ─────────────────────────────────────────────────────────── */
+.entry {
+  margin: 0 var(--screen-margin);
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.entry + .entry {
+  margin-top: var(--space-3);
+}
+.entryHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  text-align: left;
+}
+.entryHead:active {
+  background: var(--fill-pressed);
+}
+.entryText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.entryTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.entryTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entryTotal {
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+  color: var(--label);
+  white-space: nowrap;
+}
+.entryMeta {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  color: var(--label-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.left {
+  color: var(--status-warning);
+  font-weight: 600;
+}
+.chevron {
+  color: var(--label-tertiary);
+  flex-shrink: 0;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+.entryBody {
+  padding: 0 var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.coverLine {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-secondary);
+}
+.coverLine strong {
+  color: var(--label);
+}
+.over {
+  color: var(--status-negative);
+}
+.saveState {
+  font-size: var(--fs-caption1);
+  color: var(--label-tertiary);
+}
+.saveError {
+  color: var(--status-negative);
+}
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* ── Header summary ─────────────────────────────────────────────────────── */
+.summary {
+  padding: 0 calc(var(--screen-margin) + var(--space-1)) var(--space-2);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  color: var(--label-secondary);
+}
+.summary strong {
+  color: var(--label);
+  font-weight: 600;
+}
+.sectionGap {
+  height: var(--space-3);
+}

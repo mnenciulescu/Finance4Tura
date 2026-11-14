@@ -1,0 +1,147 @@
+.calendar {
+  padding: 0 var(--space-4);
+}
+.calendarLoading {
+  height: 340px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+}
+.month {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+}
+.steps {
+  display: flex;
+  gap: var(--space-1);
+}
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  color: var(--tint);
+  border-radius: var(--radius-full);
+  outline: none;
+}
+.step[data-disabled] {
+  color: var(--label-tertiary);
+}
+.step[data-focus-visible] {
+  outline: 2px solid var(--tint);
+}
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.weekday {
+  padding: var(--space-1) 0 var(--space-2);
+  font-size: var(--fs-caption1);
+  line-height: var(--lh-caption1);
+  font-weight: 600;
+  color: var(--label-tertiary);
+  text-transform: uppercase;
+  text-align: center;
+}
+.day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1px auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-title3);
+  line-height: 1;
+  color: var(--label);
+  cursor: pointer;
+  outline: none;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.day[data-outside-month] {
+  display: none;
+}
+.day[data-pressed] {
+  background: var(--fill-pressed);
+}
+.day[data-today] {
+  color: var(--tint);
+  font-weight: 600;
+}
+.day[data-selected] {
+  background: var(--tint);
+  color: var(--on-tint);
+  font-weight: 600;
+}
+.day[data-disabled],
+.day[data-unavailable] {
+  color: var(--label-tertiary);
+  cursor: default;
+}
+.day[data-focus-visible] {
+  outline: 2px solid var(--tint);
+  outline-offset: 1px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-1);
+}
+.action {
+  flex: 1;
+  min-height: 50px;
+  border-radius: var(--radius-md);
+  background: var(--fill-secondary);
+  color: var(--tint);
+  font-size: var(--fs-headline);
+  font-weight: 600;
+}
+.action:active:not(:disabled) {
+  opacity: 0.7;
+}
+.action:disabled {
+  color: var(--label-tertiary);
+}
+.clear {
+  color: var(--status-negative);
+}
+
+.fieldButton {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--fill-secondary);
+  font-size: var(--fs-body);
+}
+.fieldValue {
+  color: var(--label);
+}
+.fieldPlaceholder {
+  color: var(--label-tertiary);
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.monthCell {
+  min-height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--fill-secondary);
+  font-size: var(--fs-body);
+  color: var(--label);
+}
+.monthSelected {
+  background: var(--tint);
+  color: var(--on-tint);
+  font-weight: 600;
+}

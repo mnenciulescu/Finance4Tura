@@ -1,0 +1,143 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   4TURA Home — themes
+
+   The only stylesheet allowed to hold raw colour values. Each theme first
+   defines primitives named after the iOS system colours, then the semantic
+   tokens point at them. Components only ever read the semantic names.
+
+   Adding a theme = one [data-theme="x"] block here + one entry in themes.ts.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Light ────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Primitives */
+  --system-blue:   #007AFF;
+  --system-green:  #34C759;
+  --system-orange: #FF9500;
+  --system-red:    #FF3B30;
+  --system-purple: #AF52DE;
+  --system-teal:   #30B0C7;
+  --system-pink:   #FF2D55;
+  --system-indigo: #5856D6;
+  --system-yellow: #FFCC00;
+  --system-white:  #FFFFFF;
+  --system-black:  #000000;
+  --system-gray6:  #F2F2F7;
+
+  /* Backgrounds */
+  --bg-primary:             var(--system-white);
+  --bg-grouped:             var(--system-gray6);
+  --bg-grouped-secondary:   var(--system-white);
+  --bg-grouped-tertiary:    var(--system-gray6);
+  --bg-elevated:            var(--system-white);
+
+  /* Labels */
+  --label:           var(--system-black);
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary:  rgba(60, 60, 67, 0.3);
+
+  /* Fills and lines */
+  --separator:      rgba(60, 60, 67, 0.29);
+  --fill:           rgba(120, 120, 128, 0.2);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-pressed:   rgba(0, 0, 0, 0.06);
+
+  /* Accent and status */
+  --tint:            var(--system-blue);
+  --on-tint:         var(--system-white);
+  --status-positive: var(--system-green);
+  --status-negative: var(--system-red);
+  --status-warning:  var(--system-orange);
+  --status-special:  var(--system-purple);
+
+  /* Categorical series */
+  --series-1: var(--system-blue);
+  --series-2: var(--system-green);
+  --series-3: var(--system-orange);
+  --series-4: var(--system-purple);
+  --series-5: var(--system-teal);
+  --series-6: var(--system-pink);
+  --series-7: var(--system-indigo);
+  --series-8: var(--system-yellow);
+
+  /* Elevation */
+  --shadow-card:    0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-overlay: 0 10px 40px rgba(0, 0, 0, 0.18);
+  --shadow-thumb:   0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+  --segment-thumb:  var(--system-white);
+  --switch-knob:    var(--system-white);
+  --scrim:          rgba(0, 0, 0, 0.4);
+  --material-alpha: 72%;
+}
+
+/* ── Dark ─────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --system-blue:   #0A84FF;
+  --system-green:  #30D158;
+  --system-orange: #FF9F0A;
+  --system-red:    #FF453A;
+  --system-purple: #BF5AF2;
+  --system-teal:   #40C8E0;
+  --system-pink:   #FF375F;
+  --system-indigo: #5E5CE6;
+  --system-yellow: #FFD60A;
+  --system-white:  #FFFFFF;
+  --system-black:  #000000;
+  --system-gray6:  #1C1C1E;
+  --system-gray5:  #2C2C2E;
+
+  --bg-primary:           var(--system-black);
+  --bg-grouped:           var(--system-black);
+  --bg-grouped-secondary: var(--system-gray6);
+  --bg-grouped-tertiary:  var(--system-gray5);
+  --bg-elevated:          var(--system-gray6);
+
+  --label:           var(--system-white);
+  --label-secondary: rgba(235, 235, 245, 0.6);
+  --label-tertiary:  rgba(235, 235, 245, 0.3);
+
+  --separator:      rgba(84, 84, 88, 0.65);
+  --fill:           rgba(120, 120, 128, 0.36);
+  --fill-secondary: rgba(120, 120, 128, 0.32);
+  --fill-pressed:   rgba(255, 255, 255, 0.08);
+
+  --tint:            var(--system-blue);
+  --on-tint:         var(--system-white);
+  --status-positive: var(--system-green);
+  --status-negative: var(--system-red);
+  --status-warning:  var(--system-orange);
+  --status-special:  var(--system-purple);
+
+  --series-1: var(--system-blue);
+  --series-2: var(--system-green);
+  --series-3: var(--system-orange);
+  --series-4: var(--system-purple);
+  --series-5: var(--system-teal);
+  --series-6: var(--system-pink);
+  --series-7: var(--system-indigo);
+  --series-8: var(--system-yellow);
+
+  --shadow-card:    none;
+  --shadow-overlay: 0 10px 40px rgba(0, 0, 0, 0.6);
+  --shadow-thumb:   0 3px 8px rgba(0, 0, 0, 0.3);
+  --segment-thumb:  rgba(120, 120, 128, 0.42);
+  --switch-knob:    var(--system-white);
+  --scrim:          rgba(0, 0, 0, 0.6);
+  --material-alpha: 72%;
+}
+
+/* Derived tokens — shared by every theme, computed from the semantic ones. */
+:root,
+[data-theme] {
+  --tint-soft:     color-mix(in srgb, var(--tint) 15%, transparent);
+  --positive-soft: color-mix(in srgb, var(--status-positive) 15%, transparent);
+  --negative-soft: color-mix(in srgb, var(--status-negative) 15%, transparent);
+  --warning-soft:  color-mix(in srgb, var(--status-warning) 15%, transparent);
+  --special-soft:  color-mix(in srgb, var(--status-special) 12%, transparent);
+  --material-bar:  color-mix(in srgb, var(--bg-grouped) var(--material-alpha), transparent);
+}

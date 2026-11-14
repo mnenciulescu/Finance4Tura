@@ -1,0 +1,120 @@
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+}
+.avatarCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--tint);
+  color: var(--on-tint);
+  font-size: var(--fs-footnote);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.avatar:active .avatarCircle {
+  opacity: 0.7;
+}
+
+.body {
+  padding: var(--space-2) 0 var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 var(--screen-margin);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-grouped-secondary);
+}
+.bigAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--tint);
+  color: var(--on-tint);
+  font-size: var(--fs-title3);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.profileText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.name {
+  font-size: var(--fs-title3);
+  line-height: var(--lh-title3);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  color: var(--label-secondary);
+}
+.soon {
+  color: var(--status-warning);
+}
+.urgent {
+  color: var(--status-negative);
+}
+
+.group {
+  list-style: none;
+  margin: 0 var(--screen-margin);
+  border-radius: var(--radius-md);
+  background: var(--bg-grouped-secondary);
+  overflow: hidden;
+}
+.group li {
+  position: relative;
+}
+/* Hairline inset to the label, past the icon tile. */
+.group li + li::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 58px;
+  right: 0;
+  height: var(--hairline);
+  background: var(--separator);
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 50px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-body);
+  color: var(--label);
+  text-align: left;
+}
+.item:active {
+  background: var(--fill-pressed);
+}
+.itemLabel {
+  flex: 1;
+}
+.chevron {
+  color: var(--label-tertiary);
+}
+.signOut {
+  justify-content: center;
+  color: var(--status-negative);
+}

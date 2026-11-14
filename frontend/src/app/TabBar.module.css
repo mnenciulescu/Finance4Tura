@@ -1,0 +1,47 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-tabbar);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 calc(var(--hairline) * -1) 0 var(--separator);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bar { background: var(--bg-grouped-secondary); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .bar { background: var(--bg-grouped-secondary); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+.inner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: var(--app-max-w);
+  margin: 0 auto;
+  height: var(--tabbar-h);
+}
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: var(--label-secondary);
+  padding-top: 2px;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.tab:active {
+  opacity: 0.6;
+}
+.selected {
+  color: var(--tint);
+}
+.label {
+  font-size: var(--fs-caption2);
+  line-height: var(--lh-caption2);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}

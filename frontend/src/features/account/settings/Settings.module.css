@@ -1,0 +1,129 @@
+.themes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+.themeOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.themeLabel {
+  font-size: var(--fs-subheadline);
+  font-weight: 500;
+}
+.radio {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--label-tertiary);
+}
+.radioOn {
+  border: 6px solid var(--tint);
+}
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 72px;
+  height: 112px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-grouped);
+  box-shadow: 0 0 0 var(--hairline) var(--separator);
+  overflow: hidden;
+}
+.themeSelected .preview,
+.themeSelected .split {
+  box-shadow: 0 0 0 2px var(--tint);
+}
+.previewBar {
+  height: 8px;
+  border-radius: 2px;
+  background: var(--fill-secondary);
+}
+.previewCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--bg-grouped-secondary);
+}
+.previewLine {
+  height: 5px;
+  border-radius: 2px;
+  background: var(--label-tertiary);
+}
+.short {
+  width: 60%;
+}
+.previewTint {
+  margin-top: auto;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--tint);
+}
+.previewTabs {
+  height: 10px;
+  border-radius: 2px;
+  background: var(--material-bar);
+}
+.split {
+  position: relative;
+  width: 72px;
+  height: 112px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 0 0 var(--hairline) var(--separator);
+}
+.half {
+  position: absolute;
+  inset: 0;
+}
+.half .preview {
+  border-radius: 0;
+  box-shadow: none;
+}
+.right {
+  clip-path: inset(0 0 0 50%);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-subheadline);
+}
+
+.steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--screen-margin) var(--space-4);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.stepIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--tint-soft);
+  color: var(--tint);
+  flex-shrink: 0;
+}
+.stepsFoot {
+  padding: 0 var(--screen-margin);
+}

@@ -1,0 +1,27 @@
+.redacted {
+  display: inline-block;
+  height: 0.8em;
+  min-width: 2.5em;
+  vertical-align: middle;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+}
+
+.reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  border-radius: var(--radius-full);
+  color: var(--label-secondary);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  transition: color var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
+}
+.revealOn {
+  color: var(--tint);
+  transform: scale(1.08);
+}

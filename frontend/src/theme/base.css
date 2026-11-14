@@ -1,0 +1,138 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   4TURA Home — base styles: reset, root type size, platform behaviour
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 17 px root, so body text is 1rem. Expressed as a percentage so Android's
+   system font scale (applied to the browser's 16 px default) still scales it. */
+html {
+  font-size: 106.25%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: none;
+  background: var(--bg-grouped);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iPhone PWAs get no Dynamic Type by default. -apple-system-body resolves to
+   the user's iOS Text Size setting (17 px at the default size), so the whole
+   rem scale follows it. Behaviour, not appearance: at the default size the
+   result is identical to every other platform. */
+@supports (font: -apple-system-body) {
+  html[data-platform="ios"] {
+    font: -apple-system-body;
+  }
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--bg-grouped);
+  color: var(--label);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv11" 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+img, svg {
+  display: block;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+a {
+  color: var(--tint);
+  text-decoration: none;
+}
+
+input, select, textarea {
+  font-size: var(--fs-control);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--label-tertiary);
+}
+
+/* Focus ring for keyboard users only. */
+:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Chrome (bars, buttons, rows) is not selectable and gets no iOS callout;
+   content values stay selectable so amounts can be copied. */
+button, [role="button"], [role="tab"], [role="menuitem"], nav, header {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ── Typography helpers ──────────────────────────────────────────────────── */
+.type-large-title { font-size: var(--fs-large-title); line-height: var(--lh-large-title); font-weight: 700; letter-spacing: 0.01em; }
+.type-title1      { font-size: var(--fs-title1);      line-height: var(--lh-title1);      font-weight: 700; }
+.type-title2      { font-size: var(--fs-title2);      line-height: var(--lh-title2);      font-weight: 700; }
+.type-title3      { font-size: var(--fs-title3);      line-height: var(--lh-title3);      font-weight: 600; }
+.type-headline    { font-size: var(--fs-headline);    line-height: var(--lh-headline);    font-weight: 600; }
+.type-body        { font-size: var(--fs-body);        line-height: var(--lh-body);        font-weight: 400; }
+.type-callout     { font-size: var(--fs-callout);     line-height: var(--lh-callout);     font-weight: 400; }
+.type-subheadline { font-size: var(--fs-subheadline); line-height: var(--lh-subheadline); font-weight: 400; }
+.type-footnote    { font-size: var(--fs-footnote);    line-height: var(--lh-footnote);    font-weight: 400; }
+.type-caption1    { font-size: var(--fs-caption1);    line-height: var(--lh-caption1);    font-weight: 400; }
+.type-caption2    { font-size: var(--fs-caption2);    line-height: var(--lh-caption2);    font-weight: 400; }
+
+.label-secondary { color: var(--label-secondary); }
+.label-tertiary  { color: var(--label-tertiary); }
+.rounded-num     { font-family: var(--font-rounded); font-variant-numeric: tabular-nums; }
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Privacy: hide content in the app switcher (Settings → Privacy) ──────── */
+body.privacy-shield #root {
+  filter: blur(24px);
+}
+
+/* ── Reduced motion / transparency ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

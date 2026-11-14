@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   4TURA Home — theme-independent tokens
+
+   Spacing, radii, type, motion and layering. Colour lives in themes.css,
+   which is the only stylesheet allowed to hold raw colour values.
+
+   The type scale follows the iOS default ("Large") content size. It is set in
+   rem against a 17 px root, so body text is exactly 1rem and the whole scale
+   grows with the platform's text-size setting (see base.css).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Fonts ---------------------------------------------------------------- */
+  /* Apple devices resolve -apple-system to SF Pro and never fetch Inter;
+     everything else gets the bundled Inter, a close match for SF Pro. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter Variable", "Inter",
+               "Segoe UI", Roboto, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", var(--font-sans);
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  /* Type scale (size / line height), root = 17 px ------------------------ */
+  --fs-large-title: 2rem;        --lh-large-title: 2.4118rem;   /* 34 / 41 */
+  --fs-title1:      1.6471rem;   --lh-title1:      2rem;        /* 28 / 34 */
+  --fs-title2:      1.2941rem;   --lh-title2:      1.6471rem;   /* 22 / 28 */
+  --fs-title3:      1.1765rem;   --lh-title3:      1.4706rem;   /* 20 / 25 */
+  --fs-headline:    1rem;        --lh-headline:    1.2941rem;   /* 17 / 22 */
+  --fs-body:        1rem;        --lh-body:        1.2941rem;   /* 17 / 22 */
+  --fs-callout:     0.9412rem;   --lh-callout:     1.2353rem;   /* 16 / 21 */
+  --fs-subheadline: 0.8824rem;   --lh-subheadline: 1.1765rem;   /* 15 / 20 */
+  --fs-footnote:    0.7647rem;   --lh-footnote:    1.0588rem;   /* 13 / 18 */
+  --fs-caption1:    0.7059rem;   --lh-caption1:    0.9412rem;   /* 12 / 16 */
+  --fs-caption2:    0.6471rem;   --lh-caption2:    0.7647rem;   /* 11 / 13 */
+
+  /* Form controls never drop below 16 px, or iOS zooms on focus. */
+  --fs-control: max(16px, 1rem);
+
+  /* Spacing — 8 pt grid with 4 pt half steps ----------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Shape ----------------------------------------------------------------- */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   22px;
+  --radius-full: 9999px;
+
+  /* Layout ---------------------------------------------------------------- */
+  --app-max-w:     430px;
+  --screen-margin: var(--space-4);
+  --tap-min:       44px;
+  --row-min:       44px;
+  --row-min-2:     60px;
+  --navbar-h:      44px;
+  --tabbar-h:      49px;
+  --hairline:      0.5px;
+
+  /* Motion ---------------------------------------------------------------- */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 350ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-sheet:    cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Layering -------------------------------------------------------------- */
+  --z-navbar:  20;
+  --z-tabbar:  30;
+  --z-banner:  40;
+  --z-overlay: 100;
+  --z-toast:   200;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

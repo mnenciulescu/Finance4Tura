@@ -1,0 +1,129 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ── Navigation bar ─────────────────────────────────────────────────────── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-navbar);
+  padding-top: env(safe-area-inset-top);
+  background: transparent;
+  transition: background-color var(--dur-base) var(--ease-standard);
+}
+.bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hairline);
+  background: var(--separator);
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-standard);
+}
+.barCollapsed {
+  background: var(--material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.barCollapsed::after {
+  opacity: 1;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .barCollapsed { background: var(--bg-grouped); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .barCollapsed { background: var(--bg-grouped); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: var(--navbar-h);
+  padding: 0 var(--space-2);
+}
+.barLeading,
+.barTrailing {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.barTrailing {
+  justify-content: flex-end;
+  gap: 0;
+}
+.inlineTitle {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50vw;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard);
+}
+.inlineShown {
+  opacity: 1;
+  transform: none;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  margin-left: calc(var(--space-2) * -1);
+  padding-right: var(--space-2);
+  color: var(--tint);
+  font-size: var(--fs-body);
+  max-width: 40vw;
+}
+.back:active {
+  opacity: 0.5;
+}
+.backLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: -4px;
+}
+
+/* ── Large title ────────────────────────────────────────────────────────── */
+.largeTitleWrap {
+  padding: 0 var(--screen-margin) var(--space-2);
+}
+.largeTitle {
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.subtitle {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  color: var(--label-secondary);
+}
+
+/* ── Accessory (segmented control / search) ─────────────────────────────── */
+.accessory {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + var(--navbar-h));
+  z-index: calc(var(--z-navbar) - 1);
+  padding: var(--space-1) var(--screen-margin) var(--space-2);
+  background: var(--bg-grouped);
+}
+.accessoryStuck {
+  background: var(--material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 var(--hairline) 0 var(--separator);
+}
+
+.content {
+  flex: 1;
+  padding-bottom: var(--space-6);
+}

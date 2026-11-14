@@ -1,0 +1,244 @@
+.flex {
+  flex: 1;
+}
+
+/* ── Pager ──────────────────────────────────────────────────────────────── */
+.pagerBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 calc(var(--screen-margin) - var(--space-2)) var(--space-1);
+}
+.pagerLabel {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-secondary);
+  min-width: 96px;
+  text-align: center;
+}
+.pager {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  align-items: flex-start;
+  transition: height var(--dur-base) var(--ease-standard);
+}
+.pager::-webkit-scrollbar {
+  display: none;
+}
+.page {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  min-width: 0;
+}
+.pageInner {
+  padding: 0 var(--screen-margin) var(--space-2);
+}
+.placeholder {
+  height: 1px;
+}
+
+/* ── Period card ────────────────────────────────────────────────────────── */
+.periodCard {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.periodHeader {
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.periodTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+}
+.periodDate {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.periodDay {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--label);
+}
+.periodYear {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--label-secondary);
+}
+.periodNameRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-right: var(--space-2);
+}
+.periodName {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-title2);
+  line-height: var(--lh-title2);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.periodAmount {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  font-weight: 600;
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+
+/* ── Budget bar ─────────────────────────────────────────────────────────── */
+.budget {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+.legendItem {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.legendItem dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-caption1);
+  line-height: var(--lh-caption1);
+  color: var(--label-secondary);
+}
+.legendItem dd {
+  font-family: var(--font-rounded);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  font-weight: 700;
+  color: var(--label);
+  white-space: nowrap;
+}
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.overFigure {
+  color: var(--status-negative) !important;
+}
+
+/* ── Expense rows ───────────────────────────────────────────────────────── */
+.expenseList {
+  list-style: none;
+  border-top: var(--hairline) solid var(--separator);
+}
+.expenseItem {
+  position: relative;
+}
+.expenseItem + .expenseItem::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: var(--hairline);
+  background: var(--separator);
+  z-index: 2;
+}
+.expenseRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-min);
+  padding: 0 var(--space-4);
+  background: var(--bg-grouped-secondary);
+}
+.special {
+  background: var(--special-soft);
+}
+.expenseMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-min);
+  text-align: left;
+  color: var(--label);
+}
+button.expenseMain:active {
+  opacity: 0.6;
+}
+.star {
+  font-size: var(--fs-footnote);
+  color: var(--status-special);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.expenseName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-body);
+}
+.expenseDate {
+  font-size: var(--fs-footnote);
+  color: var(--label-secondary);
+  flex-shrink: 0;
+}
+.expenseAmount {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 72px;
+  text-align: right;
+}
+.done .expenseName,
+.done .expenseAmount {
+  color: var(--label-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--label-tertiary);
+}
+.done .expenseMain {
+  opacity: 0.75;
+}
+.emptyRow {
+  padding: var(--space-4);
+  font-size: var(--fs-subheadline);
+  color: var(--label-secondary);
+  text-align: center;
+}
+.addRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--row-min);
+  padding: 0 var(--space-4) 0 52px;
+  color: var(--tint);
+  font-size: var(--fs-body);
+}
+.addRow:active {
+  background: var(--fill-pressed);
+}

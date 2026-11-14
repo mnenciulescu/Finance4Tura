@@ -1,0 +1,26 @@
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-top: var(--space-2);
+}
+.mapping {
+  margin: calc(var(--space-4) * -1) calc(var(--screen-margin) + var(--space-4)) 0;
+  min-height: var(--lh-footnote);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-secondary);
+}
+.mapping strong {
+  color: var(--label);
+  font-weight: 600;
+}
+.warn {
+  color: var(--status-warning);
+}
+.segment {
+  min-width: 200px;
+}
+.deleteWrap {
+  padding: 0 var(--screen-margin);
+}

@@ -1,0 +1,112 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 9vh) var(--screen-margin) calc(env(safe-area-inset-bottom) + var(--space-6));
+}
+.column {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+}
+.icon {
+  align-self: center;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-overlay);
+}
+.title {
+  text-align: center;
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  font-weight: 700;
+  margin-top: var(--space-2);
+}
+.subtitle {
+  text-align: center;
+  font-size: var(--fs-subheadline);
+  color: var(--label-secondary);
+  margin-top: calc(var(--space-3) * -1);
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+.form > div,
+.column > div[role="alert"],
+.column > div[role="status"] {
+  margin-left: 0;
+  margin-right: 0;
+}
+.group {
+  border-radius: var(--radius-md);
+  background: var(--bg-grouped-secondary);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.row + .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  right: 0;
+  height: var(--hairline);
+  background: var(--separator);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  padding: 0 var(--space-4);
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--fs-control);
+  color: var(--label);
+}
+.eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  margin-right: var(--space-1);
+  color: var(--label-secondary);
+}
+.or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--label-tertiary);
+  font-size: var(--fs-footnote);
+}
+.or::before,
+.or::after {
+  content: "";
+  flex: 1;
+  height: var(--hairline);
+  background: var(--separator);
+}
+.google {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+.switch {
+  text-align: center;
+  font-size: var(--fs-subheadline);
+  color: var(--label-secondary);
+}
+.switch button {
+  color: var(--tint);
+  font-weight: 600;
+}

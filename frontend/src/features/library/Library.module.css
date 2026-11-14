@@ -1,0 +1,172 @@
+.flex {
+  flex: 1;
+}
+.clear {
+  margin-left: var(--space-2);
+  color: var(--tint);
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+}
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--fill-secondary);
+  color: var(--tint);
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.filterOn {
+  background: var(--tint-soft);
+}
+.filterCount {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--tint);
+  color: var(--on-tint);
+  font-size: var(--fs-caption2);
+  line-height: 18px;
+  text-align: center;
+}
+.count {
+  text-transform: none;
+}
+
+.personBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--screen-margin);
+}
+.chartCard {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-3) var(--space-2) var(--space-2) 0;
+}
+.chartHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 var(--space-2) var(--space-1) var(--space-4);
+}
+.chartLabel {
+  font-size: var(--fs-caption1);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--label-secondary);
+}
+.chartTotal {
+  font-size: var(--fs-footnote);
+  color: var(--label-secondary);
+}
+.chartTotal span {
+  font-family: var(--font-rounded);
+  font-size: var(--fs-headline);
+  font-weight: 700;
+  color: var(--tint);
+}
+.tooltip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--fs-footnote);
+}
+
+.card {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.cardInner {
+  background: var(--bg-grouped-secondary);
+}
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  text-align: left;
+}
+.cardTitle {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+}
+.cardSub {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  color: var(--label-secondary);
+}
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-1) var(--space-4);
+}
+.cardDate {
+  font-size: var(--fs-footnote);
+  color: var(--label-secondary);
+  padding-right: var(--space-1);
+}
+.cardBody {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: var(--hairline) solid var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.comments {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  white-space: pre-wrap;
+}
+.noComments {
+  font-size: var(--fs-subheadline);
+  color: var(--label-tertiary);
+}
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+}
+.moreRow {
+  display: flex;
+  gap: var(--space-2);
+}
+.moreRow > * {
+  flex: 1;
+}
+.moreCount {
+  font-size: var(--fs-caption1);
+  color: var(--label-secondary);
+  margin-left: var(--space-1);
+}
+.sheetActions {
+  display: flex;
+  gap: var(--space-3);
+  padding: 0 var(--screen-margin);
+}
+.inlineInput {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--row-min);
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--label);
+  font-size: var(--fs-control);
+}

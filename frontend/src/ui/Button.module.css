@@ -1,0 +1,87 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+.button:active:not(:disabled) {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.large  { min-height: 50px; padding: 0 var(--space-5); font-size: var(--fs-headline); border-radius: var(--radius-md); }
+.medium { min-height: 44px; padding: 0 var(--space-4); font-size: var(--fs-subheadline); }
+.small  { min-height: 30px; padding: 0 var(--space-3); font-size: var(--fs-footnote); border-radius: var(--radius-full); }
+
+.block { display: flex; width: 100%; }
+
+.filled            { background: var(--tint); color: var(--on-tint); }
+.tinted            { background: var(--tint-soft); color: var(--tint); }
+.gray              { background: var(--fill-secondary); color: var(--label); }
+.plain             { background: transparent; color: var(--tint); padding-left: var(--space-2); padding-right: var(--space-2); }
+.destructive       { background: var(--status-negative); color: var(--on-tint); }
+.destructiveTinted { background: var(--negative-soft); color: var(--status-negative); }
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Icon buttons ────────────────────────────────────────────────────────── */
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  color: var(--tint);
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.iconButton:active:not(:disabled) {
+  opacity: 0.5;
+}
+.iconButton:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.iconInner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon_plain {}
+.icon_circle .iconInner {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--fill-secondary);
+}
+.icon_tinted .iconInner {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--tint-soft);
+}

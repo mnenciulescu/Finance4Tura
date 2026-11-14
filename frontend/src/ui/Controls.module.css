@@ -1,0 +1,345 @@
+/* ── Segmented control ──────────────────────────────────────────────────── */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--fill-secondary);
+  min-height: 34px;
+}
+.segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 500;
+  color: var(--label);
+  outline: none;
+  cursor: pointer;
+}
+.segment[data-selected] {
+  font-weight: 600;
+}
+.segment[data-disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.segment[data-focus-visible] {
+  outline: 2px solid var(--tint);
+  outline-offset: 1px;
+}
+.thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: var(--segment-thumb);
+  box-shadow: var(--shadow-thumb);
+}
+.segmentLabel {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+/* ── Switch ─────────────────────────────────────────────────────────────── */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  outline: none;
+}
+.switchLabel {
+  font-size: var(--fs-body);
+}
+.track {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+  transition: background-color var(--dur-base) var(--ease-standard);
+  flex-shrink: 0;
+}
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: var(--radius-full);
+  background: var(--switch-knob);
+  box-shadow: var(--shadow-thumb);
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+.switch[data-selected] .track {
+  background: var(--status-positive);
+}
+.switch[data-selected] .knob {
+  transform: translateX(20px);
+}
+.switch[data-disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.switch[data-focus-visible] .track {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+/* ── Checkbox ───────────────────────────────────────────────────────────── */
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  margin: calc((var(--tap-min) - 26px) / -2);
+  flex-shrink: 0;
+  cursor: pointer;
+  outline: none;
+}
+.checkCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--label-tertiary);
+  color: var(--on-tint);
+  transition: background-color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard),
+    transform var(--dur-fast) var(--ease-standard);
+}
+.checkbox[data-pressed] .checkCircle {
+  transform: scale(0.9);
+}
+.checkOn {
+  background: var(--tint);
+  border-color: var(--tint);
+}
+.checkbox[data-focus-visible] .checkCircle {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+/* ── Stepper ────────────────────────────────────────────────────────────── */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--fill-secondary);
+  overflow: hidden;
+}
+.stepBtn {
+  min-width: 44px;
+  min-height: 32px;
+  font-size: var(--fs-title3);
+  color: var(--label);
+}
+.stepBtn:active:not(:disabled) {
+  background: var(--fill-pressed);
+}
+.stepBtn:disabled {
+  color: var(--label-tertiary);
+}
+.stepValue {
+  min-width: 36px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* ── Form rows ──────────────────────────────────────────────────────────── */
+.fieldRow {
+  position: relative;
+  padding: 0 var(--space-4);
+  list-style: none;
+}
+.fieldRow + .fieldRow::before,
+li + .fieldRow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  right: 0;
+  height: var(--hairline);
+  background: var(--separator);
+}
+.fieldLine,
+.textField,
+.picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-min);
+}
+.fieldStacked .fieldLine,
+.fieldStacked .textField {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+.fieldLabel {
+  flex-shrink: 0;
+  min-width: 96px;
+  font-size: var(--fs-body);
+  color: var(--label);
+}
+.fieldStacked .fieldLabel {
+  font-size: var(--fs-footnote);
+  color: var(--label-secondary);
+}
+.fieldControl {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-2);
+}
+.fieldError {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--status-negative);
+  padding: 0 0 var(--space-2);
+}
+.inputWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--row-min);
+  border: none;
+  background: transparent;
+  font-size: var(--fs-control);
+  color: var(--label);
+  outline: none;
+}
+.input[data-invalid] {
+  color: var(--status-negative);
+}
+.alignEnd {
+  text-align: right;
+}
+.textarea {
+  resize: vertical;
+  min-height: 72px;
+  padding: var(--space-1) 0;
+  line-height: var(--lh-body);
+}
+.suffix {
+  color: var(--label-secondary);
+  flex-shrink: 0;
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--fill-secondary);
+  flex: 1;
+  min-width: 0;
+}
+.searchIcon {
+  color: var(--label-secondary);
+  flex-shrink: 0;
+}
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--fs-control);
+  color: var(--label);
+}
+.searchInput::-webkit-search-cancel-button {
+  display: none;
+}
+.searchClear {
+  color: var(--label-tertiary);
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Picker ─────────────────────────────────────────────────────────────── */
+.pickerButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-height: var(--row-min);
+  color: var(--label-secondary);
+  font-size: var(--fs-body);
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.pickerButton[data-focus-visible] {
+  outline: 2px solid var(--tint);
+}
+.pickerButton[data-disabled] {
+  opacity: 0.5;
+}
+.pickerValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.pickerPlaceholder {
+  color: var(--label-tertiary);
+}
+.pickerChevron {
+  color: var(--label-tertiary);
+  flex-shrink: 0;
+}
+.pickerDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* ── Rating ─────────────────────────────────────────────────────────────── */
+.rating {
+  display: inline-flex;
+  align-items: center;
+}
+.starButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: var(--tap-min);
+}
+.starOn {
+  color: var(--series-8);
+}
+.starOff {
+  color: var(--label-tertiary);
+}
