@@ -106,7 +106,7 @@ function ExpenseForm({
   };
 
   const onSubmit = () => {
-    const errs = validateEntry(form, "expense");
+    const errs = validateEntry(form, "expense", isEdit);
     setErrors(errs);
     if (Object.keys(errs).length) return;
     if (!isEdit) submit("create");

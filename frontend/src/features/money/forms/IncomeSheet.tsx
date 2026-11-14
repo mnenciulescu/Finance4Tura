@@ -87,7 +87,7 @@ function IncomeForm({
   };
 
   const onSubmit = () => {
-    const errs = validateEntry(form, "income");
+    const errs = validateEntry(form, "income", isEdit);
     setErrors(errs);
     if (Object.keys(errs).length) return;
     if (!isEdit) submit("create");

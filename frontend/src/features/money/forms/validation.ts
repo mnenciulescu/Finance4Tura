@@ -18,7 +18,12 @@ export interface EntryForm {
 
 export type FormErrors = Partial<Record<"summary" | "amount" | "date" | "seriesEndDate", string>>;
 
-export function validateEntry(form: EntryForm, kind: "expense" | "income"): FormErrors {
+/**
+ * Repeat settings are only editable when creating; on edit they come from the
+ * stored record and are not re-validated (the fields are not shown, so an
+ * error there could never be seen or fixed).
+ */
+export function validateEntry(form: EntryForm, kind: "expense" | "income", isEdit = false): FormErrors {
   const errs: FormErrors = {};
   const { start, end, year } = yearBounds();
   if (!form.summary.trim()) errs.summary = "Summary is required.";
@@ -27,7 +32,7 @@ export function validateEntry(form: EntryForm, kind: "expense" | "income"): Form
   else if (amount <= 0) errs.amount = "Amount must be greater than 0.";
   if (!form.date) errs.date = "Date is required.";
   else if (form.date < start || form.date > end) errs.date = `Date must be within the current year (${year}).`;
-  if (form.isRepeatable) {
+  if (form.isRepeatable && !isEdit) {
     if (!form.seriesEndDate) errs.seriesEndDate = `Series end date is required for repeating ${kind}s.`;
     else if (form.seriesEndDate > end) errs.seriesEndDate = `Series end date must be within the current year (${year}).`;
     else if (form.date && form.seriesEndDate < form.date) errs.seriesEndDate = "Series end date must be on or after the date.";

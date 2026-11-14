@@ -26,7 +26,7 @@ export default defineConfig({
       // "prompt": a new service worker waits until the user taps Reload in
       // the "New version available" toast (src/app/UpdatePrompt.tsx).
       registerType: 'prompt',
-      includeAssets: ['apple-touch-icon.png', 'app-icon.svg', 'splash/*.png'],
+      includeAssets: ['apple-touch-icon.png', 'app-icon.svg'],
       manifest: {
         id: '/',
         name: '4TURA Home',
@@ -48,6 +48,9 @@ export default defineConfig({
       workbox: {
         // woff2 included so the bundled Inter works offline on non-Apple devices.
         globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
+        // Launch screens: iOS fetches the one it needs at install time.
+        // Inter subsets other than Latin load on demand (unicode-range).
+        globIgnores: ['splash/**', '**/inter-{cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*.woff2'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#F2F2F7" />
+    <title>4TURA Home — test harness</title>
+    <!-- Same detection as index.html; ?theme= and ?platform= override it for tests. -->
+    <script>
+      (function () {
+        var d = document.documentElement, q = new URLSearchParams(location.search);
+        var t = q.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        d.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+        var ua = navigator.userAgent || "";
+        var ios = /iPad|iPhone|iPod/.test(ua), android = /Android/i.test(ua);
+        d.setAttribute("data-platform", q.get("platform") || (ios ? "ios" : android ? "android" : "other"));
+        d.setAttribute("data-standalone", "true");
+      })();
+    </script>
+  </head>
+  <body><div id="root"></div><script type="module" src="./main.tsx"></script></body>
+</html>

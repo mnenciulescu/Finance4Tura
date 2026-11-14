@@ -60,12 +60,15 @@ export default function SplitScreen() {
     });
   };
 
-  const card = (entry: SplitPayment) => (
+  // The default comes from the group, not from completeness: an entry whose
+  // last slot was just filled stays in progress (and expanded) while the
+  // "Mark as settled?" question is open.
+  const card = (entry: SplitPayment, settled: boolean) => (
     <EntryCard
       key={entry.splitPaymentId}
       entry={entry}
-      expanded={isExpanded(entry, splitStats(entry).complete)}
-      onToggle={() => toggle(entry, splitStats(entry).complete)}
+      expanded={isExpanded(entry, settled)}
+      onToggle={() => toggle(entry, settled)}
       onSetOcc={editor.setOcc}
       onFillRest={editor.fillRest}
       onClearAll={editor.clearAll}
@@ -102,12 +105,12 @@ export default function SplitScreen() {
 
           {open.length > 0 && (
             <ListSection header={`In progress · ${open.length}`}>
-              {open.map(card)}
+              {open.map(e => card(e, false))}
             </ListSection>
           )}
           {done.length > 0 && (
             <ListSection header={`Settled · ${done.length}`} collapsible open={showSettled} onOpenChange={setShowSettled}>
-              {done.map(card)}
+              {done.map(e => card(e, true))}
             </ListSection>
           )}
         </>
