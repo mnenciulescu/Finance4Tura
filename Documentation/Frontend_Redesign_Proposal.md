@@ -1,9 +1,10 @@
 # 4TURA Home — Frontend Redesign Proposal
 
 **Status:** proposal, not implemented. Written 2026-11-14 against `main` at the
-time of writing; updated the same day for cross-platform behaviour (§10) and
-a stack review (§12.1).
-This document is the implementation brief for a full frontend redesign; nothing in the backend or the API changes.
+time of writing; updated the same day for cross-platform behaviour (§10), a
+stack review (§12.1) and a consistency pass. This document is the
+implementation brief for a full frontend redesign; nothing in the backend or
+the API changes.
 
 **Goal:** replace the current Dusk / Light / Amber look and the current
 navigation with a modern, Apple-style (iOS Human Interface Guidelines–inspired)
@@ -173,8 +174,8 @@ to SF Pro.
 Nunito is dropped.
 Tabular numerals stay global: `font-variant-numeric: tabular-nums`.
 
-Type scale — the iOS default ("Large" content size) scale, in `rem` so a future
-text-size setting can scale it (§11):
+Type scale — the iOS default ("Large" content size) scale, in `rem` so it
+follows the system text-size setting on both platforms (§11):
 
 | Token | Size / line | Weight | Use |
 |---|---|---|---|
@@ -271,9 +272,11 @@ The duotone tab icons and `TAB_ICON_COLORS` are retired.
 - **Haptics** — a `haptic("light" | "success" | "warning")` helper is called on
   checkbox ticks, swipe-to-confirm, settle confirmation and segmented-control
   changes. Android: `navigator.vibrate(8–20 ms)`. iPhone: Safari exposes no
-  vibration API, so the helper is a no-op there, except for toggles rendered as
-  `<input type="checkbox" switch>`, which give the system haptic on recent iOS.
-  Respects a Settings → Haptics toggle (default on).
+  vibration API, so the helper is a no-op there. Recent iOS gives a system
+  haptic for a native `<input type="checkbox" switch>`; whether the `Toggle`
+  can carry that attribute depends on React Aria's `Switch` markup — check
+  during Phase 1, and treat it as a bonus, not a requirement.
+  Respects a Settings → Haptics toggle (default on, §8.10).
 
 ---
 
@@ -324,7 +327,10 @@ the registry.
 ### 4.3 Theme values
 
 Values follow Apple's published iOS system colours (default, not
-high-contrast).
+high-contrast). The tables show **resolved** values. In `themes.css` each theme
+first defines primitives named after the system colours (`--system-blue`,
+`--system-gray6`, …) and the semantic tokens point at them
+(`--tint: var(--system-blue)`); components only ever read the semantic names.
 
 | Semantic token | Light | Dark | Meaning |
 |---|---|---|---|
@@ -421,13 +427,16 @@ Money                                  (avatar)
 ```
 
 - Each segment is its own route (`/money`, `/money/split`, `/money/stats`,
-  `/money/invest`), so deep links, back and refresh work.
+  `/money/invest`), so deep links and refresh work. Switching segments
+  **replaces** the history entry rather than pushing one: segments are views of
+  one screen, not navigation steps, so system back leaves Money instead of
+  stepping through segments (§10.3).
 - The segmented control is sticky under the collapsed navigation bar while
   scrolling.
 - **Add Income / Add Expense** move to a `+` button in the navigation bar
   (trailing). On Budget it opens a pull-down menu: *New Expense*, *New Income*.
   On Split: *New Split Payment*. On Invest: *New Snapshot*, *New Operation*.
-  Each opens a form sheet (§6.7), not a page.
+  Each opens a `FormSheet` (§6.6), not a page.
 - **Show / Hide income amounts** becomes an eye button in the navigation bar
   on Budget (eye / eye-slash icon), with the same persisted behaviour (§7).
 - **Year selection** (`YearContext`, shared by Budget and Stats) becomes a
@@ -454,14 +463,17 @@ sheet** (medium detent):
 └───────────────────────────────┘
 ```
 
-Settings, Backstage and Admin are pushed full screens (with a back button to
-the tab they were opened from). Gating rules are unchanged
+Settings, Backstage and Admin are pushed full screens on the stack of the tab
+they were opened from; that tab stays selected and the back button returns to
+it. Their URLs (`/settings`, `/backstage`, `/admin`) are tab-independent, so on
+a direct load they open over Today. Gating rules are unchanged
 (`visibleItems()` from `navConfig.js` survives as `src/app/navigation.js`).
 
 ### 5.4 Routing
 
-- A `<TabShell>` owns four `<Outlet>` stacks; React Router 7 nested routes per
-  tab.
+- `AppShell` (§6.1) owns the four tab stacks: React Router 7 nested routes per
+  tab, with each tab's last location and scroll position kept in memory so
+  re-selecting a tab restores it.
 - **Modal routes** for sheets that should survive refresh and be linkable:
   `location.state.background` pattern — the sheet renders over the background
   route; on direct load it renders over the tab root.
@@ -488,7 +500,8 @@ look is entirely our CSS (§12.1). Components are written in TypeScript.
 ### 6.1 Shell
 
 - **`AppShell`** — root layout: safe-area padding, `100dvh`, the centred
-  430 px column, tab bar, toast host, sheet host.
+  430 px column, the four tab stacks (§5.4), tab bar, toast host, overlay host
+  (the overlay manager, §10.3).
 - **`TabBar`** — §5.1. `aria-label="Main"`, `aria-current="page"` on the
   selected tab.
 
@@ -518,9 +531,9 @@ look is entirely our CSS (§12.1). Components are written in TypeScript.
   (Edit — grey/blue, Delete — red); a full swipe triggers the first
   destructive action's *confirm* state, not the delete itself (§9.2). Built on
   Motion `drag="x"` with velocity thresholds and rubber-banding, plus
-  `touch-action: pan-y` so vertical scrolling is unaffected; every action is also reachable from a
-  long-press context menu and from the edit sheet, so swipe is never the only
-  path.
+  `touch-action: pan-y` so vertical scrolling is unaffected. Every action is
+  also reachable from a long-press context menu and from the edit sheet, so
+  swipe is never the only path.
 
 ### 6.4 Controls
 
@@ -535,15 +548,16 @@ look is entirely our CSS (§12.1). Components are written in TypeScript.
   `role="switch"`.
 - **`Checkbox`** — iOS-style circular check (Reminders style): outlined circle
   → filled tint circle with checkmark; 28 pt visual, 44 pt hit area.
-- **`Stepper`** — − / value / + (occurrence count, rating if desired).
+- **`Stepper`** — − / value / + (Split occurrence count, 1–36).
 - **`TextField`** — 17 px, grouped-row style (label left, value right) or
-  stacked style; clear button; `inputMode` set per field
-  (`decimal` for amounts).
+  stacked style; clear button; `inputMode` set per field (`decimal` for
+  amounts, parsed by `parseAmount()`, which accepts `,` and `.` — §10.6).
 - **`SearchField`** — rounded fill, magnifier, cancel button.
 - **`Picker`** — row that opens a pull-down menu (Priority, Currency, Source,
   Type, Frequency, Platform).
 - **`DateField`** + **`DatePickerSheet`** — the current `DateSheet` (Monday
-  first, Clear action) restyled as an iOS inline calendar inside a sheet.
+  first, Clear action) rebuilt as an iOS-style inline calendar inside a `Sheet`,
+  using React Aria's `Calendar` for dates, keyboard and screen-reader support.
   **Native `<input type="date">` stays banned** for the same reason as today.
   `MonthField` variant for `dateCompleted` (YYYY-MM) shows a month-year wheel
   made of two scroll-snap columns.
@@ -591,7 +605,7 @@ look is entirely our CSS (§12.1). Components are written in TypeScript.
 
 ## 7. Sensitive information
 
-Today the app hides two kinds of value:
+Today the app protects three kinds of value:
 
 | Value | Current behaviour |
 |---|---|
@@ -649,8 +663,9 @@ to them as an option, not a default.
 ### 7.4 App switcher snapshot (optional)
 
 When `document.visibilityState` becomes `hidden`, add a blur overlay class to
-`<body>` so the iOS app switcher snapshot does not show figures. Off by
-default; a Settings → Privacy toggle "Hide content in app switcher".
+`<body>` so the app-switcher snapshot (iOS app switcher, Android recents) does
+not show figures. Off by default; a Settings → Privacy toggle "Hide Content in
+App Switcher".
 
 ---
 
@@ -711,8 +726,9 @@ A vertical stack of **widgets** under the large title "Today" and the date
 4. **Library** — persons × types grid, each cell the latest entry (title,
    month). Header link → Library.
 
-Pull-to-refresh reloads all five API calls (new; uses a custom indicator since
-standalone PWAs have no native pull-to-refresh on iOS).
+Pull-to-refresh refetches every query on the screen — incomes, expenses, split
+payments, books, snapshots and FX rates, the same six calls the page makes
+today (new; the app's own indicator on every platform, §10.7).
 
 ### 8.3 Money → Budget (Finance Dashboard)
 
@@ -726,7 +742,8 @@ Money                       2026⌄  👁  +  (MN)
 │ ┌──────────────────────────────────┐ │
 │ │■■■■■■■■■■■■■□□□□□□░░░░░░░░░░░░░░░│ │  segmented capsule
 │ └──────────────────────────────────┘ │
-│ ● Done 4 200  ● Pending 1 150  ● Free 2 650 │
+│ Spent 5 350 · ● Done 4 200 · ● Pending 1 150 │
+│ ● Free 2 650                         │
 ├──────────────────────────────────────┤
 │ ◯ ● Rent               11-12  3 500,00│  ← swipe: Edit · Delete
 │ ◯ ● Electricity        11-15    240,00│
@@ -768,7 +785,7 @@ Money                       2026⌄  👁  +  (MN)
 
 | Group | Rows |
 |---|---|
-| Details | Summary (text), Amount (decimal, currency suffix), Date (`DateField`) |
+| Details | Summary (text), Amount (decimal), Currency (`Picker`, default RON), Date (`DateField`) |
 | Mapping | *Maps to: Monthly salary · Nov 10* — live preview from `/expenses/resolve-income` (footnote style, updates on date change) |
 | Classification | Priority (`Picker`: High / Medium / Low with dots), Status (segmented Pending / Completed), Special (toggle, ★) |
 | Repeat | Repeat (toggle) → Frequency (`Picker` daily / weekly / monthly), Ends (`DateField`, required when repeating) |
@@ -848,12 +865,13 @@ FREE AMOUNT PER MONTH
   axis labels caption1 secondary, current month full opacity and others 50 %,
   dashed "now" line in `--label-tertiary`, zero line. Tooltip becomes a
   callout bubble with Income / High / Medium / Low / Free.
-- Tapping a bar selects the month (persisted highlight) and shows the
-  breakdown in a fixed panel under the chart — better on touch than hover
+- Tapping a bar selects the month (it stays highlighted until another bar is
+  tapped) and shows the breakdown in a fixed panel under the chart — better on touch than hover
   tooltips. The tooltip remains for pointer devices.
 
 ### 8.7 Money → Invest
 
+Subtitle under the segmented control: `N snapshots · M operations` (as today).
 Four sections, same data rules as today:
 
 1. **Total Portfolio** — collapsible card: total EUR (title1), platform count,
@@ -913,8 +931,9 @@ MIHAI  (24)                              ⌄
 ### 8.9 HQ (Headquarters)
 
 - Large title "HQ"; under it a horizontally scrolling **chip bar**: *Overview*
-  · one chip per location · (no Settings chip). Settings moves to a `···`
-  button in the navigation bar → pushed **HQ Settings** screen.
+  (`/hq`) · one chip per location (`/hq/:locationId`). Chip switches replace the
+  history entry, like Money's segments. Settings moves to a `···` button in the
+  navigation bar → pushed **HQ Settings** screen (`/hq/settings`).
 - **Overview** (today's HQ Dashboard): per location, water-consumption chart
   for water templates (Consum Apa Rece / Calda), read-only latest entries for
   other templates.
@@ -939,8 +958,9 @@ Pushed from the Account sheet. Inset grouped list:
 | Section | Rows |
 |---|---|
 | Appearance | Theme — three-way picker with live mini-previews: **Automatic** · **Light** · **Dark** |
-| Privacy | Show Income Amounts by Default (toggle; writes `incomePrivacy`) · Hide Content in App Switcher (toggle, optional §7.4) |
-| About | Version (build hash), Session expires in … |
+| Privacy | Show Income Amounts by Default (toggle; writes `incomePrivacy`) · Hide Content in App Switcher (toggle, §7.4) |
+| Feedback | Haptics (toggle, default on; shown only where the platform supports it, §3.6) |
+| About | Version (build hash) · Session expires in … · Install App (only when not installed, §10.4) |
 
 Saving is immediate (iOS settings convention) rather than the current draft +
 Save button; theme previews no longer need hard-coded hex because each preview
@@ -955,9 +975,10 @@ Pushed from Account (only while `backstageEnabled`).
 - `SearchField`; results as a plain list with monospace secondary line
   (id, key fields); 10 per page with a pager row (‹ 1 / 7 ›).
 - Swipe → Delete (with confirm).
-- **API Log** section: last 50 calls from `opLog`, method badge coloured by
-  HTTP method, path, status, duration; newest first; tap a row to expand
-  request/response summary.
+- **API Log** section: last 50 calls from `opLog`, newest first. Each row:
+  method badge coloured by HTTP method, URL, status, duration (ms) and time;
+  tap a row to expand its query parameters. (`opLog` records exactly these
+  fields today; no request or response bodies.)
 
 ### 8.12 Admin
 
@@ -969,7 +990,8 @@ Pushed from Account (only for `ADMIN_USER`). Inset grouped sections:
 3. **Database Backup** — *Back Up All Tables* (filled) → progress list (one row
    per table with spinner → checkmark / error and item count), final link to
    the Drive folder name.
-4. **Users** — rows: username, email, income/expense counts, *Admin* badge.
+4. **Users** — rows: username, email, income / expense counts, *Admin* badge,
+   and a *Disabled* badge when the Cognito user is not enabled.
    Tap → user detail sheet: Admin role toggle, *Delete User and All Data*
    (destructive) → `Alert` with secure password field ("Enter your password to
    confirm"); wrong password shows the alert's error line, same
@@ -985,7 +1007,7 @@ Always a `FormSheet` over the current screen. Cancel with unsaved changes asks
 to discard. Save closes and shows the change in place; failures keep the sheet
 open with an inline error.
 
-### 9.2 Delete (replaces the 4 s two-step inline confirm)
+### 9.2 Delete (the current 4 s two-step confirm, in iOS form)
 
 The safety property kept: **one accidental tap never deletes**.
 
@@ -995,9 +1017,9 @@ The safety property kept: **one accidental tap never deletes**.
   current two-step pattern expressed with iOS swipe actions.)
 - From an edit sheet's Delete button: `ActionSheet` *Delete Expense* / Cancel.
 - Series choice and income deletion use `ActionSheet` (§8.3).
-- After a delete, a `Toast` with **Undo** for 5 s (new): the API delete is
-  deferred until the toast expires or the screen is left. Optional — see §15;
-  if not adopted, the toast is informational only.
+- After a delete, a `Toast` confirms it ("Expense deleted"). **v1 default:**
+  informational only. A later option (§15 #4) adds **Undo** for 5 s by
+  deferring the API delete until the toast expires or the screen is left.
 
 ### 9.3 Auto-save
 
@@ -1015,7 +1037,7 @@ shown) and *Show N More* with an `n/total` counter.
 | Gesture | Where | Fallback |
 |---|---|---|
 | Horizontal scroll-snap | Budget periods | ‹ › buttons, Today button |
-| Swipe left on row | Expenses, entries, snapshots, operations, users, Backstage rows | Context menu, edit sheet |
+| Swipe left on row | Expenses, Library entries, HQ entries, snapshots, operations, Backstage rows (not Admin users — deleting a user always goes through the password alert, §8.12) | Context menu, edit sheet |
 | Long-press | Rows (context menu); Holdings eye (reveal) | `···` menus; Space key for reveal |
 | Drag down | Sheets | Cancel / scrim / Escape / system back |
 | Pull to refresh | Today, Budget, Library, HQ | — (data also reloads on focus) |
@@ -1043,7 +1065,7 @@ the app's menu is the only one that appears, on both platforms.
 | iPhone (installed or Safari) | WebKit | iOS 17 | Primary target; all iOS browsers use WebKit |
 | Android (installed or browser) | Chrome / Chromium | Chrome 120 | Includes Edge, Brave, Opera |
 | Samsung phones | Samsung Internet | 24 | Chromium-based; test separately (own UI chrome) |
-| Android | Firefox | current | Can't install as standalone like Chrome; works in the browser |
+| Android | Firefox | current | Best effort: covered by the same code, not in the real-device pass |
 | Desktop browsers | any of the above | — | Same 430 px column, as today |
 
 Every feature used is either supported on all of these or has a defined
@@ -1063,8 +1085,11 @@ fallback:
 
 ### 10.2 Platform detection — behaviour only
 
-`src/app/platform.js` runs before first render (inline in `index.html`) and
-sets `<html data-platform="ios|android|other" data-standalone="true|false">`.
+A small inline script in `index.html` runs before first render (together with
+the theme script, §4.2) and sets
+`<html data-platform="ios|android|other" data-standalone="true|false">`.
+`src/app/platform.ts` reads the same attributes and exposes them to React
+(`usePlatform()`), so the detection logic lives in one place.
 
 - iOS: `navigator.maxTouchPoints > 1` with an Apple platform / UA (covers
   iPadOS reporting as Mac); Android: UA-CH `navigator.userAgentData.platform`
@@ -1090,10 +1115,16 @@ top of the router's screen stack, and mirrors both in browser history:
    `history.back()` so history and UI stay in step; a guard flag stops the
    resulting `popstate` from closing a second overlay.
 4. With no overlay open, back pops the current tab's screen stack (Settings →
-   previous tab, HQ Settings → HQ, etc.).
-5. At a tab's root that is not Today, back returns to **Today** (tab switches
-   use `replace`, except leaving Today, which pushes once).
+   the tab it was opened from, HQ Settings → HQ, etc.). Pushed screens push a
+   history entry; Money segments and HQ chips replace it (§5.2, §8.9).
+5. At a tab's root that is not Today, back returns to **Today**. Tab switches
+   use `replace`, except leaving Today, which pushes once, so there is always
+   exactly one Today entry beneath the other tabs.
 6. At Today's root, back leaves the app (Android's normal behaviour).
+
+Per-tab stacks (§5.4) live in app state; browser history only ever holds the
+active tab's pushed screens and open overlays, which is what makes rules 4–6
+hold.
 
 Unsaved forms: back on a dirty `FormSheet` opens the *Discard Changes* action
 sheet instead of closing (the history entry is re-pushed).
@@ -1117,7 +1148,9 @@ buttons, which use the same path.
   `apple-touch-startup-image` splash images for current iPhone sizes in both
   schemes (generated at build time).
 - **Android:** the splash screen is generated by the OS from the manifest
-  (name, maskable icon, `background_color`); nothing extra is needed.
+  (name, maskable icon, `background_color`); nothing extra is needed. The
+  manifest holds one colour, so Dark-theme users see a light splash for a
+  moment — accepted.
 - **Install prompt:**
   - Android / Chromium: capture `beforeinstallprompt`; show an **Install App**
     row in Settings → About and a one-time dismissible banner on Today.
@@ -1234,7 +1267,7 @@ back behaviour (§10). Each layer was weighed against that.
 | Build | Vite | **Keep** (current major) | — the best fit for a static SPA |
 | Routing | React Router 7 | **Keep** | TanStack Router (typed routes): nice, but migration cost and no feature the proposal needs |
 | Language | JavaScript | **Change: TypeScript for new code** | Plain JS. The redesign writes a new component library and new screens; typed props and API shapes catch a class of bugs that today only tests catch. `allowJs` keeps untouched `utils/` and `api/` as they are |
-| Server data | `useEffect` + `useState` per page | **Change: TanStack Query** | Hand-written hooks (the earlier draft of §12.3) |
+| Server data | `useEffect` + `useState` per page | **Change: TanStack Query** | Hand-written per-feature hooks |
 | Interaction and accessibility primitives | Hand-built | **Change: React Aria Components** | Radix UI; Ionic; hand-built |
 | Animation and gestures | CSS transitions, hand-written touch handlers | **Change: Motion** (`motion`, formerly Framer Motion) | `vaul` for sheets only; hand-built springs |
 | Styling | Inline style objects | **Change: CSS Modules** (§12.2) | Tailwind v4: fast to write, but long class strings in JSX and a second token syntax; vanilla-extract: typed, but adds a build plugin |
@@ -1252,7 +1285,8 @@ It replaces the most repetitive code in the app and directly improves the
 "native app" feel:
 
 - **Instant launch, even offline:** the query cache is persisted to IndexedDB
-  (`@tanstack/query-persist-client` + an IndexedDB persister). Opening the app
+  (`@tanstack/react-query-persist-client` with an async-storage persister
+  backed by `idb-keyval`). Opening the app
   shows the last data immediately, then refreshes in the background — the way
   native apps behave, instead of a blank screen or spinner on every launch.
 - **Optimistic updates with rollback** (ticking an expense, editing slots,
@@ -1336,24 +1370,29 @@ src/
 ├── theme/
 │   ├── tokens.css          # spacing, radii, type, motion, z-index (theme-independent)
 │   ├── themes.css          # [data-theme="light"], [data-theme="dark"] semantic tokens
-│   ├── themes.js           # registry (§4.2)
-│   ├── ThemeProvider.jsx   # auto / light / dark, matchMedia, meta theme-color
-│   ├── domainColors.js     # priority, platform, type, HTTP → var(--…)
-│   └── useChartTheme.js
+│   ├── themes.ts           # registry (§4.2)
+│   ├── ThemeProvider.tsx   # auto / light / dark, matchMedia, meta theme-color
+│   ├── domainColors.ts     # priority, platform, type, HTTP → var(--…)
+│   └── useChartTheme.ts
 ├── ui/                      # component library (§6), one folder per component
 │   ├── Button/ Button.tsx Button.module.css Button.test.tsx
 │   ├── List/ … Sheet/ … SegmentedControl/ … PrivateValue/ …
 │   └── icons/
 ├── app/
-│   ├── AppShell.jsx  TabBar.jsx  NavigationBar.jsx
-│   ├── navigation.js        # tabs, account items, visibleItems(), ADMIN_USER
-│   └── routes.jsx           # route tree, modal routes, legacy redirects
+│   ├── AppShell.tsx  TabBar.tsx  NavigationBar.tsx
+│   ├── navigation.ts        # tabs, account items, visibleItems(), ADMIN_USER
+│   ├── routes.tsx           # route tree, modal routes, legacy redirects
+│   ├── overlays.ts          # overlay manager + history integration (§10.3)
+│   ├── platform.ts          # usePlatform() (§10.2)
+│   ├── haptics.ts           # haptic() helper (§3.6)
+│   ├── useKeyboardInset.ts  # keyboard handling (§10.6)
+│   └── queryClient.ts       # TanStack Query client + IndexedDB persistence (§12.3)
 ├── features/                # one folder per area, replacing pages/
 │   ├── today/  money/{budget,split,stats,invest,forms}/  library/  hq/
 │   ├── account/{settings,backstage,admin}/  auth/
 ├── context/                 # Auth, AppSettings, Year (unchanged) + Privacy (new)
-├── api/                     # unchanged
-└── utils/                   # unchanged business logic (expandDates, incomeMapping, …)
+├── api/                     # unchanged (JS)
+└── utils/                   # unchanged business logic (JS) + parseAmount (new)
 ```
 
 ### 12.3 State
@@ -1395,11 +1434,12 @@ lines), the callout tooltip, and the accessible summary.
 |---|---|---|
 | `typescript` (dev) | Typed component library and screens; `allowJs` for existing JS | Add |
 | `@tanstack/react-query` | Server-state cache, optimistic mutations, refetch on focus (§12.3) | Add |
-| `@tanstack/react-query-persist-client` + `idb-keyval` | Persist the cache to IndexedDB for instant / offline launch | Add |
+| `@tanstack/react-query-persist-client`, `@tanstack/query-async-storage-persister`, `idb-keyval` | Persist the cache to IndexedDB for instant / offline launch | Add |
 | `react-aria-components` | Accessible, unstyled menus, dialogs, switches, tabs, calendar, touch handling (§12.1) | Add |
 | `motion` | Springs, drag gestures, layout and exit animations (§12.1) | Add |
 | `@fontsource-variable/inter` | Self-hosted Inter for non-Apple devices (§3.1) | Add (or vendor the `woff2` directly) |
 | `@playwright/test` (dev) | Device-emulation tests for iPhone and Android (§13) | Add |
+| `rollup-plugin-visualizer` (dev) | Bundle report for the size budget | Add |
 
 Not added: `vaul` (Motion covers sheets), `@floating-ui/react` (React Aria
 positions its popovers), a global state library, a CSS framework.
@@ -1441,7 +1481,8 @@ features on demand. CI fails the build if the budget is exceeded
   pointer-cancel and visibility change), `ThemeProvider` (auto follows
   `matchMedia`, legacy `appTheme` migration).
 - **Replace `designTokens.test.js`** with a new guard:
-  - hex / `rgb()` only in `src/theme/themes.css`;
+  - hex / `rgb()` only in `src/theme/themes.css`, plus the `metaColor` values
+    in `src/theme/themes.ts` and the manifest colours in `vite.config.js`;
   - no primitive tokens referenced outside `src/theme/`;
   - `border-radius`, `box-shadow`, `font-size` in CSS Modules only via tokens;
   - no inline `style` containing colour, radius or shadow literals.
@@ -1462,8 +1503,9 @@ features on demand. CI fails the build if the budget is exceeded
   one Pixel or similar (installed via Chrome), one Samsung (Samsung Internet).
   A short checklist: install, launch splash, safe areas top and bottom,
   keyboard, back button, haptics, theme switching, offline banner.
-- The 9 currently failing date-slot tests should be fixed (or rewritten)
-  during Phase 4 since the slot UI is rebuilt anyway.
+- The 9 currently failing date-slot tests are fixed (or rewritten) as the slot
+  UI is rebuilt: the 7 in `HomeOverview.splitPay.test.jsx` in Phase 4, the 2
+  in `SplitPayment.test.jsx` in Phase 5.
 
 ---
 
@@ -1477,15 +1519,15 @@ inside the new shell until replaced.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, TypeScript (`allowJs`), TanStack Query client with IndexedDB persistence, bundle-size check, new design-token guard test, icon set, Inter font for non-Apple devices, `platform.js`, Playwright setup with iPhone and Pixel profiles | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily); type renders the same on iPhone and Android |
+| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, TypeScript (`allowJs`), TanStack Query client with IndexedDB persistence, bundle-size check, new design-token guard test, icon set, Inter font for non-Apple devices, platform detection (inline script + `platform.ts`), Playwright setup with iPhone and Pixel profiles | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily); type renders the same on iPhone and Android |
 | **1. Component library** | `src/ui/` primitives (§6) on React Aria Components and Motion, with tests; `PrivacyContext` + `PrivateValue` | Component tests green; preview page renders every primitive in both themes; **gesture review** of Sheet and SwipeActions on a real iPhone and Android phone — if they fall short, decide on the Ionic fallback here (§15) |
 | **2. Shell and navigation** | `AppShell`, `TabBar`, `NavigationBar` with large title, Account sheet, route tree with legacy redirects, per-tab stacks, **overlay manager and history integration (§10.3)**, iOS-only edge swipe, safe areas, keyboard hook | All current routes reachable; old URLs redirect; Settings/Backstage/Admin gated as today; Android back behaves per §10.3 in Playwright and on a real device |
 | **3. Money → Budget + forms** | Budget screen, period pager, `PeriodHeader`, budget bar, expense rows with swipe, Expense and Income `FormSheet`s, year menu, eye toggle, `+` menu | Parity rows A.2–A.4 ticked; `/add-expense`, `/add-income` redirect to sheets |
-| **4. Today** | Four widgets, hold-to-reveal holdings, split slots, pull-to-refresh | Parity A.1 ticked; date-slot tests fixed |
-| **5. Split, Stats, Invest** | Remaining Money segments | Parity A.5–A.7 |
+| **4. Today** | Four widgets, hold-to-reveal holdings, split slots, pull-to-refresh | Parity A.1 ticked; the 7 Today date-slot tests fixed |
+| **5. Split, Stats, Invest** | Remaining Money segments | Parity A.5–A.7; the 2 Split date-slot tests fixed |
 | **6. Library and HQ** | Library with search + filter sheet; HQ chips, Overview, location entries, HQ Settings | Parity A.8–A.9; `Headquarters/Modal.jsx` and `styles.js` deleted |
-| **7. Account screens and Login** | Settings, Backstage, Admin, Login | Parity A.10–A.13 |
-| **8. Clean-up** | Delete `index.css` legacy tokens, `components/tokens.js`, `ui.jsx`, `TabIcons.jsx`, `navIcons.jsx`, `DateSheet.jsx`, `incomeHeader.js`, `TAB_ICON_COLORS` and the Dusk/Amber palette; update CLAUDE.md, README, Frontend_Setup, module requirement docs; PWA icons and splash screens | No references to removed files; docs describe the new UI; Lighthouse PWA and accessibility ≥ 95; install flow checked on iPhone, Android Chrome and Samsung Internet |
+| **7. Account screens and Login** | Settings (incl. Haptics and Install App rows), Backstage, Admin, Login | Parity A.10–A.13 |
+| **8. Clean-up** | Delete `index.css` legacy tokens, `components/tokens.js`, `ui.jsx`, `TabIcons.jsx`, `navIcons.jsx`, `DateSheet.jsx`, `incomeHeader.js`, `TAB_ICON_COLORS` and the Dusk/Amber palette; update CLAUDE.md, README, Frontend_Setup, module requirement docs; PWA icons and splash screens | No references to removed files; docs describe the new UI; Lighthouse PWA and accessibility ≥ 95; parity A.14 ticked, including the install flow on iPhone, Android Chrome and Samsung Internet |
 
 Rough size: phases 0–2 are the bulk of new code (~3–4 k lines); each screen
 phase is mostly a rewrite of presentation around unchanged logic.
@@ -1566,6 +1608,7 @@ Every row must be ticked before the old implementation is removed.
 - [ ] Special expenses list with total
 
 **A.7 Invest**
+- [ ] Header `N snapshots · M operations`
 - [ ] Total portfolio with FX date or "no FX rates set"; per-platform shares of `heldPlatforms`
 - [ ] Evolution from `CHART_START`; carry-forward; Total + toggleable platforms (`activePlatforms`); operation dots; tooltip with ops and net cash
 - [ ] Snapshots grouped by date, 3 at a time, show more / less; edit, delete; add platform to date
@@ -1587,9 +1630,9 @@ Every row must be ticked before the old implementation is removed.
 
 **A.10 Settings** — [ ] theme choice; [ ] default income-amount visibility
 
-**A.11 Backstage** — [ ] gated by `backstageEnabled`; [ ] 5 tables; [ ] search; [ ] 10 per page; [ ] row delete; [ ] last 50 API calls
+**A.11 Backstage** — [ ] gated by `backstageEnabled`; [ ] 5 tables; [ ] search; [ ] 10 per page; [ ] row delete; [ ] last 50 API calls (method, URL, params, status, duration, time)
 
-**A.12 Admin** — [ ] gated by username (frontend) / `admin` group (API); [ ] 3 app-setting toggles; [ ] FX matrix + update; [ ] backup all tables to Drive with per-table progress; [ ] users list with counts; [ ] admin role toggle; [ ] delete user after password re-entry
+**A.12 Admin** — [ ] gated by username (frontend) / `admin` group (API); [ ] 3 app-setting toggles; [ ] FX matrix + update; [ ] backup all tables to Drive with per-table progress; [ ] users list with email, counts, role and enabled state; [ ] admin role toggle; [ ] delete user after password re-entry
 
 **A.13 Shell and auth** — [ ] SRP sign-in; [ ] sign-up (when enabled) with password match; [ ] Google sign-in (when enabled); [ ] account menu with username and JWT countdown; [ ] sign out; [ ] 401 → sign out; [ ] route change closes menus/sheets appropriately; [ ] unknown paths → `/`; [ ] error boundary around routes; [ ] offline PWA
 
