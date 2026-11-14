@@ -116,7 +116,7 @@ There are no GSIs: list calls scan and filter by `userId` (plus `hqId` / `templa
 ## Frontend Files
 
 ```
-frontend/src/pages/Headquarters/
+frontend/src/features/hq/
 ├── HqScreen.tsx           # /hq and /hq/:locationId — chip bar, Overview, one location
 ├── TemplateSection.tsx    # A template on a location: entries, auto-saving editor, SMS text
 ├── WaterChart.tsx         # Consumption chart (lazy-loaded)
