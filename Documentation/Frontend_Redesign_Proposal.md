@@ -1,7 +1,8 @@
 # 4TURA Home — Frontend Redesign Proposal
 
 **Status:** proposal, not implemented. Written 2026-11-14 against `main` at the
-time of writing; updated the same day for cross-platform behaviour (§10).
+time of writing; updated the same day for cross-platform behaviour (§10) and
+a stack review (§12.1).
 This document is the implementation brief for a full frontend redesign; nothing in the backend or the API changes.
 
 **Goal:** replace the current Dusk / Light / Amber look and the current
@@ -56,7 +57,7 @@ follows the platform, so nothing feels broken on Android or other phones.
 3. **Native feel, not native imitation.** Borrow iOS structure — large titles,
    grouped inset lists, translucent bars, sheets with detents, swipe actions,
    segmented controls, action sheets — and its type and colour logic. Do not
-   copy Apple artwork, SF Symbols glyphs or Apple branding (see §12.6 on
+   copy Apple artwork, SF Symbols glyphs or Apple branding (see §12.7 on
    licensing).
 4. **Content first, chrome quiet.** Bars are translucent material; colour is
    reserved for meaning (priority, status, platform, money in/out) and for the
@@ -257,8 +258,10 @@ The duotone tab icons and `TAB_ICON_COLORS` are retired.
 
 - Durations: `--dur-fast` 150 ms (press), `--dur-base` 250 ms (toggles, list
   changes), `--dur-slow` 350 ms (sheets, screen transitions).
-- Curves: `--ease-standard: cubic-bezier(.2, .8, .2, 1)`; sheets use a spring
-  approximation `cubic-bezier(.32, .72, 0, 1)`.
+- Curves: `--ease-standard: cubic-bezier(.2, .8, .2, 1)` for CSS transitions.
+  Sheets, swipe rows, the segmented thumb and list changes use **Motion
+  springs** (`stiffness ≈ 400, damping ≈ 40`, tuned per component) driven by
+  the finger's velocity (§12.1).
 - Screen push / pop: the **View Transitions API** (`document.startViewTransition`)
   for a horizontal slide on push and a reverse slide on pop, cross-fade for tab
   switches. Feature-detect and fall back to no animation.
@@ -477,6 +480,11 @@ A new folder `src/ui/` replaces `components/ui.jsx`, `tokens.js`,
 `navIcons.jsx`, `TabIcons.jsx`, `DateSheet.jsx`, `Headquarters/Modal.jsx` and
 the per-page sheets. Each component has a CSS Module and a short test.
 
+Behaviour and accessibility come from **React Aria Components** (menus,
+dialogs, alerts, switches, tabs / segmented controls, list boxes, calendar,
+press and long-press handling); gestures and animation from **Motion**; the
+look is entirely our CSS (§12.1). Components are written in TypeScript.
+
 ### 6.1 Shell
 
 - **`AppShell`** — root layout: safe-area padding, `100dvh`, the centred
@@ -509,7 +517,8 @@ the per-page sheets. Each component has a CSS Module and a short test.
 - **`SwipeActions`** — wraps a row. Swipe left reveals trailing actions
   (Edit — grey/blue, Delete — red); a full swipe triggers the first
   destructive action's *confirm* state, not the delete itself (§9.2). Built on
-  pointer events + `touch-action: pan-y`; every action is also reachable from a
+  Motion `drag="x"` with velocity thresholds and rubber-banding, plus
+  `touch-action: pan-y` so vertical scrolling is unaffected; every action is also reachable from a
   long-press context menu and from the edit sheet, so swipe is never the only
   path.
 
@@ -1211,7 +1220,106 @@ disabled with a footnote rather than failing silently. Same on all platforms.
 
 ## 12. Technical architecture
 
-### 12.1 Styling: CSS Modules + tokens
+### 12.1 Stack review
+
+The redesign is a good moment to ask whether the stack still fits. The use
+case: a personal, phone-only PWA; static hosting on S3 + CloudFront; one
+existing REST API; ~14 k lines of React with 200+ tests; and a design that
+needs iPhone-quality gestures, sheets and transitions plus correct Android
+back behaviour (§10). Each layer was weighed against that.
+
+| Layer | Today | Verdict | Considered |
+|---|---|---|---|
+| UI framework | React 19 | **Keep** | Svelte / Solid / Vue: smaller and fast, but a full rewrite of logic and tests for no user-visible gain at this size |
+| Build | Vite | **Keep** (current major) | — the best fit for a static SPA |
+| Routing | React Router 7 | **Keep** | TanStack Router (typed routes): nice, but migration cost and no feature the proposal needs |
+| Language | JavaScript | **Change: TypeScript for new code** | Plain JS. The redesign writes a new component library and new screens; typed props and API shapes catch a class of bugs that today only tests catch. `allowJs` keeps untouched `utils/` and `api/` as they are |
+| Server data | `useEffect` + `useState` per page | **Change: TanStack Query** | Hand-written hooks (the earlier draft of §12.3) |
+| Interaction and accessibility primitives | Hand-built | **Change: React Aria Components** | Radix UI; Ionic; hand-built |
+| Animation and gestures | CSS transitions, hand-written touch handlers | **Change: Motion** (`motion`, formerly Framer Motion) | `vaul` for sheets only; hand-built springs |
+| Styling | Inline style objects | **Change: CSS Modules** (§12.2) | Tailwind v4: fast to write, but long class strings in JSX and a second token syntax; vanilla-extract: typed, but adds a build plugin |
+| Charts | Recharts 3 | **Keep** | visx (more control, much more code); Chart.js / uPlot (canvas; faster, but the data here is small and SVG themes more easily) |
+| HTTP | axios | **Keep** | `fetch` + wrapper: no gain worth the churn; the interceptor (auth header, 401 sign-out) works |
+| Dates | dayjs | **Keep** | — |
+| Auth | `amazon-cognito-identity-js` | **Keep** (out of scope) | Amplify Auth v6 is the maintained successor but much heavier; revisit with the JWT-refresh limitation, not as part of the UI work |
+| PWA | `vite-plugin-pwa` (Workbox) | **Keep** | — |
+| Tests | Vitest + Testing Library | **Keep**, add Playwright (§13) | — |
+| Native wrapper | none | **None** | Capacitor: only worth it for native-only APIs (Face ID, widgets); installed PWAs already cover this app's needs |
+
+#### Why TanStack Query
+
+It replaces the most repetitive code in the app and directly improves the
+"native app" feel:
+
+- **Instant launch, even offline:** the query cache is persisted to IndexedDB
+  (`@tanstack/query-persist-client` + an IndexedDB persister). Opening the app
+  shows the last data immediately, then refreshes in the background — the way
+  native apps behave, instead of a blank screen or spinner on every launch.
+- **Optimistic updates with rollback** (ticking an expense, editing slots,
+  deleting) come from `useMutation` (`onMutate` / `onError`) rather than the
+  hand-written revert code in each page today.
+- **Refetch on focus and on reconnect** — returning to the app after a while
+  shows fresh data with no code per screen.
+- **Pull to refresh** is one `refetch()`; **shared data** (incomes and
+  expenses used by both Today and Budget) is fetched once and reused across
+  tabs.
+- Small, framework-agnostic, works in jsdom tests with a `QueryClientProvider`
+  wrapper; the existing `api/*.js` functions become the query functions
+  unchanged.
+
+#### Why React Aria Components (not hand-built, not Radix, not Ionic)
+
+The proposal needs menus, context menus, dialogs, alerts, switches, segmented
+controls, tabs, list boxes and a calendar, all accessible and all behaving
+well under touch on both iOS and Android.
+
+- **React Aria Components** (Adobe) ships these as **unstyled** components, so
+  the iPhone look stays entirely in our CSS Modules. Its `usePress` /
+  long-press handling normalises the iOS and Android touch quirks (ghost
+  clicks, tap-and-scroll cancellation, long-press vs context menu), which is
+  exactly where hand-built mobile UIs break. It also provides a localised
+  `Calendar` (Monday-first via locale / `firstDayOfWeek`) to sit inside
+  `DatePickerSheet`, focus management, and screen-reader behaviour tested on
+  VoiceOver and TalkBack. Only the components used are bundled.
+- **Radix UI** — also unstyled and solid, but weaker on touch interactions and
+  has no calendar, date or number primitives.
+- **Ionic (iOS mode on every platform)** — the closest off-the-shelf match to
+  the design: real iOS-style sheets with breakpoints, swipe-to-reveal items,
+  collapsing large titles, and Android hardware-back handling built in. It was
+  the strongest alternative and was **not chosen** because:
+  - its React routing integration (`IonReactRouter`) has historically been
+    built on React Router **v5**, which would mean downgrading from v7 —
+    confirm the current status before revisiting;
+  - its web components use shadow DOM, which limits styling to its CSS
+    variables and parts — fine for "looks like iOS", restrictive for "looks
+    like *this* app";
+  - shadow-DOM web components are awkward in jsdom, so many of the 200+
+    Testing Library tests would need reworking or moving to browser tests;
+  - it brings its own navigation, lifecycle and overlay model, which becomes
+    the app's architecture rather than a library inside it.
+
+  It remains the **fallback** if the hand-composed sheets and swipe rows
+  (below) don't reach the required feel after Phase 1 (§15).
+
+#### Why Motion
+
+iPhone feel is mostly physics: sheets that follow the finger and settle with a
+spring, rows that rubber-band, a segmented thumb that slides, lists that
+animate items in and out. CSS easing curves only approximate springs, and
+hand-written drag code (as on today's Dashboard pager) is where gesture bugs
+live.
+
+- **Motion** provides real spring animations, `drag` with constraints,
+  momentum and velocity (for sheet detents and swipe-row thresholds), layout
+  animations (rows reordering, cards expanding), and `AnimatePresence` for
+  exit animations. Tree-shakeable (`LazyMotion` + `m` components load only the
+  features used) and honours `prefers-reduced-motion` via `MotionConfig`.
+- It replaces the separate `vaul` option: one gesture and animation layer for
+  sheets, swipe rows, the segmented control and list changes.
+- View Transitions (§3.6) stay for screen push / pop; Motion handles
+  everything inside a screen.
+
+### 12.2 Styling: CSS Modules + tokens
 
 Move from inline style objects to **CSS Modules** (built into Vite, no new
 dependency).
@@ -1233,7 +1341,7 @@ src/
 │   ├── domainColors.js     # priority, platform, type, HTTP → var(--…)
 │   └── useChartTheme.js
 ├── ui/                      # component library (§6), one folder per component
-│   ├── Button/ Button.jsx Button.module.css Button.test.jsx
+│   ├── Button/ Button.tsx Button.module.css Button.test.tsx
 │   ├── List/ … Sheet/ … SegmentedControl/ … PrivateValue/ …
 │   └── icons/
 ├── app/
@@ -1248,39 +1356,61 @@ src/
 └── utils/                   # unchanged business logic (expandDates, incomeMapping, …)
 ```
 
-### 12.2 State
+### 12.3 State
 
-No new state library. Contexts stay; add `PrivacyContext` and
-`ThemeContext`. Server data stays in per-screen `useEffect` loads, but each
-feature gets a small hook (`useBudgetData`, `useSplitPayments`, …) that owns
-loading / error / optimistic updates, so screens become presentational. This
-also makes pull-to-refresh and "reload on focus" one call each.
+- **Client state:** contexts stay (`AuthContext`, `AppSettingsContext`,
+  `YearContext`); add `PrivacyContext` and `ThemeContext`. No global store.
+- **Server state:** **TanStack Query** (§12.1). Each feature exposes typed hooks
+  (`useIncomes(year)`, `useExpenses(year)`, `useToggleExpense()`,
+  `useSplitPayments()`, `useUpdateSplitSlots()`, …) built on the existing
+  `api/*.js` functions; screens stay presentational.
+  - Query keys per resource and year (`["expenses", 2026]`); mutations
+    invalidate or patch the matching keys.
+  - Optimistic updates for every action that is optimistic today (expense
+    status, Split slots, deletes, income delete remap), with rollback on error.
+  - `staleTime` ~30 s, refetch on window focus and reconnect.
+  - Persisted to IndexedDB (cache buster = app version) so launch is instant
+    and offline shows last-known data with the offline banner (§10.8).
+  - Sign-out and 401 clear the cache and the persisted copy, so no figures
+    stay on the device after signing out.
+- Debounced auto-save (Split slots, HQ entries) stays as a 600 ms debounce in
+  front of a mutation.
 
-### 12.3 Shared header
+### 12.4 Shared header
 
 `components/incomeHeader.js` (shared by Home and Dashboard today) becomes the
 `PeriodHeader` component in `features/money/budget/`, used by both Today's
 widget and the Budget card, preserving the "keep the two designs in sync"
 requirement.
 
-### 12.4 Charts
+### 12.5 Charts
 
 Keep Recharts. A `ChartFrame` wrapper supplies `ResponsiveContainer`, theme
 colours from `useChartTheme`, axis defaults (caption1, secondary label, no tick
 lines), the callout tooltip, and the accessible summary.
 
-### 12.5 Dependencies
+### 12.6 Dependencies
 
-No required additions. Optional, evaluated during implementation:
-
-| Package | Why | Default |
+| Package | Why | Status |
 |---|---|---|
-| `vaul` (or similar) | Battle-tested drag-to-dismiss sheets with detents | Build in-house first; adopt only if gesture quality falls short |
-| `@floating-ui/react` | Positioning for pull-down and context menus | Optional |
-| `@fontsource-variable/inter` | Self-hosted Inter for non-Apple devices (§3.1) | Yes (or vendor the `woff2` directly) |
-| `@playwright/test` (dev) | Device-emulation tests for iPhone and Android (§13) | Yes |
+| `typescript` (dev) | Typed component library and screens; `allowJs` for existing JS | Add |
+| `@tanstack/react-query` | Server-state cache, optimistic mutations, refetch on focus (§12.3) | Add |
+| `@tanstack/react-query-persist-client` + `idb-keyval` | Persist the cache to IndexedDB for instant / offline launch | Add |
+| `react-aria-components` | Accessible, unstyled menus, dialogs, switches, tabs, calendar, touch handling (§12.1) | Add |
+| `motion` | Springs, drag gestures, layout and exit animations (§12.1) | Add |
+| `@fontsource-variable/inter` | Self-hosted Inter for non-Apple devices (§3.1) | Add (or vendor the `woff2` directly) |
+| `@playwright/test` (dev) | Device-emulation tests for iPhone and Android (§13) | Add |
 
-### 12.6 Licensing notes
+Not added: `vaul` (Motion covers sheets), `@floating-ui/react` (React Aria
+positions its popovers), a global state library, a CSS framework.
+
+**Bundle budget:** the initial JS for the app shell plus Today stays under
+**200 KB gzipped**; Recharts is lazy-loaded with the screens that draw charts
+(Stats, Invest, Library, HQ Overview), and `LazyMotion` loads animation
+features on demand. CI fails the build if the budget is exceeded
+(`rollup-plugin-visualizer` report + a size check).
+
+### 12.7 Licensing notes
 
 - Do **not** bundle SF Pro or SF Symbols. Their licence limits use to Apple
   platform apps; the system font stack already renders SF Pro on Apple devices
@@ -1294,6 +1424,8 @@ No required additions. Optional, evaluated during implementation:
 
 ## 13. Testing
 
+- Page tests render inside a test `QueryClientProvider` (retries off, fresh
+  client per test) and keep mocking the `api/*` modules as today.
 - **Keep** all business-logic tests in `src/test/` unchanged (`expandDates`,
   `incomeMapping`, `dateValidation`, `formValidation`, `statistics`,
   `YearContext`).
@@ -1345,8 +1477,8 @@ inside the new shell until replaced.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, new design-token guard test, icon set, Inter font for non-Apple devices, `platform.js`, Playwright setup with iPhone and Pixel profiles | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily); type renders the same on iPhone and Android |
-| **1. Component library** | `src/ui/` primitives (§6) with tests; `PrivacyContext` + `PrivateValue` | Component tests green; preview page renders every primitive in both themes |
+| **0. Foundations** | `src/theme/` (tokens, Light/Dark, ThemeProvider, migration of `appTheme`), CSS Modules setup, TypeScript (`allowJs`), TanStack Query client with IndexedDB persistence, bundle-size check, new design-token guard test, icon set, Inter font for non-Apple devices, `platform.js`, Playwright setup with iPhone and Pixel profiles | Both themes switch live; old screens still render (old tokens aliased to new ones temporarily); type renders the same on iPhone and Android |
+| **1. Component library** | `src/ui/` primitives (§6) on React Aria Components and Motion, with tests; `PrivacyContext` + `PrivateValue` | Component tests green; preview page renders every primitive in both themes; **gesture review** of Sheet and SwipeActions on a real iPhone and Android phone — if they fall short, decide on the Ionic fallback here (§15) |
 | **2. Shell and navigation** | `AppShell`, `TabBar`, `NavigationBar` with large title, Account sheet, route tree with legacy redirects, per-tab stacks, **overlay manager and history integration (§10.3)**, iOS-only edge swipe, safe areas, keyboard hook | All current routes reachable; old URLs redirect; Settings/Backstage/Admin gated as today; Android back behaves per §10.3 in Playwright and on a real device |
 | **3. Money → Budget + forms** | Budget screen, period pager, `PeriodHeader`, budget bar, expense rows with swipe, Expense and Income `FormSheet`s, year menu, eye toggle, `+` menu | Parity rows A.2–A.4 ticked; `/add-expense`, `/add-income` redirect to sheets |
 | **4. Today** | Four widgets, hold-to-reveal holdings, split slots, pull-to-refresh | Parity A.1 ticked; date-slot tests fixed |
@@ -1381,6 +1513,8 @@ flipped cheaply.
 | 12 | Font on non-Apple devices | Bundled Inter (~100 KB subset). Alternative: device font (Roboto etc.) — no download, but looks less like iPhone |
 | 13 | Haptics | On where the platform allows (Android), with a Settings toggle |
 | 14 | Install banner on Today | One-time, dismissible, only when not installed |
+| 15 | TypeScript | New code in TypeScript, existing `utils/` and `api/` stay JS until touched |
+| 16 | Fallback UI kit | Ionic React (iOS mode everywhere), only if the Phase 1 gesture review fails — would replace React Aria + Motion for overlays and lists |
 
 ---
 
