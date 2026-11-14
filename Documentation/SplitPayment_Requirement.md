@@ -4,7 +4,7 @@
 
 Log a payment that's split into instalments, record each instalment as it's paid (by amount or by date), and see when the total is covered.
 
-The module lives on its own page (`/split-payments`) and as a compact block on the Home Overview (`/`). Both share the same slot rules.
+The module lives on Money → Split (`/money/split`) and as a widget on Today (`/`). Both share the same slot rules.
 
 **Files**: `frontend/src/pages/SplitPayment.jsx`, the `SplitPaymentsTable` block in `frontend/src/pages/HomeOverview.jsx`, `frontend/src/components/DateSheet.jsx`, `backend/src/handlers/splitPayments.mjs`.
 
@@ -13,7 +13,7 @@ The module lives on its own page (`/split-payments`) and as a compact block on t
 ## Functional Requirements
 
 ### FR-1 Navigation
-- Route: `/split-payments`, opened from **Split Pay** in the ⋮ Finance menu on the Dashboard (Finance tab).
+- Route: `/split-payments`, Money → **Split** segment (`/money/split`; old `/split-payments` redirects).
 - The Home Overview's **Split Payments — Last 3** block links to it with *View all →*.
 - One phone-width layout (430 px column) on every screen.
 

@@ -52,14 +52,13 @@ The core model is simple: **income defines a period, and every expense belongs t
 
 | Module | Route | What it does |
 |---|---|---|
-| Home Overview | `/` | This period's outstanding expenses, the last 3 open split payments, current holdings, latest book per person |
-| Finance Dashboard | `/finance` | One income-period card at a time, swipeable, with its expenses and totals |
-| Add Income / Add Expense | `/add-income`, `/add-expense` | Create and edit, including series |
-| Split Payments | `/split-payments` | Payments split into instalments, tracked until settled |
-| Statistics | `/statistics` | Monthly averages, free amount per month, special expenses |
-| Investments | `/investments` | Portfolio across six platforms, in EUR, with history since 2023 |
-| Books & Development | `/books-and-dev` | Reading and training log per person, with ratings |
-| Headquarters | `/headquarters` | Meter readings per location, with water-consumption charts |
+| Today | `/` | This period's outstanding expenses, the 3 newest open split payments, holdings (hold to reveal), latest book per person |
+| Money → Budget | `/money` | One income period at a time (scroll-snap pager), budget bar, expenses; expense/income forms open as sheets |
+| Money → Split | `/money/split` | Payments split into instalments, tracked until settled |
+| Money → Stats | `/money/stats` | Monthly averages, free amount per month, special expenses |
+| Money → Invest | `/money/invest` | Portfolio across six platforms, in EUR, with history since 2023 |
+| Library | `/library` | Reading and training log per person, with ratings |
+| HQ | `/hq` | Meter readings per location, with water-consumption charts |
 | Settings | `/settings` | Theme and income-amount privacy |
 | Backstage | `/backstage` | Raw table viewer and a live API log (when enabled) |
 | Admin | `/admin` | App settings, FX rates, backups, users (admin only) |
@@ -178,28 +177,10 @@ graph TB
 
 ## 5. Navigation and Pages
 
-```mermaid
-graph TD
-    TOP["Top bar: 4TURA Home · avatar (initials)"]
-    TOP --> MENU["Account menu<br/>username · session countdown"]
-    MENU --> SET[Settings]
-    MENU -. "when enabled" .-> BS[Backstage]
-    MENU -. "admin only" .-> ADM[Admin]
-    MENU --> OUT[Sign out]
+- **Tab bar**: Today · Money · Library · HQ. Money has a segmented control: Budget · Split · Stats · Invest.
+- **Account sheet** (initials, top right): username, session countdown, Settings, Backstage (when enabled), Admin (admin only), Sign Out.
+- System back (Android) closes the top sheet or menu first; iPhone gets an edge swipe on pushed screens. Old URLs redirect. Details in `CLAUDE.md`.
 
-    BAR["Bottom bar"] --> HOME["Home → /"]
-    BAR --> FIN["Finance → /finance (Dashboard)"]
-    BAR --> EVO["Books → /books-and-dev"]
-    BAR --> HQ["HQ → /headquarters"]
-
-    FIN --> FM["⋮ Finance menu on the Dashboard"]
-    FM --> D[Dashboard] & AI[Add Income] & AE[Add Expense] & SP[Split Pay] & ST[Statistics] & INV[Investments] & PRIV[Show / Hide income amounts]
-```
-
-- **Bottom bar**: Home · Finance · Books · HQ. Every tab opens one page; Finance opens the Dashboard on the current income, and stays highlighted on all Finance pages.
-- **Finance menu** (⋮ on the Dashboard header): Dashboard, Add Income, Add Expense, Split Pay, Statistics, Investments, then Show / Hide income amounts.
-- **Avatar menu** (initials, top right): Settings, Admin and Sign out. Backstage appears between Settings and Admin while it's enabled in App Settings. Admin appears only for the admin user.
-- Tapping an item, or any route change, closes the sheet or menu.
 
 ---
 
@@ -239,7 +220,7 @@ sequenceDiagram
 
 - New sign-ups are auto-confirmed by the Cognito pre-sign-up trigger.
 - Sign-up and Google sign-in can each be switched off in Admin → App Settings.
-- There is no token refresh: when the ID token expires, the next 401 signs the user out. The avatar menu shows the time left.
+- There is no token refresh: when the ID token expires, the next 401 signs the user out. The Account sheet shows the time left.
 - Google users get a new random password on every sign-in, so no password can be derived or reused. See CLAUDE.md, "Google Sign-In credential design".
 
 ---
@@ -256,7 +237,7 @@ flowchart TD
     G --> H[Write mappedIncomeId,<br/>mappedIncomeSummary,<br/>mappedIncomeDate onto the expense]
     F --> I([Save expense])
     H --> I
-    I --> J([Shown under that income's<br/>card on the Dashboard])
+    I --> J([Shown under that income's<br/>card on Money → Budget])
 ```
 
 For a repeating expense, every occurrence is mapped on its own date. `scripts/remap-expenses.mjs` re-runs the mapping over every expense after bulk income changes.
@@ -385,30 +366,16 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │   ├── public/                       # App icons, PWA icons
 │   ├── src/
 │   │   ├── api/                      # One module per backend area + client.js (axios, auth header, opLog)
-│   │   ├── components/
-│   │   │   ├── Layout.jsx            # Passthrough to MobileLayout
-│   │   │   ├── MobileLayout.jsx      # Top bar, avatar menu, bottom bar
-│   │   │   ├── navConfig.js          # navGroups (tabs), financeItems (Dashboard menu), accountItems (avatar menu)
-│   │   │   ├── TabIcons.jsx          # Duotone bottom-bar icons
-│   │   │   ├── navIcons.jsx          # Line icons for the Finance and account menus
-│   │   │   ├── IncomeCard.jsx        # Income-period card on the Dashboard
-│   │   │   ├── DateSheet.jsx         # App calendar sheet
-│   │   │   ├── ui.jsx, tokens.js     # Shared primitives and token mirrors
-│   │   │   ├── Field.jsx
-│   │   │   └── ErrorBoundary.jsx
-│   │   ├── context/                  # AuthContext, AppSettingsContext, YearContext
-│   │   ├── pages/
-│   │   │   ├── HomeOverview.jsx      # /
-│   │   │   ├── Dashboard.jsx         # /finance
-│   │   │   ├── AddIncome.jsx, AddExpense.jsx
-│   │   │   ├── SplitPayment.jsx, Statistics.jsx, Investments.jsx
-│   │   │   ├── BooksAndDev.jsx
-│   │   │   ├── Headquarters/         # Tabs, entry table, modals
-│   │   │   ├── Settings.jsx, Backstage.jsx, Admin.jsx, Login.jsx
-│   │   │   └── *.test.jsx
-│   │   ├── test/                     # Util and regression tests
-│   │   ├── utils/colors.js           # The one file allowed raw hex
-│   │   └── index.css                 # Design tokens and themes
+│   │   ├── theme/                    # Tokens, Light/Dark themes (only raw colours), ThemeProvider
+│   │   ├── ui/                       # Component library (React Aria + Motion, CSS Modules)
+│   │   ├── app/                      # Shell, tab bar, nav bar, account sheet, routes, history/back handling
+│   │   ├── features/                 # today, money/{budget,split,stats,invest,forms}, library, hq, account, auth
+│   │   ├── data/                     # TanStack Query hooks
+│   │   ├── context/                  # Auth, AppSettings, Year, Privacy
+│   │   ├── utils/                    # format, money, split, parseAmount
+│   │   └── test/                     # Setup, render helper, logic tests, build guards
+│   ├── e2e/                          # Playwright specs + stubbed harness
+│   ├── scripts/                      # check-bundle.mjs, generate-pwa-assets.mjs
 │   ├── .env.production
 │   └── vite.config.js
 │
@@ -435,10 +402,11 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 | Decision | Choice | Rationale |
 |---|---|---|
 | Recurring events | Expand to individual records at write time | No expansion logic on read; each record is independently editable. |
-| Income mapping | Denormalized onto the expense | The Dashboard renders without joins; mapping is computed once at write time. |
+| Income mapping | Denormalized onto the expense | Budget renders without joins; mapping is computed once at write time. |
 | Series editing | Single edits set `isException`; `/series` updates future records | Past records stay untouched while bulk corrections stay possible. |
 | One phone-width layout | The same 430 px column everywhere | Used mainly as an installed PWA; one layout removes the desktop/mobile divergence. |
-| Navigation | Four content tabs; settings and admin in the avatar menu | Keeps the bar to destinations people visit daily. |
+| Navigation | Today · Money · Library · HQ; Money sections as a segmented control; account sheet for settings/admin | Every area visible; back behaves natively on Android and iPhone. |
+| Design | Apple-style, Light/Dark/Automatic, see `Documentation/Frontend_Redesign_Proposal.md` | iPhone feel on every phone. |
 | AWS only | No local backend | One environment to keep correct. Dev sessions use production data. |
 | Frontend hosting | S3 + CloudFront | Static site, HTTPS, CDN, no server. |
 | Authentication | Cognito + GIS popup via a custom Lambda | Cognito handles JWTs; Google sign-in works without Hosted UI redirects. |

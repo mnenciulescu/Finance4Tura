@@ -8,8 +8,8 @@ Headquarters (HQ) tracks readings for physical locations (houses, flats). Users 
 
 ## Route & Navigation
 
-- **Route**: `/headquarters`
-- **Navigation**: the **HQ** tab in the bottom bar (Home · Finance · Books · HQ)
+- **Route**: `/hq`, `/hq/:locationId`, `/hq/settings` (old `/headquarters` redirects)
+- **Navigation**: the **HQ** tab (Today · Money · Library · HQ); locations are chips, Settings is behind ···
 - One phone-width layout (430 px column) on every screen, like the rest of the app
 
 ---

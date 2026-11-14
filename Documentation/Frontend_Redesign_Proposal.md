@@ -1,6 +1,8 @@
 # 4TURA Home — Frontend Redesign Proposal
 
-**Status:** proposal, not implemented. Written 2026-11-14 against `main` at the
+**Status:** implemented on branch `feature/fe-pwa-redesign-v2` (Nov 2026). Deviations: expense/income forms are overlay sheets with deep-link URLs rather than modal routes; sheets fit content or fill the screen (no medium detent); month picker is a grid, not wheels.
+
+Originally: proposal, not implemented. Written 2026-11-14 against `main` at the
 time of writing; updated the same day for cross-platform behaviour (§10), a
 stack review (§12.1) and a consistency pass. This document is the
 implementation brief for a full frontend redesign; nothing in the backend or

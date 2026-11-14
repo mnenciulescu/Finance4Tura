@@ -11,7 +11,7 @@ A **PWA-first** page (`/investments`) to track the user's investment portfolio a
 
 Snapshots and operations are created, edited, and deleted from **bottom sheets**; deletes use a two-step inline confirm.
 
-The page is reachable from the ⋮ Finance menu on the Dashboard (Finance tab → ⋮ → Investments).
+The page is Money → **Invest** (`/money/invest`; old `/investments` redirects).
 
 > There is no S&P 500 simulation and no P&L Evolution chart — both were removed from the product.
 
@@ -284,7 +284,7 @@ Fixed application constant — no CRUD in the UI. The same 6 platforms and their
 | NFR-2 | Lambda handlers and routes for operations and snapshots registered in the SAM template. |
 | NFR-3 | All records scoped by `userId`; every read, write, and delete validates ownership. |
 | NFR-4 | Historical data was imported once from `Portfolio.xlsx`; since then everything is entered in the app. |
-| NFR-5 | Design tokens only — no raw colours; works in all three themes (Dusk, Light, Amber). Platform colours come from `PLATFORM_COLORS` in `utils/colors.js`. |
+| NFR-5 | Design tokens only — no raw colours; works in Light and Dark. Platform colours come from `PLATFORM_COLORS` in `utils/colors.js`. |
 | NFR-6 | **PWA-first**: one phone-width layout for every screen; tap targets ≥ 38 px; bottom sheets; 16 px inputs; safe-area padding. |
 | NFR-7 | Charts use `recharts` (already a project dependency). |
 | NFR-8 | The page is self-contained in `frontend/src/pages/Investments.jsx` — no external CSS, no shared sub-components. |

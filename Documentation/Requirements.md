@@ -411,7 +411,7 @@ Meter readings per location. Route `/headquarters` — the **HQ** tab. Full spec
 
 ---
 
-## Phase 18 – One Layout & Design System ✅
+## Phase 18 – One Layout & Design System ✅ (superseded by Phase 19)
 
 ### Goal
 One consistent, phone-first app.
@@ -423,6 +423,18 @@ One consistent, phone-first app.
 - 16 px form controls everywhere (no iOS zoom), guarded by `noZoom.test.jsx`.
 - App calendar sheet (`DateSheet`) where a native date field would be risky.
 - Bottom sheets for forms; two-step inline delete instead of dialogs.
+
+---
+
+## Phase 19 – Apple-style PWA Redesign ✅
+
+Implemented from `Frontend_Redesign_Proposal.md` (November 2026). Phases 4–18 above describe the earlier UI; the current frontend is described in `CLAUDE.md`.
+
+- Tabs Today · Money (Budget · Split · Stats · Invest) · Library · HQ; account sheet; old routes redirect.
+- Light / Dark / Automatic themes; SF Pro on Apple devices, Inter elsewhere; tokens enforced by `guards.test.ts`.
+- React Aria Components, Motion, TanStack Query (IndexedDB persistence), TypeScript.
+- Sheets for create/edit, swipe two-step delete, Android back handled through history, iPhone-only edge swipe.
+- Tests: 246 Vitest + 26 Playwright (iPhone WebKit, Pixel Chrome). Bundle budget ≤ 200 KB initial JS.
 
 ---
 
