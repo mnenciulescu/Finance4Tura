@@ -22,7 +22,7 @@ A horizontal tab strip, in this order:
 2. **One tab per Location** — named after the location
 3. **Settings** — manage locations and templates (always last)
 
-Adding a location adds its tab and switches to it. Deleting the active location returns to the Dashboard.
+Adding a location adds its chip. Deleting a location returns to Overview.
 
 ---
 
@@ -126,7 +126,7 @@ frontend/src/pages/Headquarters/
 ├── TemplateModal.jsx      # Add/Edit template
 ├── Modal.jsx              # Shared modal shell
 ├── styles.js              # Shared styles
-└── Headquarters.test.jsx  # Render tests (4)
+└── (tests) features/hq/Hq.test.tsx — render tests (6)
 ```
 
 ---

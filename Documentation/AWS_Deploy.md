@@ -323,7 +323,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 
 - **App Settings**: until an admin saves **Admin → App Settings**, `GET /app-settings` returns the defaults — all three toggles on. Saving creates the `global` item.
 - **FX rates**: press **Admin → FX Rates → Update FX rates** once. Until then, Investments shows "no FX rates set" and amounts are left unconverted.
-- **Admin user**: add your user to the Cognito `admin` group. The frontend shows Admin only to username `nenciulescu` (`ADMIN_USER` in `navConfig.js`, and the `/admin` route in `App.jsx`). Change both if the admin username changes.
+- **Admin user**: add your user to the Cognito `admin` group. The frontend shows Admin only to username `nenciulescu` (`ADMIN_USER` in `frontend/src/app/navigation.ts`, and the `/admin` route in `App.jsx`). Change both if the admin username changes.
 
 ---
 

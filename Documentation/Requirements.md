@@ -66,7 +66,7 @@ Define the core tables. Later phases add more (see the table summary at the end)
 | `date` | String | `YYYY-MM-DD`, required |
 | `amount` | Number | Required, > 0 |
 | `currency` | String | Default `RON` |
-| `special` | Boolean | Default `false` — ★ and red row on the Dashboard |
+| `special` | Boolean | Default `false` — ★ and a tinted row in Budget |
 | `isRepeatable`, `repeatFrequency`, `seriesEndDate`, `isException` | | As for incomes |
 | `mappedIncomeId` | String | FK → `Incomes.incomeId` (auto-mapped) |
 | `mappedIncomeSummary`, `mappedIncomeDate` | String | Denormalized for fast rendering |
@@ -469,7 +469,7 @@ Implemented from `Frontend_Redesign_Proposal.md` (November 2026). Phases 4–18 
 | API response caching | `Cache-Control: no-store` everywhere | Stops API Gateway's CloudFront serving stale per-user data |
 | Vite polyfill | `define: { global: 'globalThis' }` | Required by `amazon-cognito-identity-js` |
 | Layout | One 430 px column everywhere | Used mainly as an installed PWA; no desktop/mobile divergence |
-| Navigation | Four content tabs; settings and admin in the avatar menu | The bar holds only places visited daily |
+| Navigation | Today · Money · Library · HQ; account sheet for settings and admin (Phase 19) | Every area visible; native back behaviour on each platform |
 | Split Payments | DynamoDB via API; slot count fixed by the series; app calendar; settle prompt | Data on every device; no accidental slots or dates |
 | Investments snapshots | One record per platform per reading | Record one platform without entering all six |
 | Investments chart | Carry forward the last value per platform | Continuous lines when platforms update at different times |

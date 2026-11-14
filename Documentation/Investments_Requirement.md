@@ -2,7 +2,7 @@
 
 ## Overview
 
-A **PWA-first** page (`/investments`) to track the user's investment portfolio across multiple platforms. It renders as a **single phone-width column, centered on desktop as well as mobile** — same widths, paddings and font sizes on every screen — and is built as four stacked blocks:
+A **PWA-first** screen (Money → Invest, `/money/invest`) to track the user's investment portfolio across multiple platforms. It renders as a **single phone-width column, centered on desktop as well as mobile** — same widths, paddings and font sizes on every screen — and is built as four stacked blocks:
 
 1. **Total portfolio** — expandable. Collapsed it shows the total value in EUR; expanded it breaks the total down per platform, using each platform's latest snapshot.
 2. **Portfolio evolution** — a line chart of the actual portfolio value in EUR, month by month, **starting from 2023**.
@@ -179,7 +179,7 @@ The page never fetches rates from a third party at runtime — it reads the shar
 
 ## Page Layout
 
-`/investments` is a **single phone-width column (`max-width: 430px`), centered on wider screens** — same widths, paddings and font sizes everywhere, like every page in the app. One layout, width-capped by the `COL_WIDTH` constant.
+Money → Invest is a **single phone-width column (`max-width: 430px`), centered on wider screens** — same widths, paddings and font sizes everywhere, like every page in the app. One layout, width-capped by the `COL_WIDTH` constant.
 
 The column is a page header plus four stacked blocks:
 
@@ -221,8 +221,8 @@ The column is a page header plus four stacked blocks:
 ## Functional Requirements
 
 ### FR-1 Navigation
-- **Investments** in the ⋮ Finance menu on the Dashboard (`/finance`).
-- Route: `/investments`, registered in `App.jsx`.
+- The **Invest** segment of the Money tab.
+- Route: `/money/invest`, registered in `app/routes.tsx`; old `/investments` redirects.
 
 ### FR-2 Block 1 — Total portfolio (expandable)
 - Collapsed head shows: `Total portfolio` label, the total value in EUR, and a meta line with the number of platforms still holding money and the FX-rate date (`FX <date>`, or `no FX rates set`).
@@ -299,7 +299,7 @@ The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/se
 
 ## Tests
 
-`frontend/src/pages/Investments.test.jsx` renders the page against mocked `investments` / `fxRates` APIs (9 tests):
+`frontend/src/features/money/invest/Invest.test.tsx` renders the screen against mocked `investments` / `fxRates` APIs (7 tests, plus the iPhone/Pixel Playwright suite):
 
 | Test | Covers |
 |---|---|
@@ -319,8 +319,8 @@ The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/se
 
 | # | Test | Expected Result |
 |---|---|---|
-| I-1 | Open `/investments` on a phone and on a laptop | Identical phone-width column with four stacked blocks; centered on the laptop |
-| I-2 | ⋮ Finance menu on the Dashboard | **Investments** is listed and routes to `/investments`; the Finance tab stays highlighted |
+| I-1 | Open Money → Invest on a phone and on a laptop | Identical phone-width column with four stacked blocks; centered on the laptop |
+| I-2 | Tap **Invest** in the Money segmented control | Routes to `/money/invest`; the Money tab stays selected |
 | I-3 | Tap the Total portfolio block | Expands to the per-platform breakdown; shares sum to 100 % of the displayed total |
 | I-4 | Portfolio evolution chart on first load | Only the grey **Total** line is drawn; platform lines hidden but togglable; the x-axis starts at 2023 |
 | I-5 | Toggle a legend chip | The matching line appears / disappears; the chip dims when hidden |
@@ -336,4 +336,4 @@ The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/se
 | I-15 | **+ Add** on Operations, fill the sheet, save | `POST /investments/operations` called; the new operation appears at the top |
 | I-16 | Edit / delete an operation | `PUT` / `DELETE` called; the two-step confirm guards the delete |
 | I-17 | Refresh the page | All data persists (fetched from DynamoDB) |
-| I-18 | Switch between Dusk, Light and Amber | Every block, chip, sheet, and badge stays legible — design tokens only |
+| I-18 | Switch between Light and Dark | Every block, chip, sheet, and badge stays legible — design tokens only |
