@@ -15,13 +15,14 @@ const fromBook = (b: Book): Form => ({
   dateCompleted: b.dateCompleted || "", rating: b.rating ?? null, comments: b.comments || "",
 });
 
-export function BookSheet({ target, names, onClose }: { target: { book?: Book } | null; names: string[]; onClose: () => void }) {
+export function BookSheet({ target, names, onClose }: { target: { book?: Book; name?: string } | null; names: string[]; onClose: () => void }) {
   return <BookForm key={target ? target.book?.bookId ?? "new" : "closed"} target={target} names={names} onClose={onClose} />;
 }
 
-function BookForm({ target, names, onClose }: { target: { book?: Book } | null; names: string[]; onClose: () => void }) {
+function BookForm({ target, names, onClose }: { target: { book?: Book; name?: string } | null; names: string[]; onClose: () => void }) {
   const book = target?.book;
-  const initial = useMemo(() => (book ? fromBook(book) : blank()), [book]);
+  const prefillName = target?.name;
+  const initial = useMemo(() => (book ? fromBook(book) : { ...blank(), name: prefillName ?? "" }), [book, prefillName]);
   const [form, setForm] = useState<Form>(initial);
   const [error, setError] = useState<string | null>(null);
   const save = useSaveBook();

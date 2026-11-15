@@ -34,7 +34,26 @@ export function savedScroll(tab: TabId): number {
   return scrollPos[tab] ?? 0;
 }
 
-export function selectTab(target: TabId, location: Location, navigate: NavigateFunction) {
+/**
+ * Where the last tab switch went. Route changes render as a transition, so
+ * while a lazy screen loads the URL is already there but the rendered
+ * location (and the tab bar) still shows the previous tab. A second tap in
+ * that window must start from the URL, or leaving Today would push twice.
+ */
+let pending: { pathname: string; search: string } | null = null;
+
+/** Called by the tab bar once a location has rendered. */
+export function syncRenderedLocation(location: Location) {
+  if (pending && pending.pathname === location.pathname && pending.search === location.search) pending = null;
+}
+
+export function selectTab(target: TabId, rendered: Location, navigate: NavigateFunction) {
+  const location: Location = pending ? { ...rendered, ...pending, state: null } : rendered;
+  const go = (to: string, replace: boolean) => {
+    const [pathname, query] = to.split("?");
+    pending = { pathname, search: query ? `?${query}` : "" };
+    navigate(to, { replace });
+  };
   const from = currentTab(location);
   const def = TABS.find(t => t.id === target)!;
   const here = location.pathname + location.search;
@@ -43,7 +62,7 @@ export function selectTab(target: TabId, location: Location, navigate: NavigateF
     // Re-selecting: pop to the tab's root, or at the root scroll to the top
     // (Money → Budget also jumps back to the current income period).
     if (location.pathname !== def.root || location.search) {
-      navigate(def.root, { replace: true });
+      go(def.root, true);
     } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -61,9 +80,10 @@ export function selectTab(target: TabId, location: Location, navigate: NavigateF
   if (target === "today") {
     const idx = historyIdx();
     if (todayIdx != null && idx != null && idx > todayIdx) {
+      pending = { pathname: "/", search: "" };
       navigate(todayIdx - idx);
     } else {
-      navigate("/", { replace: true });
+      go("/", true);
     }
     todayIdx = null;
     return;
@@ -71,9 +91,9 @@ export function selectTab(target: TabId, location: Location, navigate: NavigateF
 
   if (from === "today") {
     todayIdx = historyIdx();
-    navigate(dest);
+    go(dest, false);
   } else {
-    navigate(dest, { replace: true });
+    go(dest, true);
   }
 }
 
@@ -82,4 +102,5 @@ export function __resetTabHistory() {
   for (const k of Object.keys(lastLocation)) delete lastLocation[k as TabId];
   for (const k of Object.keys(scrollPos)) delete scrollPos[k as TabId];
   todayIdx = null;
+  pending = null;
 }

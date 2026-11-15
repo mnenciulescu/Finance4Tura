@@ -24,7 +24,7 @@ tables have since been deleted.
 
 ```
 4TURAHome/
-├── frontend/        # React + Vite + TypeScript PWA (Apple-style, Light/Dark)
+├── frontend/        # React + Vite + TypeScript PWA (Apple-style, Light/Dark) + One-Page desktop dashboard
 ├── backend/         # AWS SAM — template.yaml, Lambda handlers, unit tests
 ├── scripts/         # One-off maintenance scripts (see below)
 ├── Documentation/   # Deploy guides and per-module requirements
@@ -107,7 +107,9 @@ section describes what is implemented.
 - **Fonts**: the system font on Apple devices (SF Pro); bundled Inter
   (`@fontsource-variable/inter`) everywhere else. Type scale in `rem` on a
   17 px root; iPhone follows Dynamic Type via `font: -apple-system-body`.
-- **Mobile-only**: one centred 430 px column (`--app-max-w`) on any screen.
+- **Mobile-first**: the PWA is one centred 430 px column (`--app-max-w`) on any
+  screen. The one exception is **One-Page** (`/one-page`), a desktop dashboard
+  — see its section below.
 
 #### Folders (`frontend/src`)
 
@@ -116,7 +118,7 @@ section describes what is implemented.
 | `theme/` | `tokens.css` (spacing, radii, type, motion, z), `themes.css` (the **only** stylesheet with raw colours: Light + Dark, primitives → semantic tokens), `base.css`, `themes.ts` (registry, migration), `ThemeProvider.tsx`, `domainColors.ts` (priority/platform/type/HTTP → `var(--…)`), `useChartTheme.ts` |
 | `ui/` | Component library, one CSS Module each: `Button`, `List`/`ListSection`/`ListRow`, `Sheet`/`FormSheet`, `ActionSheet`, `Alert`, `Menu` (`PullDownMenu`, `ContextMenu`), `SwipeActions`, `Segmented` (`SegmentedControl` = radiogroup, `SegmentedTabs` = tablist), `Toggle`, `Checkbox`, `Stepper`, `Fields`, `SearchField`, `Picker`, `Rating`, `DatePicker` (+ lazy `CalendarBody`), `Display` (`Card`, `Widget`, `StatTile`, `Badge`, `ProgressBar`, `ProgressRing`, …), `Toast`, `PrivateValue`, `icons/Icon.tsx` |
 | `app/` | `AppShell`, `TabBar`, `Screen` (large-title nav bar), `AccountSheet`, `routes.tsx`, `navigation.ts`, `tabHistory.ts`, `overlays.ts`, `queryClient.ts`, `platform.ts`, `haptics.ts`, `install.ts`, `useKeyboardInset.ts`, `usePullToRefresh.tsx`, `UpdatePrompt.tsx`, `ErrorBoundary.tsx` |
-| `features/` | `today/`, `money/{budget,split,stats,invest,forms}/`, `library/`, `hq/`, `account/{settings,backstage,admin}/`, `auth/` |
+| `features/` | `today/`, `money/{budget,split,stats,invest,forms}/`, `library/`, `hq/`, `account/{settings,backstage,admin}/`, `auth/`, `one-page/` |
 | `data/` | `queries.ts` (reads + shared helpers), `mutations.ts` (writes for lazy screens), `hq.ts` |
 | `context/` | `AuthContext`, `AppSettingsContext`, `YearContext`, `PrivacyContext` |
 | `api/`, `utils/` | API modules (unchanged); `format`, `money`, `split`, `parseAmount` |
@@ -159,11 +161,13 @@ section describes what is implemented.
   `backstageEnabled`), `/admin` (username `nenciulescu`). Deep links
   `/money/expense/:id|new` and `/money/income/:id|new`, and the old
   `/add-expense`, `/add-income` (`?id=`, `?date=`) open the sheet over Budget.
+  `/one-page` renders outside the phone shell (no tab bar).
   Old `/finance`, `/split-payments`, `/statistics`, `/investments`,
   `/books-and-dev`, `/headquarters` redirect. Unknown paths → `/`.
-- Every screen except Today, every chart, the calendar, the forms, Login and
-  Motion's animation features are lazy-loaded; `scripts/check-bundle.mjs`
-  keeps the first download ≤ 200 KB gzipped (currently ~199.5 KB).
+- Every screen except Today, every chart, the calendar, the forms, the
+  Account sheet, Login and Motion's animation features are lazy-loaded;
+  `scripts/check-bundle.mjs` keeps the first download ≤ 200 KB gzipped
+  (currently ~199 KB) and what One-Page adds ≤ 150 KB (currently ~90 KB).
 
 #### Patterns
 - **Create / edit** = a `FormSheet` (Cancel · Title · Save/Add) over the
@@ -334,6 +338,54 @@ Routes `/hq`, `/hq/:locationId`, `/hq/settings` — `features/hq/`.
 - **HQ Settings**: locations (name, address, order; delete disabled while
   templates exist) and templates (location fixed on edit, name, 1–30
   parameters with type, unit, reorder ↑↓, remove; deleting removes entries).
+
+### One-Page (desktop dashboard)
+
+Route `/one-page` — `features/one-page/`. Spec and implementation notes:
+`Documentation/OnePage_Desktop_Proposal.md`. Frontend only; no backend change.
+
+- **Layout**: sticky translucent header (year menu shared with Budget/Stats,
+  Refresh, income eye, **+ New** — Expense, Income, Split, Snapshot, Operation,
+  Library entry — Light | Dark switch, account menu). Three columns from
+  1280 px, each scrolling on its own: **Budget · Split** | **Investments ·
+  Statistics** | **Library · HQ**; two columns from 1024 px, one below (with a
+  "made for larger screens" note). Blocks collapse from their title
+  (`onePage.collapsed` in localStorage) and each has its own error boundary.
+- **Presentation switch**: `routes.tsx` provides `LayoutContext` = `"desk"` on
+  `/one-page`. There `Sheet`/`FormSheet` render as centred dialogs (520 px;
+  760 px for large content sheets; close button when there is no form
+  header), `ActionSheet` as an alert with stacked choices, and `SwipeActions`
+  as hover/focus row buttons with the same two-step delete
+  (`ui/DeskOverlays.tsx`, lazy). Every form, validation and confirmation is
+  the phone's own code. `html[data-layout="desk"]` sets a 15 px root.
+- **Lists** show 3, then *Show 5 More* / *Show Less* / *Show All*
+  (`ui/ShowMore.tsx`).
+- **Blocks**: Budget (period picker ‹ › + dropdown + Today, budget bar,
+  All/Pending/Done/★ filter, rows with hover actions and right-click menu);
+  Split (In progress / Settled tabs, same slots and settle prompt);
+  Investments (Portfolio / Snapshots / Operations; **all amounts masked**
+  behind hold-to-reveal); Statistics (tabs Budget, Priorities with a
+  per-month table, ★ Special, Invest evolution — values hidden unless held —,
+  Library per-person 12-month chart following the Library filters, HQ water
+  charts); Library (search, Filter, a tab per person); HQ (Overview + a tab
+  per location; entries inline with auto-save; ⚙ opens HQ Settings as a
+  dialog).
+- **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=`),
+  written with replace, so browser Back only closes dialogs. Deep links
+  `?expense=new|<id>&date=` and `?income=new|<id>` open the form and are
+  consumed. Cross-links ("View evolution →", "Chart →", "View chart →",
+  "Open in Budget →") switch the other block's tab and flash it.
+- **Keyboard**: `N` then `E/I/S/P/O/B` (new …), `←/→` period, `T` current
+  period, `/` library search, `H` income amounts, `R` refresh, `?` list.
+  Ignored while typing or with a dialog open.
+- **Entry points**: the URL; the Account sheet's *One-Page (Desktop)* row
+  (screens ≥ 1024 px); Settings → Desktop → *Open One-Page on this computer*
+  (`onePage.default`, only when `/` launches on a ≥ 1024 px screen). The
+  account menu has *Open Mobile Layout*.
+- Shared pieces extracted for both layouts: `SplitCard`, `InvestPanels`
+  (`PortfolioCard`, `SnapshotList`, `OperationList`, `EvolutionPanel`),
+  `StatsPanels`, `BookCard`, `ReadList`, `HqSettingsContent`,
+  `useBudgetDeletes`, `splitGroups` / `outstandingByCurrency`.
 
 ### Settings, Backstage and Admin
 
@@ -522,7 +574,9 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend guards | `guards.test.ts` — colour/radius/shadow/type tokens, 16 px controls, one 430 px column, pinch zoom | (in the row above) |
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
+| One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 3/2/1 columns, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, hold-to-reveal (mouse and Space), shortcuts, cross-links | 34 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 
@@ -555,7 +609,8 @@ from invented fixtures, nothing reaches AWS. Time-dependent tests pin "today".
 | Auth | Cognito User Pool + GIS Google Sign-In via custom Lambda |
 | Cache-Control | `no-store` on all Lambda responses (prevents API Gateway CloudFront caching) |
 | FX rates | Stored in `FxRates` DynamoDB table (base EUR), shared across all users; refreshed manually from Admin → FX Rates. No runtime online fetch or localStorage buffering |
-| One phone-width layout | Every page is a centred 430 px column on any screen. The app is used as an installed PWA; one layout removes desktop/mobile divergence. Supports 360–430 px phones |
+| One phone-width layout | Every PWA page is a centred 430 px column on any screen. The app is used as an installed PWA; one layout removes desktop/mobile divergence. Supports 360–430 px phones |
+| One-Page | A desktop dashboard at `/one-page`, not a second app: same login, cache, data hooks and forms. A layout context switches shared components to dialogs and hover actions. Phones never redirect to it |
 | Navigation | Four tabs — Today · Money · Library · HQ. Money's sections are a visible segmented control, not a hidden menu. Settings/Backstage/Admin live in the Account sheet. Overlays and tabs are mirrored in browser history so Android back behaves natively |
 | Split Payments | Card list; open entries expanded, settled collapsed; slot count pinned to the series; app calendar instead of native date fields; settling asks first; debounced coverage auto-save shared by Today and Split |
 | Statistics | Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block |

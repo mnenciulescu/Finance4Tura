@@ -55,3 +55,23 @@ export function coverRest(entry: SplitPayment, occs: Occurrence[]): Occurrence[]
 /** Newest createdDate first. */
 export const byCreatedDesc = (a: SplitPayment, b: SplitPayment) =>
   (b.createdDate || "").localeCompare(a.createdDate || "");
+
+/**
+ * In progress vs settled, newest first. An entry awaiting the "Mark as
+ * settled?" answer (`pendingId`) stays in progress.
+ */
+export function splitGroups(entries: SplitPayment[], pendingId: string | null) {
+  const sorted = [...entries].sort(byCreatedDesc);
+  const isOpen = (e: SplitPayment) => !splitStats(e).complete || e.splitPaymentId === pendingId;
+  return { open: sorted.filter(isOpen), done: sorted.filter(e => !isOpen(e)) };
+}
+
+/** What is left to cover on open amount entries, per currency (> 0 only). */
+export function outstandingByCurrency(open: SplitPayment[]): [string, number][] {
+  const acc: Record<string, number> = {};
+  open.forEach(e => {
+    if (e.occurrenceType !== "amount") return;
+    acc[e.currency] = round2((acc[e.currency] ?? 0) + splitStats(e).remaining);
+  });
+  return Object.entries(acc).filter(([, v]) => v > 0);
+}

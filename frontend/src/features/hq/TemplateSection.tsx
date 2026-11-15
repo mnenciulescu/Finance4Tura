@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ActionSheet, Button, DateField, FieldRow, Icon, List, ListSection, Notice, Sheet, SwipeActions, TextField, Toggle, useToast,
+  ActionSheet, Button, DateField, FieldRow, Icon, List, ListSection, Notice, Sheet, ShowMore, SwipeActions, TextField, Toggle, useToast,
 } from "../../ui";
 import { hqEntryApi, removeEntryFromCache, upsertEntryInCache } from "../../data/hq";
 import { fmtDate, todayIso } from "../../utils/format";
@@ -25,8 +25,15 @@ const valuesFor = (t: HqTemplate, entry: HqEntry): HqValue[] =>
  * first, auto-save with a 600 ms debounce, computed water consumption, and
  * the meter-reading SMS for water templates.
  */
-export function TemplateSection({ template, hqId, entries }: { template: HqTemplate; hqId: string; entries: HqEntry[] }) {
+export function TemplateSection({
+  template, hqId, entries, limit,
+}: {
+  template: HqTemplate; hqId: string; entries: HqEntry[];
+  /** Show only the newest `limit` entries, then Show More (One-Page). */
+  limit?: number;
+}) {
   const [creating, setCreating] = useState(false);
+  const [shown, setShown] = useState(limit ?? 0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const [sms, setSms] = useState(false);
@@ -68,7 +75,7 @@ export function TemplateSection({ template, hqId, entries }: { template: HqTempl
           />
         )}
         {entries.length === 0 && !creating && <p className={s.muted}>No entries yet.</p>}
-        {entries.map(entry => {
+        {(limit != null ? entries.slice(0, shown) : entries).map(entry => {
           if (editingId === entry.entryId) {
             return <EntryEditor key={entry.entryId} template={template} hqId={hqId} entry={entry} onDone={() => setEditingId(null)} />;
           }
@@ -133,6 +140,7 @@ export function TemplateSection({ template, hqId, entries }: { template: HqTempl
             </article>
           );
         })}
+        {limit != null && <ShowMore shown={shown} total={entries.length} initial={limit} step={5} onChange={setShown} allowAll />}
       </div>
 
       <Sheet isOpen={sms} onClose={() => setSms(false)} title="Meter reading SMS">

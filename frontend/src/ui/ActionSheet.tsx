@@ -1,7 +1,11 @@
+import { lazy, Suspense } from "react";
 import { Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { useOverlayHistory } from "../app/overlays";
 import { haptic } from "../app/haptics";
+import { useIsDesk } from "./layout";
 import s from "./Overlays.module.css";
+
+const DeskActionSheet = /* @__PURE__ */ lazy(() => import("./DeskOverlays").then(m => ({ default: m.DeskActionSheet })));
 
 export interface ActionSheetAction {
   label: string;
@@ -23,7 +27,13 @@ export interface ActionSheetProps {
  * iOS action sheet: a bottom-anchored group of choices plus a separate
  * Cancel. Used for the series choice, edit scope and discarding changes.
  */
-export function ActionSheet({ isOpen, onClose, title, message, actions, cancelLabel = "Cancel" }: ActionSheetProps) {
+export function ActionSheet(props: ActionSheetProps) {
+  const desk = useIsDesk();
+  if (desk) return <Suspense fallback={null}><DeskActionSheet {...props} /></Suspense>;
+  return <PhoneActionSheet {...props} />;
+}
+
+function PhoneActionSheet({ isOpen, onClose, title, message, actions, cancelLabel = "Cancel" }: ActionSheetProps) {
   useOverlayHistory(isOpen, onClose);
   return (
     <ModalOverlay

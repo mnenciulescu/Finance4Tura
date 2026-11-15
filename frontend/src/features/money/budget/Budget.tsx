@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ActionSheet, Button, EmptyState, IconButton, Notice, PrivateValue, PullDownMenu, ScreenSkeleton, useToast,
-} from "../../../ui";
+import { Button, EmptyState, IconButton, Notice, PrivateValue, PullDownMenu, ScreenSkeleton } from "../../../ui";
 import { MoneyScreen, YearMenu } from "../MoneyScreen";
 import { useForms } from "../forms/FormsContext";
-import { IncomeDeleteSheet } from "../forms/IncomeSheet";
 import { availableYears, keys, useExpenses, useIncomes, useToggleExpense } from "../../../data/queries";
-import { useDeleteExpense, useDeleteIncome } from "../../../data/mutations";
 import { useYear } from "../../../context/YearContext";
 import { usePrivacy } from "../../../context/PrivacyContext";
 import { TAB_RESELECT_EVENT } from "../../../app/tabHistory";
 import { fmtMoney, todayIso } from "../../../utils/format";
-import type { Expense, Income } from "../../../types";
 import { PeriodHeader } from "./PeriodHeader";
 import { BudgetBar } from "./BudgetBar";
 import { EditableExpenseRow } from "./EditableExpenseRow";
+import { useBudgetDeletes } from "./useBudgetDeletes";
 import { byPriorityThenDate, currentIndex, groupByIncome, periodTotals } from "./budgetMath";
 import s from "./Budget.module.css";
 
@@ -32,15 +28,10 @@ export default function Budget() {
   const { incomeVisible, setIncomeVisible } = usePrivacy();
   const { openExpense, openIncome } = useForms();
   const toggle = useToggleExpense();
-  const delExpense = useDeleteExpense();
-  const delIncome = useDeleteIncome();
-  const toast = useToast();
+  const { requestDelete, requestIncomeDelete, dialogs } = useBudgetDeletes();
 
   const [active, setActive] = useState(0);
   const [heights, setHeights] = useState<Record<number, number>>({});
-  const [pendingSeriesDelete, setPendingSeriesDelete] = useState<Expense | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
-  const [incomeToDelete, setIncomeToDelete] = useState<Income | null>(null);
   const pager = useRef<HTMLDivElement>(null);
   const today = todayIso();
 
@@ -104,20 +95,6 @@ export default function Budget() {
     return fn;
   };
   useEffect(() => () => observers.current.forEach(ro => ro.disconnect()), []);
-
-  const requestDelete = (exp: Expense, confirmed: boolean) => {
-    if (exp.isRepeatable) { setPendingSeriesDelete(exp); return; }
-    if (!confirmed) { setPendingDelete(exp); return; }
-    runDelete(exp, false);
-  };
-  const runDelete = (exp: Expense, series: boolean) => {
-    setPendingSeriesDelete(null);
-    setPendingDelete(null);
-    delExpense.mutate({ exp, series }, {
-      onError: () => toast.show({ message: "Could not delete the expense.", tone: "negative" }),
-    });
-    toast.show({ message: series ? "Series deleted" : "Expense deleted", icon: "trash" });
-  };
 
   const refresh = () => Promise.all([
     qc.invalidateQueries({ queryKey: keys.incomes }),
@@ -216,7 +193,7 @@ export default function Budget() {
                                 { id: "edit", label: "Edit Income", icon: "pencil", onAction: () => openIncome({ id: income.incomeId }) },
                                 { id: "add", label: "Add Expense to This Period", icon: "plus", onAction: () => openExpense({ date: income.date }) },
                                 { id: "sep", separator: true },
-                                { id: "delete", label: "Delete Income", icon: "trash", destructive: true, onAction: () => setIncomeToDelete(income) },
+                                { id: "delete", label: "Delete Income", icon: "trash", destructive: true, onAction: () => requestIncomeDelete(income) },
                               ]}
                             />
                           }
@@ -253,34 +230,7 @@ export default function Budget() {
         </>
       )}
 
-      <ActionSheet
-        isOpen={!!pendingSeriesDelete}
-        onClose={() => setPendingSeriesDelete(null)}
-        title={`“${pendingSeriesDelete?.summary}” is part of a recurring series`}
-        message="What would you like to delete?"
-        actions={[
-          { label: "Delete This Occurrence", destructive: true, onAction: () => pendingSeriesDelete && runDelete(pendingSeriesDelete, false) },
-          { label: "Delete Entire Series", destructive: true, onAction: () => pendingSeriesDelete && runDelete(pendingSeriesDelete, true) },
-        ]}
-      />
-      <ActionSheet
-        isOpen={!!pendingDelete}
-        onClose={() => setPendingDelete(null)}
-        title={`Delete “${pendingDelete?.summary}”?`}
-        message="This cannot be undone."
-        actions={[{ label: "Delete Expense", destructive: true, onAction: () => pendingDelete && runDelete(pendingDelete, false) }]}
-      />
-      <IncomeDeleteSheet
-        income={incomeToDelete}
-        onClose={() => setIncomeToDelete(null)}
-        onDelete={series => {
-          const inc = incomeToDelete;
-          setIncomeToDelete(null);
-          if (!inc) return;
-          delIncome.deleteIncome(inc, series);
-          toast.show({ message: series ? "Income series deleted" : "Income deleted", icon: "trash" });
-        }}
-      />
+      {dialogs}
     </MoneyScreen>
   );
 }

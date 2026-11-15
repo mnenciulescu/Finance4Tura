@@ -34,6 +34,10 @@ class ResizeObserverStub {
 window.scrollTo = (() => {}) as typeof window.scrollTo;
 Element.prototype.scrollTo ??= function scrollTo() {};
 Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+// Screens render as on a phone unless a test widens the window (One-Page).
+const PHONE_WIDTH = 390;
+Object.defineProperty(window, "innerWidth", { value: PHONE_WIDTH, writable: true, configurable: true });
+
 window.matchMedia ??= ((query: string) => ({
   matches: false, media: query, onchange: null,
   addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
@@ -41,6 +45,7 @@ window.matchMedia ??= ((query: string) => ({
 
 afterEach(() => {
   cleanup();
+  window.innerWidth = PHONE_WIDTH;
   __resetOverlays();
   __resetTabHistory();
   localStorage.clear();

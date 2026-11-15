@@ -53,6 +53,10 @@ export function PrivateValue({ children, mode = "toggle", visible, group = "defa
   );
 }
 
+/** Whether a hold-to-reveal group is revealed right now (for charts). */
+// eslint-disable-next-line react-refresh/only-export-components
+export const useRevealed = (group = "default") => !!useContext(RevealContext)[group];
+
 /** Press-and-hold eye button that reveals every PrivateValue in its group. */
 export function RevealButton({ group = "default", label = "Hold to reveal amounts" }: { group?: string; label?: string }) {
   const set = useContext(SetRevealContext);

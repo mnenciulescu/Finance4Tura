@@ -17,4 +17,6 @@ export { Alert } from "./Alert";
 export { PullDownMenu, ContextMenu, type MenuEntry } from "./Menu";
 export { SwipeActions, type SwipeAction } from "./SwipeActions";
 export { ToastProvider, useToast } from "./Toast";
-export { PrivateValue, RevealButton, RevealScope } from "./PrivateValue";
+export { PrivateValue, RevealButton, RevealScope, useRevealed } from "./PrivateValue";
+export { ShowMore, useShowMore } from "./ShowMore";
+export { LayoutContext, useIsDesk } from "./layout";

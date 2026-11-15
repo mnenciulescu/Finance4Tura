@@ -62,6 +62,13 @@
   --tabbar-h:      49px;
   --hairline:      0.5px;
 
+  /* One-Page (desktop dashboard) ----------------------------------------- */
+  --desk-max-w:          1920px;
+  --desk-header-h:       56px;
+  --desk-gap:            20px;
+  --desk-dialog-w:       520px;
+  --desk-dialog-w-large: 760px;
+
   /* Motion ---------------------------------------------------------------- */
   --dur-fast: 150ms;
   --dur-base: 250ms;

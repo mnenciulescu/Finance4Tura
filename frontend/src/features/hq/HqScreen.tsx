@@ -1,14 +1,14 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Screen } from "../../app/Screen";
 import { Button, EmptyState, IconButton, ListSection, Notice, ScreenSkeleton, Skeleton } from "../../ui";
 import { keys } from "../../data/queries";
 import { useHqEntries, useHqLocations, useHqTemplates } from "../../data/hq";
-import { fmtDate } from "../../utils/format";
 import type { HqEntry, HqLocation, HqTemplate } from "../../types";
 import { byDateDesc, isWaterTemplate } from "./hqMath";
 import { TemplateSection } from "./TemplateSection";
+import { ReadList } from "./ReadList";
 import s from "./Hq.module.css";
 
 const WaterChart = lazy(() => import("./WaterChart"));
@@ -106,41 +106,6 @@ function Overview({ locations, templates, entries }: { locations: HqLocation[]; 
           </ListSection>
         );
       })}
-    </>
-  );
-}
-
-const READ_LIMIT = 5;
-
-function ReadList({ template, entries }: { template: HqTemplate; entries: HqEntry[] }) {
-  const [all, setAll] = useState(false);
-  const sorted = useMemo(
-    () => entries.filter(e => e.templateId === template.templateId).sort(byDateDesc),
-    [entries, template.templateId],
-  );
-  if (sorted.length === 0) return <p className={s.muted}>No entries yet.</p>;
-  const visible = all ? sorted : sorted.slice(0, READ_LIMIT);
-  return (
-    <>
-      <ul className={s.readList}>
-        {visible.map(e => (
-          <li key={e.entryId} className={s.readItem}>
-            <span className={s.readDate}>{fmtDate(e.date)}</span>
-            <span className={s.readValues}>
-              {(template.parameters || []).map(p => {
-                const v = (e.values || []).find(x => x.parameterId === p.parameterId)?.value;
-                const shown = v === null || v === undefined || v === "" ? "—" : p.type === "boolean" ? (v ? "✓" : "—") : String(v);
-                return <span key={p.parameterId ?? p.title}><span className={s.readKey}>{p.title}</span> {shown}{p.unit && shown !== "—" ? ` ${p.unit}` : ""}</span>;
-              })}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {sorted.length > READ_LIMIT && (
-        <Button variant="plain" size="small" onClick={() => setAll(v => !v)}>
-          {all ? "Show Less" : `Show ${sorted.length - READ_LIMIT} More`}
-        </Button>
-      )}
     </>
   );
 }

@@ -1,11 +1,14 @@
-import { useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
 import { Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { m, useDragControls, useMotionValue, type PanInfo } from "motion/react";
 import { settle } from "./settle";
 import { useOverlayHistory } from "../app/overlays";
 import { useKeyboardInset } from "../app/useKeyboardInset";
 import { ActionSheet } from "./ActionSheet";
+import { useIsDesk } from "./layout";
 import s from "./Overlays.module.css";
+
+const DeskSheet = /* @__PURE__ */ lazy(() => import("./DeskOverlays").then(m => ({ default: m.DeskSheet })));
 
 /* ── Sheet ────────────────────────────────────────────────────────────────── */
 
@@ -36,7 +39,13 @@ const DISMISS_VELOCITY = 600;
  * Motion supplies drag-to-dismiss from the grabber / header; the overlay
  * manager ties it to history so system back closes it.
  */
-export function Sheet({
+export function Sheet(props: SheetProps) {
+  const desk = useIsDesk();
+  if (desk) return <Suspense fallback={null}><DeskSheet {...props} /></Suspense>;
+  return <PhoneSheet {...props} />;
+}
+
+function PhoneSheet({
   isOpen, onClose, title, detent = "auto", header, hideTitle, veto, children, surface = "elevated", className,
 }: SheetProps) {
   const y = useMotionValue(0);

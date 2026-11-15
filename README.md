@@ -46,7 +46,7 @@ The core model is simple: **income defines a period, and every expense belongs t
 | **Repeating events** | Incomes and expenses support daily/weekly/monthly recurrence. Occurrences are expanded into individual records at creation time, linked by a `seriesId`. |
 | **Series editing** | Editing one occurrence sets `isException: true` on that record only. The `/series` endpoint updates all future occurrences. |
 | **Special expenses** | `special: true` marks an expense with ★ and a red row background, and lists it in Statistics. |
-| **One layout** | The app is mobile-only: every page is a centred phone-width column (430 px), on a phone or a laptop. |
+| **Two layouts** | The app is a phone-width PWA (a centred 430 px column on any screen). **One-Page** (`/one-page`) is a separate desktop dashboard with Money, Library and HQ on one screen. |
 
 ### Modules
 
@@ -180,6 +180,7 @@ graph TB
 - **Tab bar**: Today · Money · Library · HQ. Money has a segmented control: Budget · Split · Stats · Invest.
 - **Account sheet** (initials, top right): username, session countdown, Settings, Backstage (when enabled), Admin (admin only), Sign Out.
 - System back (Android) closes the top sheet or menu first; iPhone gets an edge swipe on pushed screens. Old URLs redirect. Details in `CLAUDE.md`.
+- **One-Page** (`/one-page`, desktop): three columns of blocks — Budget and Split; Investments and Statistics (a tab per topic); Library and HQ. Reached by URL, from the Account sheet on screens ≥ 1024 px, or automatically with Settings → Desktop → *Open One-Page on this computer*. Spec: `Documentation/OnePage_Desktop_Proposal.md`.
 
 
 ---
@@ -369,7 +370,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │   │   ├── theme/                    # Tokens, Light/Dark themes (only raw colours), ThemeProvider
 │   │   ├── ui/                       # Component library (React Aria + Motion, CSS Modules)
 │   │   ├── app/                      # Shell, tab bar, nav bar, account sheet, routes, history/back handling
-│   │   ├── features/                 # today, money/{budget,split,stats,invest,forms}, library, hq, account, auth
+│   │   ├── features/                 # today, money/{budget,split,stats,invest,forms}, library, hq, account, auth, one-page
 │   │   ├── data/                     # TanStack Query hooks
 │   │   ├── context/                  # Auth, AppSettings, Year, Privacy
 │   │   ├── utils/                    # format, money, split, parseAmount
@@ -405,6 +406,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 | Income mapping | Denormalized onto the expense | Budget renders without joins; mapping is computed once at write time. |
 | Series editing | Single edits set `isException`; `/series` updates future records | Past records stay untouched while bulk corrections stay possible. |
 | One phone-width layout | The same 430 px column everywhere | Used mainly as an installed PWA; one layout removes the desktop/mobile divergence. |
+| One-Page | A separate desktop route reusing the PWA's data, forms and components | Desktop use without a second app: shared components present as dialogs and hover actions there. |
 | Navigation | Today · Money · Library · HQ; Money sections as a segmented control; account sheet for settings/admin | Every area visible; back behaves natively on Android and iPhone. |
 | Design | Apple-style, Light/Dark/Automatic, see `Documentation/Frontend_Redesign_Proposal.md` | iPhone feel on every phone. |
 | AWS only | No local backend | One environment to keep correct. Dev sessions use production data. |
@@ -424,6 +426,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 | [Documentation/AWS_Deploy.md](Documentation/AWS_Deploy.md) | How the AWS environment is built, for a rebuild from scratch |
 | [Documentation/AWS_Sync.md](Documentation/AWS_Sync.md) | Day-to-day deploys, logs, rollbacks, Cognito admin |
 | [Documentation/Frontend_Setup.md](Documentation/Frontend_Setup.md) | Frontend structure and conventions |
+| [Documentation/OnePage_Desktop_Proposal.md](Documentation/OnePage_Desktop_Proposal.md) | One-Page, the desktop dashboard: design and implementation notes |
 | [Documentation/Requirements.md](Documentation/Requirements.md) | Requirements by phase, kept current with the app |
 | [Documentation/SplitPayment_Requirement.md](Documentation/SplitPayment_Requirement.md) | Split Payments |
 | [Documentation/Investments_Requirement.md](Documentation/Investments_Requirement.md) | Investments |

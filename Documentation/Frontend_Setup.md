@@ -2,8 +2,9 @@
 
 React 19 + Vite + TypeScript progressive web app with an Apple-style design
 that feels like an iPhone app on every phone and behaves natively on each.
-Mobile-only: every page is a centred phone-width column (430 px), whatever the
-screen. The design brief is `Frontend_Redesign_Proposal.md`; `CLAUDE.md`
+Mobile-first: every PWA page is a centred phone-width column (430 px), whatever
+the screen. The exception is **One-Page** (`/one-page`), a desktop dashboard with
+Money, Library and HQ on one screen (`OnePage_Desktop_Proposal.md`). The design brief is `Frontend_Redesign_Proposal.md`; `CLAUDE.md`
 describes what is implemented, screen by screen.
 
 ## Development
@@ -14,7 +15,7 @@ npm run dev        # http://localhost:5173 — uses the deployed API and product
 npm run typecheck  # tsc --noEmit
 npm run lint       # ESLint (JS + TS)
 npm test           # Vitest, single run (npm run test:watch to watch)
-npm run test:e2e   # Playwright: iPhone 15 (WebKit) + Pixel 7 (installed Chrome)
+npm run test:e2e   # Playwright: iPhone 15 (WebKit) + Pixel 7 (Chrome); One-Page on desktop Chrome + desktop WebKit
 npm run build      # production build → dist/
 npm run check      # all of the above except e2e, plus the bundle budget
 ```
@@ -65,7 +66,8 @@ src/
 │   ├── library/          # /library
 │   ├── hq/               # /hq, /hq/:locationId, /hq/settings
 │   ├── account/          # /settings, /backstage, /admin
-│   └── auth/             # Login
+│   ├── auth/             # Login
+│   └── one-page/         # /one-page — desktop dashboard (header, blocks/, state, shortcuts)
 ├── data/         # queries.ts (reads), mutations.ts (writes), hq.ts
 ├── context/      # Auth, AppSettings, Year, Privacy
 ├── api/          # one module per backend area (unchanged)
@@ -90,6 +92,11 @@ public/           # icons (any, maskable, monochrome, Apple touch), splash/ (iPh
   sheet or menu first, then pops a pushed screen, then returns to Today, then
   leaves the app. iPhone gets an edge swipe on pushed screens instead.
 - Old URLs (`/finance`, `/add-expense`, `/books-and-dev`, …) redirect.
+- **One-Page** (`/one-page`): outside the phone shell. `LayoutContext` =
+  `"desk"` makes `Sheet`/`FormSheet` centred dialogs, `ActionSheet` an alert
+  and `SwipeActions` hover buttons (`ui/DeskOverlays.tsx`, lazy). Tab and
+  period state live in the URL query (replaced, not pushed). Reached from the
+  Account sheet on screens ≥ 1024 px or via Settings → Desktop.
 
 ## Themes
 
@@ -124,17 +131,24 @@ Cognito library to work in the browser.
 - **Create/edit in sheets**, **delete in two steps** (swipe arms, second tap
   confirms; menus confirm with an action sheet).
 - **Behaviour may depend on the platform, appearance may not.**
-- **Bundle budget**: initial JavaScript ≤ 200 KB gzipped
-  (`npm run check:bundle`). Keep new screens lazy.
+- **Bundle budget**: initial JavaScript ≤ 200 KB gzipped; One-Page adds
+  ≤ 150 KB (`npm run check:bundle`). Keep new screens lazy, and mark top-level
+  `lazy()` in shared modules `/* @__PURE__ */` so unused modules stay out of
+  the entry.
+- **One-Page reuses, never copies**: shared content lives in panels
+  (`InvestPanels`, `StatsPanels`, `SplitCard`, `BookCard`, `ReadList`,
+  `HqSettingsContent`, `useBudgetDeletes`) used by both layouts.
 
 ## Tests
 
-- **Vitest + Testing Library** (jsdom): 246 tests — logic, build guards, the
-  component library, every screen against mocked API modules.
+- **Vitest + Testing Library** (jsdom): 251 tests — logic, build guards, the
+  component library, every screen and One-Page against mocked API modules.
+  Tests run at phone width (390 px) unless they widen the window.
 - **Playwright**: 26 tests on an iPhone (WebKit) and a Pixel (Chrome) profile
   — back navigation, discard prompt, edge swipe, long-press menus,
   hold-to-reveal, comma decimals, no horizontal overflow at 360/393/430 px in
-  both themes.
+  both themes. `e2e/onepage.spec.ts`: 17 One-Page tests on desktop Chrome
+  (1440 px) and desktop WebKit (1280 px).
 
 ## PWA assets
 

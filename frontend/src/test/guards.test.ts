@@ -1,5 +1,6 @@
 /**
- * Build guards (proposal §13): design tokens, 16 px controls, one 430 px column.
+ * Build guards (proposal §13): design tokens, 16 px controls, one 430 px column
+ * (plus One-Page's desktop widths, confined to One-Page).
  * They scan the source, so a stray literal fails the build.
  */
 import { describe, it, expect } from "vitest";
@@ -107,6 +108,13 @@ describe("phone-width column", () => {
     expect(readFileSync(join(SRC, "app/AppShell.module.css"), "utf8")).toContain("max-width: var(--app-max-w)");
     expect(readFileSync(join(SRC, "ui/Overlays.module.css"), "utf8")).toContain("max-width: var(--app-max-w)");
     expect(readFileSync(join(SRC, "app/TabBar.module.css"), "utf8")).toContain("max-width: var(--app-max-w)");
+  });
+
+  it("keeps One-Page's desktop widths to One-Page and its dialogs", () => {
+    const all = files.map(f => readFileSync(f, "utf8")).join("\n");
+    expect(all.match(/--desk-max-w:\s*1920px/g)).toHaveLength(1);
+    const users = css.filter(f => /var\(--desk-(max-w|dialog-w)/.test(readFileSync(f, "utf8"))).map(rel).sort();
+    expect(users).toEqual(["features/one-page/OnePage.module.css", "ui/Desk.module.css"]);
   });
 
   it("has no screen hard-coding a pixel max-width", () => {

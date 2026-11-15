@@ -19,6 +19,17 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* One-Page (desktop): a 15 px root for denser desktop rows. Controls keep
+   --fs-control (≥ 16 px). */
+html[data-layout="desk"] {
+  font-size: 93.75%;
+  background: var(--desk-page);
+  overscroll-behavior: auto;
+}
+html[data-layout="desk"] body {
+  background: var(--desk-page);
+}
+
 /* iPhone PWAs get no Dynamic Type by default. -apple-system-body resolves to
    the user's iOS Text Size setting (17 px at the default size), so the whole
    rem scale follows it. Behaviour, not appearance: at the default size the

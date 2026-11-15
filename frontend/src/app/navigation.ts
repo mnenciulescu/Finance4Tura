@@ -1,6 +1,7 @@
 // Single source for the tab bar, the Money segments and the account sheet.
 
 import type { IconName } from "../ui/icons/Icon";
+import { ONE_PAGE_MIN_WIDTH } from "./onePage";
 
 export const ADMIN_USER = "nenciulescu";
 
@@ -48,13 +49,15 @@ export interface AccountItem {
   to: string;
   label: string;
   icon: IconName;
-  requires?: "backstage" | "admin";
+  /** "desktop": only on screens of at least ONE_PAGE_MIN_WIDTH. */
+  requires?: "backstage" | "admin" | "desktop";
 }
 
 export const ACCOUNT_ITEMS: AccountItem[] = [
   { to: "/settings",  label: "Settings",  icon: "gear" },
   { to: "/backstage", label: "Backstage", icon: "terminal", requires: "backstage" },
   { to: "/admin",     label: "Admin",     icon: "shield",   requires: "admin" },
+  { to: "/one-page",  label: "One-Page (Desktop)", icon: "globe", requires: "desktop" },
 ];
 
 /** Drops items the current user or app settings don't allow. */
@@ -65,6 +68,7 @@ export function visibleItems<T extends { requires?: string }>(
   return items.filter(item => {
     if (item.requires === "backstage") return !!backstageEnabled;
     if (item.requires === "admin") return username === ADMIN_USER;
+    if (item.requires === "desktop") return typeof window !== "undefined" && window.innerWidth >= ONE_PAGE_MIN_WIDTH;
     return true;
   });
 }

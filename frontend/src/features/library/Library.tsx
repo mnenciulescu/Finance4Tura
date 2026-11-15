@@ -2,16 +2,15 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Screen } from "../../app/Screen";
 import {
-  ActionSheet, Badge, Button, ContextMenu, EmptyState, Icon, IconButton, ListSection, Notice, Rating, ScreenSkeleton,
-  SearchField, Skeleton, SwipeActions, useToast,
+  ActionSheet, Button, EmptyState, Icon, IconButton, ListSection, Notice, ScreenSkeleton, SearchField, Skeleton, useToast,
 } from "../../ui";
 import { keys, useBooks } from "../../data/queries";
 import { useDeleteBook, useRateBook } from "../../data/mutations";
-import { BOOK_TYPE_COLOR } from "../../theme/domainColors";
 import type { Book } from "../../types";
 import { applyFilters, NO_FILTERS, PAGE, previousReveal, sectionsOf, STATS_MONTHS, type Filters } from "./libraryMath";
 import { FilterSheet } from "./FilterSheet";
 import { BookSheet } from "./BookSheet";
+import { BookCard } from "./BookCard";
 import s from "./Library.module.css";
 
 const MonthlyChart = lazy(() => import("./MonthlyChart"));
@@ -163,56 +162,5 @@ export default function Library() {
         actions={[{ label: "Delete Entry", destructive: true, onAction: () => toDelete && doDelete(toDelete) }]}
       />
     </Screen>
-  );
-}
-
-function BookCard({
-  book, open, onToggle, onRate, onEdit, onDelete, onRequestDelete,
-}: {
-  book: Book; open: boolean; onToggle: () => void; onRate: (r: number | null) => void;
-  onEdit: () => void; onDelete: () => void; onRequestDelete: () => void;
-}) {
-  const color = BOOK_TYPE_COLOR[book.type] ?? BOOK_TYPE_COLOR.Other;
-  return (
-    <article className={s.card} data-book={book.bookId}>
-      <SwipeActions
-        actions={[
-          { label: "Edit", icon: "pencil", onAction: onEdit },
-          { label: "Delete", icon: "trash", destructive: true, onAction: onDelete },
-        ]}
-      >
-        <ContextMenu
-          label={`Actions for ${book.title}`}
-          items={[
-            { id: "edit", label: "Edit", icon: "pencil", onAction: onEdit },
-            { id: "delete", label: "Delete", icon: "trash", destructive: true, onAction: onRequestDelete },
-          ]}
-        >
-          <div className={s.cardInner}>
-            <button type="button" className={s.cardHead} onClick={onToggle} aria-expanded={open}>
-              <span className={s.cardTitle}>{book.title}</span>
-              {(book.author || book.source) && (
-                <span className={s.cardSub}>{[book.author, book.source].filter(Boolean).join(" · ")}</span>
-              )}
-            </button>
-            <div className={s.cardMeta}>
-              <Badge color={color}>{book.type || "—"}</Badge>
-              <Rating value={book.rating} onChange={onRate} size={18} label={`Rating for ${book.title}`} />
-              <span className={s.flex} />
-              <span className={s.cardDate}>{book.dateCompleted || "—"}</span>
-            </div>
-            {open && (
-              <div className={s.cardBody}>
-                {book.comments ? <p className={s.comments}>{book.comments}</p> : <p className={s.noComments}>No comments.</p>}
-                <div className={s.cardActions}>
-                  <Button variant="gray" size="small" icon="pencil" onClick={onEdit}>Edit</Button>
-                  <Button variant="destructiveTinted" size="small" icon="trash" onClick={onRequestDelete}>Delete</Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </ContextMenu>
-      </SwipeActions>
-    </article>
   );
 }

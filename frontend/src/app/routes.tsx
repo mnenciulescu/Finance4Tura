@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { AppShell } from "./AppShell";
@@ -7,6 +7,8 @@ import { ADMIN_USER } from "./navigation";
 import { FormsProvider, useForms } from "../features/money/forms/FormsContext";
 import Today from "../features/today/Today";
 import { ScreenSkeleton } from "../ui/Display";
+import { LayoutContext } from "../ui/layout";
+import { ONE_PAGE_PATH, opensOnePage } from "./onePage";
 
 // Every screen but Today loads on first visit (proposal §12.6 bundle budget).
 const Budget = lazy(() => import("../features/money/budget/Budget"));
@@ -19,6 +21,8 @@ const HqSettings = lazy(() => import("../features/hq/HqSettings"));
 const Settings = lazy(() => import("../features/account/settings/Settings"));
 const Backstage = lazy(() => import("../features/account/backstage/Backstage"));
 const Admin = lazy(() => import("../features/account/admin/Admin"));
+// The desktop dashboard (Documentation/OnePage_Desktop_Proposal.md).
+const OnePage = lazy(() => import("../features/one-page/OnePage"));
 
 const Loading = () => <div style={{ paddingTop: "calc(env(safe-area-inset-top) + 100px)" }}><ScreenSkeleton blocks={3} /></div>;
 
@@ -46,11 +50,35 @@ function Legacy({ to }: { to: string }) {
 }
 
 export function AppRoutes() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const desk = location.pathname === ONE_PAGE_PATH;
+
+  // "Open One-Page on this computer": only for the launch URL, only on wide screens.
+  useEffect(() => {
+    if (location.pathname === "/" && !location.search && opensOnePage()) navigate(ONE_PAGE_PATH, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One-Page renders outside the phone shell; the shared sheets, action
+  // sheets and swipe rows present as desktop dialogs and hover actions there.
+  return (
+    <LayoutContext.Provider value={desk ? "desk" : "phone"}>
+      <FormsProvider>
+        {desk ? (
+          <Suspense fallback={<Loading />}><OnePage /></Suspense>
+        ) : (
+          <MobileRoutes />
+        )}
+      </FormsProvider>
+    </LayoutContext.Provider>
+  );
+}
+
+function MobileRoutes() {
   const { user } = useAuth();
   const { settings } = useAppSettings();
 
   return (
-    <FormsProvider>
       <AppShell>
         <Suspense fallback={<Loading />}>
         <Routes>
@@ -87,6 +115,5 @@ export function AppRoutes() {
         </Routes>
         </Suspense>
       </AppShell>
-    </FormsProvider>
   );
 }

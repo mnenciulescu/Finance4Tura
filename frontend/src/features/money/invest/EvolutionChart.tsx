@@ -30,7 +30,14 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
  * per active platform (hidden by default), all connectNulls. Dots mark months
  * with operations.
  */
-export default function EvolutionChart({ data, platforms, hidden }: { data: ChartPoint[]; platforms: string[]; hidden: Set<string> }) {
+export default function EvolutionChart({
+  data, platforms, hidden, masked, height = 210,
+}: {
+  data: ChartPoint[]; platforms: string[]; hidden: Set<string>;
+  /** Holdings hidden: the shape stays, values on the axis and in the tooltip go. */
+  masked?: boolean;
+  height?: number;
+}) {
   const c = useResolvedColors({
     total: "--label", tint: "--tint", label: "--label-secondary", grid: "--separator", surface: "--bg-grouped-secondary",
     ...Object.fromEntries(platforms.map(p => [p, PLATFORM_COLOR[p]])),
@@ -43,8 +50,8 @@ export default function EvolutionChart({ data, platforms, hidden }: { data: Char
   const latest = [...data].reverse().find(d => d.portfolio != null)?.portfolio;
 
   return (
-    <div role="img" aria-label={`Portfolio evolution${latest != null ? `, latest ${fmtNum(latest)} EUR` : ""}`}>
-      <ResponsiveContainer width="100%" height={210}>
+    <div role="img" aria-label={`Portfolio evolution${latest != null && !masked ? `, latest ${fmtNum(latest)} EUR` : ""}`}>
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
@@ -69,9 +76,9 @@ export default function EvolutionChart({ data, platforms, hidden }: { data: Char
             axisLine={false}
             width={40}
             domain={["auto", "auto"]}
-            tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : fmtNum(v))}
+            tickFormatter={(v: number) => (masked ? "" : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : fmtNum(v))}
           />
-          <Tooltip content={<ChartTooltip />} />
+          {!masked && <Tooltip content={<ChartTooltip />} />}
           <Area
             type="monotone" dataKey="portfolio" stroke="none" fill="url(#portfolioFill)" isAnimationActive={false}
             activeDot={false} legendType="none" tooltipType="none" hide={hidden.has("Total")} connectNulls

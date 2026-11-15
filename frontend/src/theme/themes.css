@@ -44,6 +44,11 @@
   --fill:           rgba(120, 120, 128, 0.2);
   --fill-secondary: rgba(120, 120, 128, 0.16);
   --fill-pressed:   rgba(0, 0, 0, 0.06);
+  --fill-hover:     rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb: rgba(60, 60, 67, 0.3);
+
+  /* One-Page (desktop): page behind the blocks */
+  --desk-page:      #E5E5EA;
 
   /* Accent and status */
   --tint:            var(--system-blue);
@@ -105,6 +110,11 @@
   --fill:           rgba(120, 120, 128, 0.36);
   --fill-secondary: rgba(120, 120, 128, 0.32);
   --fill-pressed:   rgba(255, 255, 255, 0.08);
+  --fill-hover:     rgba(255, 255, 255, 0.07);
+  --scrollbar-thumb: rgba(235, 235, 245, 0.25);
+
+  /* One-Page (desktop): page behind the blocks */
+  --desk-page:      #0E0E10;
 
   --tint:            var(--system-blue);
   --on-tint:         var(--system-white);

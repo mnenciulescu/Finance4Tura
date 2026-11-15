@@ -24,8 +24,8 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
  * selects its month (the breakdown shows under the chart).
  */
 export default function FreeChart({
-  rows, currentMonth, selected, onSelect,
-}: { rows: MonthRow[]; currentMonth: number; selected: number | null; onSelect: (i: number | null) => void }) {
+  rows, currentMonth, selected, onSelect, height = 220,
+}: { rows: MonthRow[]; currentMonth: number; selected: number | null; onSelect: (i: number | null) => void; height?: number }) {
   const c = useResolvedColors({
     positive: "--tint", negative: "--status-negative", label: "--label-secondary", grid: "--separator",
     now: "--label-tertiary", fill: "--fill-secondary",
@@ -35,7 +35,7 @@ export default function FreeChart({
 
   return (
     <div role="img" aria-label={summary} className={s.chart}>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={height}>
         <BarChart
           data={rows}
           margin={{ top: 14, right: 4, left: 0, bottom: 0 }}

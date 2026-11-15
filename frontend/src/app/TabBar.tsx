@@ -1,8 +1,9 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "../ui/icons/Icon";
 import { haptic } from "./haptics";
 import { TABS } from "./navigation";
-import { currentTab, selectTab } from "./tabHistory";
+import { currentTab, selectTab, syncRenderedLocation } from "./tabHistory";
 import s from "./TabBar.module.css";
 
 /** iOS tab bar: translucent material, edge to edge, label under icon. */
@@ -10,6 +11,7 @@ export function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const active = currentTab(location);
+  useEffect(() => { syncRenderedLocation(location); }, [location]);
 
   return (
     <nav className={s.bar} aria-label="Main">

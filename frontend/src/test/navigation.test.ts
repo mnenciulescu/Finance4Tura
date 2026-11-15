@@ -24,4 +24,11 @@ describe("navigation config", () => {
     expect(labels({ backstageEnabled: false, username: "nenciulescu" })).toEqual(["Settings", "Admin"]);
     expect(labels({ backstageEnabled: false, username: "ana" })).toEqual(["Settings"]);
   });
+
+  it("offers One-Page only on screens of at least 1024 px", () => {
+    window.innerWidth = 1280;
+    expect(visibleItems(ACCOUNT_ITEMS, { username: "ana" }).map(i => i.label)).toEqual(["Settings", "One-Page (Desktop)"]);
+    window.innerWidth = 1023;
+    expect(visibleItems(ACCOUNT_ITEMS, { username: "ana" }).map(i => i.label)).toEqual(["Settings"]);
+  });
 });

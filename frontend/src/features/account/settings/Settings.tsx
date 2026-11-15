@@ -9,6 +9,7 @@ import { useInstall } from "../../../app/install";
 import { formatRemaining, useSessionRemaining } from "../../../app/AccountSheet";
 import { InstallInstructionsSheet } from "./InstallInstructions";
 import { useAccountBack } from "../../../app/useAccountBack";
+import { ONE_PAGE_MIN_WIDTH, readOnePageDefault, writeOnePageDefault } from "../../../app/onePage";
 import s from "./Settings.module.css";
 
 const LABEL: Record<ThemeSetting, string> = { auto: "Automatic", light: "Light", dark: "Dark" };
@@ -37,6 +38,8 @@ export default function Settings() {
   const remaining = useSessionRemaining();
   const [instructions, setInstructions] = useState(false);
   const back = useAccountBack();
+  const [onePage, setOnePage] = useState(readOnePageDefault);
+  const wide = typeof window !== "undefined" && window.innerWidth >= ONE_PAGE_MIN_WIDTH;
 
   return (
     <Screen title="Settings" large={false} back={back}>
@@ -68,6 +71,16 @@ export default function Settings() {
           })}
         </div>
       </ListSection>
+
+      {wide && (
+        <ListSection header="Desktop" footer="Opens One-Page — Money, Library and HQ on one screen — when this browser starts the app on a large screen.">
+          <List>
+            <FieldRow label="Open One-Page on this computer">
+              <Toggle label="Open One-Page on this computer" isSelected={onePage} onChange={v => { writeOnePageDefault(v); setOnePage(v); }} />
+            </FieldRow>
+          </List>
+        </ListSection>
+      )}
 
       <ListSection header="Privacy" footer="Income amounts can also be shown or hidden from the eye button on Budget.">
         <List>

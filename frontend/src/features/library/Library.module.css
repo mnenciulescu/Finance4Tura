@@ -122,6 +122,7 @@
   font-size: var(--fs-footnote);
   color: var(--label-secondary);
   padding-right: var(--space-1);
+  white-space: nowrap;
 }
 .cardBody {
   padding: var(--space-2) var(--space-4) var(--space-3);

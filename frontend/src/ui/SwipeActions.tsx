@@ -1,9 +1,12 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { m, useMotionValue, useTransform, type PanInfo } from "motion/react";
 import { settle } from "./settle";
 import { haptic } from "../app/haptics";
 import { Icon, type IconName } from "./icons/Icon";
+import { useIsDesk } from "./layout";
 import s from "./SwipeActions.module.css";
+
+const DeskRowActions = /* @__PURE__ */ lazy(() => import("./DeskOverlays").then(m => ({ default: m.DeskRowActions })));
 
 export interface SwipeAction {
   label: string;
@@ -28,6 +31,7 @@ const OPEN_EVENT = "swipe-actions-open";
  */
 export function SwipeActions({ actions, children, disabled }: { actions: SwipeAction[]; children: ReactNode; disabled?: boolean }) {
   const id = useId();
+  const desk = useIsDesk();
   const x = useMotionValue(0);
   // The action panel is invisible at rest, so it never bleeds through the
   // anti-aliased edge of a rounded card.
@@ -82,6 +86,8 @@ export function SwipeActions({ actions, children, disabled }: { actions: SwipeAc
   };
 
   if (disabled || actions.length === 0) return <>{children}</>;
+  // One-Page: hover actions instead of the swipe gesture.
+  if (desk) return <Suspense fallback={children}><DeskRowActions actions={actions}>{children}</DeskRowActions></Suspense>;
 
   return (
     <div ref={ref} className={s.container}>

@@ -14,6 +14,15 @@ const MAX_PARAMS = 30;
 
 /** HQ Settings (proposal §8.9): locations and tracker templates. */
 export default function HqSettings() {
+  return (
+    <Screen title="HQ Settings" large={false} back={{ label: "HQ", to: "/hq" }}>
+      <HqSettingsContent />
+    </Screen>
+  );
+}
+
+/** Locations and templates with their sheets; also One-Page's HQ Settings dialog. */
+export function HqSettingsContent() {
   const locations = useHqLocations();
   const templates = useHqTemplates();
   const [locForm, setLocForm] = useState<{ loc?: HqLocation } | null>(null);
@@ -23,7 +32,7 @@ export default function HqSettings() {
   const unassigned = tpls.filter(t => !locs.some(l => l.hqId === t.hqId));
 
   return (
-    <Screen title="HQ Settings" large={false} back={{ label: "HQ", to: "/hq" }}>
+    <>
       {(locations.isError || templates.isError) && <Notice>Could not load HQ settings.</Notice>}
       {locations.isPending || templates.isPending ? (
         <ScreenSkeleton blocks={2} />
@@ -79,7 +88,7 @@ export default function HqSettings() {
 
       <LocationSheet target={locForm} templates={tpls} onClose={() => setLocForm(null)} />
       <TemplateSheet target={tplForm} locations={locs} onClose={() => setTplForm(null)} />
-    </Screen>
+    </>
   );
 }
 
