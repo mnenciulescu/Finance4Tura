@@ -192,7 +192,7 @@ function InvestStats() {
     <>
       <p className={s.caption}>Portfolio evolution in EUR{revealed ? "" : " · values hidden, hold the eye to show them"}</p>
       <div className={st.chartCard}>
-        <EvolutionPanel snapshots={snaps.data ?? []} operations={ops.data ?? []} rates={fx.data?.rates ?? null} masked={!revealed} height={250} />
+        <EvolutionPanel snapshots={snaps.data ?? []} operations={ops.data ?? []} rates={fx.data?.rates ?? null} masked={!revealed} height={250} compact />
       </div>
     </>
   );

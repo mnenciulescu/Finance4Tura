@@ -242,8 +242,12 @@ const EvolutionChart = lazy(() => import("./EvolutionChart"));
 
 /** Range control, line chips and the evolution chart (Total on, platforms off). */
 export function EvolutionPanel({
-  snapshots, operations, rates, masked, height,
-}: { snapshots: Snapshot[]; operations: Operation[]; rates: FxMatrix | null; masked?: boolean; height?: number }) {
+  snapshots, operations, rates, masked, height, compact,
+}: {
+  snapshots: Snapshot[]; operations: Operation[]; rates: FxMatrix | null; masked?: boolean; height?: number;
+  /** Smaller range switch and wrapping platform chips (One-Page). */
+  compact?: boolean;
+}) {
   const [range, setRange] = useState<Range>("all");
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(PLATFORMS));
   const active = useMemo(() => activePlatforms(snapshots), [snapshots]);
@@ -259,26 +263,28 @@ export function EvolutionPanel({
   if (chart.data.length < 2) return <p className={s.emptyLine}>Not enough data to chart yet.</p>;
   return (
     <>
-      <SegmentedControl
-        label="Chart range"
-        value={range}
-        options={[{ value: "1y", label: "1Y" }, { value: "3y", label: "3Y" }, { value: "all", label: "All" }]}
-        onChange={setRange}
-        className={s.range}
-      />
-      <div className={s.chips} role="group" aria-label="Chart lines">
-        {["Total", ...active].map(k => (
-          <button
-            key={k}
-            type="button"
-            className={[s.chip, !hidden.has(k) ? s.chipOn : ""].join(" ")}
-            aria-pressed={!hidden.has(k)}
-            onClick={() => toggleLine(k)}
-          >
-            <Dot color={k === "Total" ? "var(--label)" : PLATFORM_COLOR[k]} size={8} />
-            {k}
-          </button>
-        ))}
+      <div className={compact ? s.controlsCompact : s.controls}>
+        <SegmentedControl
+          label="Chart range"
+          value={range}
+          options={[{ value: "1y", label: "1Y" }, { value: "3y", label: "3Y" }, { value: "all", label: "All" }]}
+          onChange={setRange}
+          className={s.range}
+        />
+        <div className={s.chips} role="group" aria-label="Chart lines">
+          {["Total", ...active].map(k => (
+            <button
+              key={k}
+              type="button"
+              className={[s.chip, !hidden.has(k) ? s.chipOn : ""].join(" ")}
+              aria-pressed={!hidden.has(k)}
+              onClick={() => toggleLine(k)}
+            >
+              <Dot color={k === "Total" ? "var(--label)" : PLATFORM_COLOR[k]} size={8} />
+              {k}
+            </button>
+          ))}
+        </div>
       </div>
       <Suspense fallback={<Skeleton height={height ?? 210} />}>
         <EvolutionChart data={data} platforms={active} hidden={hidden} masked={masked} height={height} />
