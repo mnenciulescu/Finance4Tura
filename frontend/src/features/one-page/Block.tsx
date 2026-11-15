@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ErrorBoundary } from "../../app/ErrorBoundary";
-import { Icon } from "../../ui";
+import { AmountMaskContext, Icon, IconButton } from "../../ui";
+import { usePrivacy } from "../../context/PrivacyContext";
 import { readCollapsed, writeCollapsed, type BlockId } from "./state";
 import s from "./OnePage.module.css";
 
@@ -47,6 +48,29 @@ export function Block({
       )}
     </section>
   );
+}
+
+/**
+ * The money eye of Budget and Budget Statistics: one persisted flag (the
+ * shared income-privacy setting, also `H`) that shows or hides every amount
+ * in both blocks.
+ */
+export function MoneyEye() {
+  const { incomeVisible, setIncomeVisible } = usePrivacy();
+  return (
+    <IconButton
+      icon={incomeVisible ? "eye" : "eyeSlash"}
+      label={incomeVisible ? "Hide money amounts" : "Show money amounts"}
+      title="Money amounts (H)"
+      onClick={() => setIncomeVisible(!incomeVisible)}
+    />
+  );
+}
+
+/** Masks the amounts of the blocks inside while the money eye is off. */
+export function MoneyMask({ children }: { children: ReactNode }) {
+  const { incomeVisible } = usePrivacy();
+  return <AmountMaskContext.Provider value={!incomeVisible}>{children}</AmountMaskContext.Provider>;
 }
 
 /** Scrollable chip tabs for lists of unknown length (people, locations). */

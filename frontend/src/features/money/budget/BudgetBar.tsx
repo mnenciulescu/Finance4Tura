@@ -1,4 +1,4 @@
-import { ProgressBar } from "../../../ui";
+import { Amount, ProgressBar, useAmountsMasked } from "../../../ui";
 import { BUDGET_COLOR } from "../../../theme/domainColors";
 import { fmtInt } from "../../../utils/format";
 import type { PeriodTotals } from "./budgetMath";
@@ -10,6 +10,7 @@ import s from "./Budget.module.css";
  * tiny amount is still visible.
  */
 export function BudgetBar({ totals }: { totals: PeriodTotals }) {
+  const masked = useAmountsMasked();
   if (totals.income <= 0) return null;
   const free = Math.max(0, totals.balance);
   const segments = [
@@ -17,7 +18,7 @@ export function BudgetBar({ totals }: { totals: PeriodTotals }) {
     { value: totals.pending, color: BUDGET_COLOR.pending, label: "Pending" },
     ...(totals.over ? [] : [{ value: free, color: BUDGET_COLOR.free, label: "Free" }]),
   ];
-  const label = `Spent ${fmtInt(totals.spent)}: done ${fmtInt(totals.done)}, pending ${fmtInt(totals.pending)}, ${
+  const label = masked ? "Budget bar, amounts hidden" : `Spent ${fmtInt(totals.spent)}: done ${fmtInt(totals.done)}, pending ${fmtInt(totals.pending)}, ${
     totals.over ? `over by ${fmtInt(-totals.balance)}` : `free ${fmtInt(free)}`}`;
   return (
     <div className={s.budget}>
@@ -25,15 +26,15 @@ export function BudgetBar({ totals }: { totals: PeriodTotals }) {
       <dl className={s.legend}>
         <div className={s.legendItem}>
           <dt>Spent</dt>
-          <dd data-figure="spent">{fmtInt(totals.spent)}</dd>
+          <dd data-figure="spent"><Amount>{fmtInt(totals.spent)}</Amount></dd>
         </div>
         <div className={s.legendItem}>
           <dt><span className={s.legendDot} style={{ background: BUDGET_COLOR.done }} />Done</dt>
-          <dd data-figure="done">{fmtInt(totals.done)}</dd>
+          <dd data-figure="done"><Amount>{fmtInt(totals.done)}</Amount></dd>
         </div>
         <div className={s.legendItem}>
           <dt><span className={s.legendDot} style={{ background: BUDGET_COLOR.pending }} />Pending</dt>
-          <dd data-figure="pending">{fmtInt(totals.pending)}</dd>
+          <dd data-figure="pending"><Amount>{fmtInt(totals.pending)}</Amount></dd>
         </div>
         <div className={s.legendItem}>
           <dt>
@@ -41,7 +42,7 @@ export function BudgetBar({ totals }: { totals: PeriodTotals }) {
             {totals.over ? "Over" : "Free"}
           </dt>
           <dd data-figure={totals.over ? "over" : "free"} className={totals.over ? s.overFigure : undefined}>
-            {fmtInt(totals.over ? -totals.balance : free)}
+            <Amount>{fmtInt(totals.over ? -totals.balance : free)}</Amount>
           </dd>
         </div>
       </dl>

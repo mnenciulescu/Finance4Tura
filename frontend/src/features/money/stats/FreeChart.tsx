@@ -1,5 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useResolvedColors } from "../../../theme/useChartTheme";
+import { useAmountsMasked } from "../../../ui/PrivateValue";
 import { fmtAxis, fmtInt } from "../../../utils/format";
 import type { MonthRow } from "./statsMath";
 import s from "./Stats.module.css";
@@ -30,8 +31,11 @@ export default function FreeChart({
     positive: "--tint", negative: "--status-negative", label: "--label-secondary", grid: "--separator",
     now: "--label-tertiary", fill: "--fill-secondary",
   });
+  const masked = useAmountsMasked();
   const best = rows.reduce((b, r, i) => ((r.free ?? -Infinity) > (rows[b]?.free ?? -Infinity) ? i : b), 0);
-  const summary = `Free amount per month; highest ${rows[best]?.label} ${fmtInt(rows[best]?.free)}`;
+  const summary = masked
+    ? "Free amount per month; values hidden"
+    : `Free amount per month; highest ${rows[best]?.label} ${fmtInt(rows[best]?.free)}`;
 
   return (
     <div role="img" aria-label={summary} className={s.chart}>
@@ -46,8 +50,8 @@ export default function FreeChart({
         >
           <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="label" tick={{ fill: c.label, fontSize: 11 }} tickLine={false} axisLine={false} interval={0} tickFormatter={(l: string) => l.slice(0, 1)} />
-          <YAxis tick={{ fill: c.label, fontSize: 11 }} tickFormatter={fmtAxis} tickLine={false} axisLine={false} width={40} />
-          <Tooltip cursor={{ fill: c.fill }} content={<MonthTooltip />} />
+          <YAxis tick={{ fill: c.label, fontSize: 11 }} tickFormatter={masked ? () => "" : fmtAxis} tickLine={false} axisLine={false} width={masked ? 8 : 40} />
+          {!masked && <Tooltip cursor={{ fill: c.fill }} content={<MonthTooltip />} />}
           {currentMonth >= 0 && (
             <ReferenceLine
               x={rows[currentMonth]?.label}

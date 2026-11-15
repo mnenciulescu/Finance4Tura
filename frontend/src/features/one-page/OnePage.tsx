@@ -15,6 +15,7 @@ import { BookSheet } from "../library/BookSheet";
 import { NO_FILTERS, type Filters } from "../library/libraryMath";
 import type { Book, Operation, Snapshot, SplitPayment } from "../../types";
 import { Header } from "./Header";
+import { MoneyMask } from "./Block";
 import { BudgetBlock } from "./blocks/BudgetBlock";
 import { SplitBlock } from "./blocks/SplitBlock";
 import { InvestBlock } from "./blocks/InvestBlock";
@@ -109,8 +110,8 @@ export default function OnePage() {
   const names = useMemo(() => [...new Set((books.data ?? []).map(b => b.name).filter(Boolean))].sort(), [books.data]);
 
   const blocks: Record<BlockId, ReactNode> = {
-    budget: <BudgetBlock />,
-    budgetStats: <BudgetStatsBlock />,
+    budget: <MoneyMask><BudgetBlock /></MoneyMask>,
+    budgetStats: <MoneyMask><BudgetStatsBlock /></MoneyMask>,
     split: <SplitBlock />,
     investStats: <InvestStatsBlock />,
     invest: <InvestBlock />,
@@ -233,7 +234,7 @@ const SHORTCUTS: [string, string][] = [
   ["← / →", "Previous / next budget period"],
   ["T", "Current budget period"],
   ["/", "Search the library"],
-  ["H", "Show / hide income amounts"],
+  ["H", "Show / hide money amounts (Budget)"],
   ["R", "Refresh"],
   ["Esc", "Close the dialog or menu"],
   ["Space on 👁", "Show / hide investment amounts"],

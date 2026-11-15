@@ -940,3 +940,10 @@ Files: `features/one-page/` (`OnePage.tsx`, `Header.tsx`, `Block.tsx`,
   them (`RevealButton toggle`). Both investment blocks share it; values are
   masked again when the page is hidden. Today's Holdings on the phone stays
   press-and-hold.
+
+- **Money eye** (later revision): Budget and Budget Statistics each have an
+  eye that shows/hides every money amount in both blocks (income, expenses,
+  budget bar, tiles, averages, per-month table, ★ Special, Free chart axis and
+  tooltip). It reuses the persisted income-privacy flag and `H`.
+- **Split cards** are denser on One-Page: 32 px slots, tighter head, body and
+  footer.

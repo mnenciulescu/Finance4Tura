@@ -53,6 +53,22 @@ export function PrivateValue({ children, mode = "toggle", visible, group = "defa
   );
 }
 
+/**
+ * Masks every <Amount> below it (One-Page's money eye). Nothing provides it on
+ * the phone, so shared Budget / Stats components render amounts as before.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export const AmountMaskContext = createContext(false);
+// eslint-disable-next-line react-refresh/only-export-components
+export const useAmountsMasked = () => useContext(AmountMaskContext);
+
+/** An amount that is redacted while an AmountMaskContext says so. */
+export function Amount({ children, chars = 5, className }: { children: ReactNode; chars?: number; className?: string }) {
+  const masked = useContext(AmountMaskContext);
+  if (!masked) return className ? <span className={className}>{children}</span> : <>{children}</>;
+  return <PrivateValue visible={false} chars={chars} className={className}>{children}</PrivateValue>;
+}
+
 /** Whether a hold-to-reveal group is revealed right now (for charts). */
 // eslint-disable-next-line react-refresh/only-export-components
 export const useRevealed = (group = "default") => !!useContext(RevealContext)[group];

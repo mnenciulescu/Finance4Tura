@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from "react";
 import {
-  Dot, EmptyState, Notice, RevealButton, SegmentedTabs, ShowMore, Skeleton, useRevealed, useShowMore,
+  Amount, Dot, EmptyState, Notice, RevealButton, SegmentedTabs, ShowMore, Skeleton, useRevealed, useShowMore,
 } from "../../../ui";
 import { useBooks, useExpensesForYear, useFxRates, useIncomesForYear, useOperations, useSnapshots } from "../../../data/queries";
 import { useHqEntries, useHqLocations, useHqTemplates } from "../../../data/hq";
@@ -14,7 +14,7 @@ import { AverageTiles, FreeMonthPanel, PriorityAverages, SpecialList } from "../
 import { EvolutionPanel } from "../../money/invest/InvestPanels";
 import { applyFilters, sectionsOf } from "../../library/libraryMath";
 import { defaultLocation, isWaterTemplate } from "../../hq/hqMath";
-import { Block, ChipTabs, LinkButton } from "../Block";
+import { Block, ChipTabs, LinkButton, MoneyEye } from "../Block";
 import { useEnumParam, useOnePage, useParam } from "../state";
 import st from "../../money/stats/Stats.module.css";
 import s from "../OnePage.module.css";
@@ -38,6 +38,7 @@ export function BudgetStatsBlock() {
     <Block
       id="budgetStats"
       title="Budget Statistics"
+      actions={<MoneyEye />}
       tabs={
         <SegmentedTabs
           label="Budget statistics"
@@ -157,10 +158,10 @@ function BudgetStats({ tab }: { tab: "budget" | "prio" | "special" }) {
               {rows.filter(r => r.hasData).map(r => (
                 <tr key={r.label}>
                   <th scope="row">{r.label}</th>
-                  <td>{fmtInt(r.high)}</td>
-                  <td>{fmtInt(r.medium)}</td>
-                  <td>{fmtInt(r.low)}</td>
-                  <td><strong>{fmtInt((r.high ?? 0) + (r.medium ?? 0) + (r.low ?? 0))}</strong></td>
+                  <td><Amount>{fmtInt(r.high)}</Amount></td>
+                  <td><Amount>{fmtInt(r.medium)}</Amount></td>
+                  <td><Amount>{fmtInt(r.low)}</Amount></td>
+                  <td><strong><Amount>{fmtInt((r.high ?? 0) + (r.medium ?? 0) + (r.low ?? 0))}</Amount></strong></td>
                 </tr>
               ))}
             </tbody>
@@ -172,7 +173,7 @@ function BudgetStats({ tab }: { tab: "budget" | "prio" | "special" }) {
 
   return (
     <>
-      <p className={s.caption}>{special.length} special expense{special.length === 1 ? "" : "s"} in {selectedYear} · {fmtInt(specialTotal)}</p>
+      <p className={s.caption}>{special.length} special expense{special.length === 1 ? "" : "s"} in {selectedYear} · <Amount>{fmtInt(specialTotal)}</Amount></p>
       <SpecialList special={special} total={specialTotal} year={selectedYear} limit={limit} onOpen={e => openExpense({ id: e.expenseId })} />
       <ShowMore shown={limit} total={special.length} initial={3} step={5} onChange={setLimit} allowAll />
     </>

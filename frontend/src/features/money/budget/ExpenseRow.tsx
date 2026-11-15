@@ -1,5 +1,6 @@
 import { Checkbox } from "../../../ui/Checkbox";
 import { Dot } from "../../../ui/Display";
+import { Amount } from "../../../ui/PrivateValue";
 import { PRIORITY_COLOR, PRIORITY_FALLBACK } from "../../../theme/domainColors";
 import { fmtMoney } from "../../../utils/format";
 import type { Expense } from "../../../types";
@@ -25,7 +26,7 @@ export function ExpenseRow({ exp, onToggle, onEdit }: ExpenseRowProps) {
       {exp.special && <span className={s.star} title="Special" aria-label="Special">★</span>}
       <span className={s.expenseName} title={exp.summary}>{exp.summary}</span>
       <span className={s.expenseDate}>{exp.date.slice(5)}</span>
-      <span className={s.expenseAmount}>{fmtMoney(exp.amount ?? 0)}</span>
+      <span className={s.expenseAmount}><Amount>{fmtMoney(exp.amount ?? 0)}</Amount></span>
     </>
   );
   const content = (

@@ -13,7 +13,7 @@ import { useBudgetDeletes } from "../../money/budget/useBudgetDeletes";
 import { byPriorityThenDate, currentIndex, groupByIncome, periodTotals } from "../../money/budget/budgetMath";
 import { fmtMoney, fmtShortDate, todayIso } from "../../../utils/format";
 import type { Expense } from "../../../types";
-import { Block } from "../Block";
+import { Block, MoneyEye } from "../Block";
 import { PERIOD_EVENT, useCommand, useParam } from "../state";
 import b from "../../money/budget/Budget.module.css";
 import s from "../OnePage.module.css";
@@ -30,13 +30,13 @@ const FILTERS: Record<Filter, (e: Expense) => boolean> = {
  * Budget (One-Page §7.1): one income period with a period picker instead of
  * the swipe pager, the budget bar, filter chips and every expense row of the
  * period. Same rows, menus and deletes as Money → Budget. The block owns the
- * income-amount eye and the New Expense / New Income actions.
+ * money eye and the New Expense / New Income actions.
  */
 export function BudgetBlock() {
   const incomesQ = useIncomes();
   const expensesQ = useExpenses();
   const { selectedYear } = useYear();
-  const { incomeVisible, setIncomeVisible } = usePrivacy();
+  const { incomeVisible } = usePrivacy();
   const { openExpense, openIncome } = useForms();
   const toggle = useToggleExpense();
   const { requestDelete, requestIncomeDelete, dialogs } = useBudgetDeletes();
@@ -77,12 +77,7 @@ export function BudgetBlock() {
       title="Budget"
       actions={
         <>
-          <IconButton
-            icon={incomeVisible ? "eye" : "eyeSlash"}
-            label={incomeVisible ? "Hide income amounts" : "Show income amounts"}
-            title="Income amounts (H)"
-            onClick={() => setIncomeVisible(!incomeVisible)}
-          />
+          <MoneyEye />
           <Button variant="tinted" size="small" icon="plus" onClick={() => openExpense({ date: income?.date })}>Add Expense</Button>
           <PullDownMenu
             label="Budget actions"

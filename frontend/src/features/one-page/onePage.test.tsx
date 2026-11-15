@@ -91,14 +91,24 @@ describe("One-Page — Budget", () => {
     expect(location()).not.toContain("period=");
   });
 
-  it("follows the income-privacy setting", async () => {
+  it("hides every money amount in Budget and Budget Statistics behind one eye", async () => {
     renderPage();
     await within(block("budget")).findByText("Period 9 of 12");
-    const header = block("budget").querySelector("[data-period]") as HTMLElement;
-    expect(within(header).getByRole("img", { name: "Hidden amount" })).toBeInTheDocument();
-    fireEvent.click(within(block("budget")).getByRole("button", { name: "Show income amounts" }));
-    expect(within(header).queryByRole("img", { name: "Hidden amount" })).toBeNull();
+    await waitFor(() => expect(block("budget").querySelectorAll("[data-expense]")).toHaveLength(7));
+    const hidden = (id: string) => within(block(id)).queryAllByRole("img", { name: "Hidden amount" }).length;
+    // Income, 4 bar figures and 7 expense amounts.
+    expect(hidden("budget")).toBe(12);
+    await waitFor(() => expect(hidden("budgetStats")).toBeGreaterThan(0));
+    expect(within(block("budget")).queryByText("100,00")).toBeNull();
+
+    fireEvent.click(within(block("budgetStats")).getByRole("button", { name: "Show money amounts" }));
+    expect(hidden("budget")).toBe(0);
+    expect(hidden("budgetStats")).toBe(0);
+    expect(within(block("budget")).getByText("100,00")).toBeInTheDocument();
     expect(localStorage.getItem("incomePrivacy")).toBe("true");
+
+    fireEvent.click(within(block("budget")).getByRole("button", { name: "Hide money amounts" }));
+    expect(hidden("budget")).toBe(12);
   });
 });
 
@@ -159,7 +169,7 @@ describe("One-Page — keyboard", () => {
     renderPage();
     const search = await within(block("library")).findByRole("searchbox", { name: "Search title or author" });
     fireEvent.keyDown(search, { key: "h" });
-    expect(screen.getByRole("button", { name: "Show income amounts" })).toBeInTheDocument();
+    expect(within(block("budget")).getByRole("button", { name: "Show money amounts" })).toBeInTheDocument();
   });
 });
 
@@ -182,7 +192,7 @@ describe("One-Page — header", () => {
     renderPage();
     const header = (await screen.findByRole("button", { name: "Refresh" })).closest("header") as HTMLElement;
     expect(within(header).queryByRole("button", { name: "New" })).toBeNull();
-    expect(within(header).queryByRole("button", { name: /income amounts/ })).toBeNull();
+    expect(within(header).queryByRole("button", { name: /money amounts/ })).toBeNull();
   });
 });
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
-import { Dot, List, ListRow, PrivateValue, Skeleton, StatTile } from "../../../ui";
+import { Amount, Dot, List, ListRow, PrivateValue, Skeleton, StatTile, useAmountsMasked } from "../../../ui";
 import { PRIORITY_COLOR, STATS_COLOR } from "../../../theme/domainColors";
 import { fmt1, fmtInt, fmtShortDate } from "../../../utils/format";
 import type { Expense } from "../../../types";
@@ -13,15 +13,20 @@ const FreeChart = lazy(() => import("./FreeChart"));
 type Averages = ReturnType<typeof averages>;
 
 export function AverageTiles({ avg }: { avg: Averages }) {
+  const masked = useAmountsMasked();
   return (
     <div className={s.tiles}>
       <StatTile
-        value={fmt1(avg.free)}
+        value={<Amount>{fmt1(avg.free)}</Amount>}
         caption="Avg free / month"
         tone={avg.free >= 0 ? undefined : "negative"}
-        label={`Average free per month: ${fmt1(avg.free)}`}
+        label={masked ? "Average free per month: hidden" : `Average free per month: ${fmt1(avg.free)}`}
       />
-      <StatTile value={fmt1(avg.survival)} caption="Survival / month" label={`Survival per month: ${fmt1(avg.survival)}`} />
+      <StatTile
+        value={<Amount>{fmt1(avg.survival)}</Amount>}
+        caption="Survival / month"
+        label={masked ? "Survival per month: hidden" : `Survival per month: ${fmt1(avg.survival)}`}
+      />
     </div>
   );
 }
@@ -34,7 +39,7 @@ export function PriorityAverages({ avg }: { avg: Averages }) {
           key={p}
           leading={<Dot color={PRIORITY_COLOR[p]} />}
           title={p}
-          trailing={<span className={s.figure} data-avg={p.toLowerCase()}>{fmt1(avg[p.toLowerCase() as "high"])}</span>}
+          trailing={<span className={s.figure} data-avg={p.toLowerCase()}><Amount>{fmt1(avg[p.toLowerCase() as "high"])}</Amount></span>}
         />
       ))}
     </List>
@@ -64,11 +69,11 @@ export function FreeMonthPanel({
           <div className={s.breakdownHead}>{sel.label} {year}</div>
           <dl className={s.breakdownGrid}>
             <dt>Income</dt><dd><PrivateValue visible={incomeVisible} chars={6}>{fmtInt(sel.income)}</PrivateValue></dd>
-            <dt><Dot color={PRIORITY_COLOR.High} size={8} /> High</dt><dd>{fmtInt(sel.high)}</dd>
-            <dt><Dot color={PRIORITY_COLOR.Medium} size={8} /> Medium</dt><dd>{fmtInt(sel.medium)}</dd>
-            <dt><Dot color={PRIORITY_COLOR.Low} size={8} /> Low</dt><dd>{fmtInt(sel.low)}</dd>
+            <dt><Dot color={PRIORITY_COLOR.High} size={8} /> High</dt><dd><Amount>{fmtInt(sel.high)}</Amount></dd>
+            <dt><Dot color={PRIORITY_COLOR.Medium} size={8} /> Medium</dt><dd><Amount>{fmtInt(sel.medium)}</Amount></dd>
+            <dt><Dot color={PRIORITY_COLOR.Low} size={8} /> Low</dt><dd><Amount>{fmtInt(sel.low)}</Amount></dd>
             <dt className={s.freeLabel}>Free</dt>
-            <dd className={sel.free < 0 ? s.negative : s.positive}>{fmtInt(sel.free)}</dd>
+            <dd className={sel.free < 0 ? s.negative : s.positive}><Amount>{fmtInt(sel.free)}</Amount></dd>
           </dl>
           {footer?.(selected)}
         </div>
@@ -90,11 +95,11 @@ export function SpecialList({
           leading={<span className={s.star} style={{ color: STATS_COLOR.special }}>★</span>}
           title={e.summary}
           subtitle={fmtShortDate(e.date)}
-          trailing={<span className={s.figure}>{fmtInt(e.amount)}</span>}
+          trailing={<span className={s.figure}><Amount>{fmtInt(e.amount)}</Amount></span>}
           onPress={onOpen ? () => onOpen(e) : undefined}
         />
       ))}
-      <ListRow title={<strong>Total</strong>} trailing={<strong className={s.special}>{fmtInt(total)}</strong>} />
+      <ListRow title={<strong>Total</strong>} trailing={<strong className={s.special}><Amount>{fmtInt(total)}</Amount></strong>} />
     </List>
   );
 }

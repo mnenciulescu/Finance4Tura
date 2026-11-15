@@ -366,7 +366,12 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   (`ui/ShowMore.tsx`).
 - **Blocks**: Budget (period picker ‹ › + dropdown + Today, budget bar,
   All/Pending/Done/★ filter, every row with hover actions and right-click
-  menu, income eye, Add Expense, ··· New Income / New Expense);
+  menu, money eye, Add Expense, ··· New Income / New Expense). **Money
+  eye** in Budget and Budget Statistics: one flag (the persisted
+  `incomePrivacy`, also `H`) that hides income, expense amounts, the budget
+  bar figures and every Budget Statistics amount/axis/tooltip via
+  `AmountMaskContext` + `<Amount>` (`ui/PrivateValue.tsx`; the phone never
+  provides it, so phone screens are unchanged);
   Split (In progress / Settled tabs, same slots and settle prompt);
   Investments (Portfolio / Snapshots / Operations; **all amounts masked**
   behind an eye that works as a show/hide flag — click to show, click again

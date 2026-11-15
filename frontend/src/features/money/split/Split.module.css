@@ -171,3 +171,30 @@
 .sectionGap {
   height: var(--space-3);
 }
+
+/* ── One-Page: denser cards (pointer targets, less empty space) ─────────── */
+:global(html[data-layout="desk"]) .slot {
+  min-height: 32px;
+}
+:global(html[data-layout="desk"]) .slotInput,
+:global(html[data-layout="desk"]) .slotButton {
+  height: 30px;
+}
+:global(html[data-layout="desk"]) .entryHead {
+  min-height: 48px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+:global(html[data-layout="desk"]) .entryBody {
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+:global(html[data-layout="desk"]) .footerRow {
+  min-height: 28px;
+}
+:global(html[data-layout="desk"]) .footerRow > button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+}
