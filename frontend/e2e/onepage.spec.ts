@@ -107,24 +107,22 @@ test("right-click shows the app's own menu", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: /Mark as (Completed|Pending)/ })).toBeVisible();
 });
 
-test("holdings stay masked until the eye is held (mouse and Space)", async ({ page }) => {
+test("the holdings eye is a flag: click shows, click again hides (mouse and Space)", async ({ page }) => {
   await open(page);
   const invest = block(page, "invest");
   const hidden = invest.getByRole("img", { name: "Hidden amount" });
   await expect(hidden.first()).toBeVisible();
-  const eye = invest.getByRole("button", { name: "Hold to reveal amounts" });
-  await eye.scrollIntoViewIfNeeded();
-  const box = (await eye.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
+  await invest.getByRole("button", { name: "Show amounts" }).click();
   await expect(hidden).toHaveCount(0);
-  await page.mouse.up();
+  await page.mouse.move(5, 5);
+  await expect(hidden).toHaveCount(0);
+  await invest.getByRole("button", { name: "Hide amounts" }).click();
   await expect(hidden.first()).toBeVisible();
 
-  await eye.focus();
-  await page.keyboard.down("Space");
+  await invest.getByRole("button", { name: "Show amounts" }).focus();
+  await page.keyboard.press("Space");
   await expect(hidden).toHaveCount(0);
-  await page.keyboard.up("Space");
+  await page.keyboard.press("Space");
   await expect(hidden.first()).toBeVisible();
 });
 

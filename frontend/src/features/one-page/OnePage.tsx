@@ -236,7 +236,7 @@ const SHORTCUTS: [string, string][] = [
   ["H", "Show / hide income amounts"],
   ["R", "Refresh"],
   ["Esc", "Close the dialog or menu"],
-  ["Hold Space on 👁", "Reveal holdings while held"],
+  ["Space on 👁", "Show / hide investment amounts"],
   ["?", "This list"],
 ];
 

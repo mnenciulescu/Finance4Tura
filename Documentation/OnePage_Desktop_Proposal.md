@@ -934,3 +934,9 @@ Files: `features/one-page/` (`OnePage.tsx`, `Header.tsx`, `Block.tsx`,
   form controls 13 px on One-Page only) and a 320 px minimum column, so four
   columns fit from 1360 px and three from 1024 px. Stars, Split slots and the
   Library card footer were tightened to fit; column scrollbars are very faint.
+
+- **Holdings eye** (later revision): on One-Page the eye is a flag, not
+  press-and-hold — a click shows the investment amounts, the next click hides
+  them (`RevealButton toggle`). Both investment blocks share it; values are
+  masked again when the page is hidden. Today's Holdings on the phone stays
+  press-and-hold.

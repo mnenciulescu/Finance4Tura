@@ -57,8 +57,15 @@ export function PrivateValue({ children, mode = "toggle", visible, group = "defa
 // eslint-disable-next-line react-refresh/only-export-components
 export const useRevealed = (group = "default") => !!useContext(RevealContext)[group];
 
-/** Press-and-hold eye button that reveals every PrivateValue in its group. */
-export function RevealButton({ group = "default", label = "Hold to reveal amounts" }: { group?: string; label?: string }) {
+/**
+ * Eye button that reveals every PrivateValue in its group. By default it is
+ * press-and-hold; `toggle` makes it a flag — a click shows, the next click
+ * hides (One-Page). Either way the values are masked again when the page is
+ * hidden, and a held reveal also ends when the window loses focus.
+ */
+export function RevealButton({
+  group = "default", label, toggle = false,
+}: { group?: string; label?: string; toggle?: boolean }) {
   const set = useContext(SetRevealContext);
   const revealed = useContext(RevealContext);
   const on = !!revealed[group];
@@ -68,13 +75,32 @@ export function RevealButton({ group = "default", label = "Hold to reveal amount
     const hide = () => set(group, false);
     const onVis = () => { if (document.visibilityState === "hidden") hide(); };
     document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("blur", hide);
+    if (!toggle) window.addEventListener("blur", hide);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("blur", hide);
+      if (!toggle) window.removeEventListener("blur", hide);
     };
-  }, [on, group, set]);
+  }, [on, group, set, toggle]);
 
+  if (toggle) {
+    const text = label ?? (on ? "Hide amounts" : "Show amounts");
+    return (
+      <button
+        type="button"
+        className={[s.reveal, on ? s.revealOn : ""].join(" ")}
+        aria-label={text}
+        aria-pressed={on}
+        title={text}
+        onClick={() => { haptic("light"); set(group, !on); }}
+      >
+        <Icon name={on ? "eye" : "eyeSlash"} size={20} weight="semibold" />
+      </button>
+    );
+  }
+  return <HoldRevealButton group={group} label={label ?? "Hold to reveal amounts"} on={on} set={set} />;
+}
+
+function HoldRevealButton({ group, label, on, set }: { group: string; label: string; on: boolean; set: (group: string, on: boolean) => void }) {
   const start = () => { haptic("light"); set(group, true); };
   const stop = () => set(group, false);
 

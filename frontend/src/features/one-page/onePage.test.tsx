@@ -125,16 +125,19 @@ describe("One-Page — navigation state", () => {
 });
 
 describe("One-Page — sensitive values", () => {
-  it("masks holdings until the eye is held", async () => {
+  it("masks holdings until the eye is switched on, and again when switched off", async () => {
     renderPage();
     const invest = block("invest");
     await within(invest).findByText("eToro");
     const hidden = () => within(invest).queryAllByRole("img", { name: "Hidden amount" }).length;
     expect(hidden()).toBeGreaterThan(0);
-    const eye = within(invest).getByRole("button", { name: "Hold to reveal amounts" });
-    fireEvent.mouseDown(eye);
+    fireEvent.click(within(invest).getByRole("button", { name: "Show amounts" }));
     expect(hidden()).toBe(0);
-    fireEvent.mouseUp(eye);
+    // Still shown after the click ends — it is a flag, not press-and-hold.
+    expect(within(invest).getByRole("button", { name: "Hide amounts" })).toHaveAttribute("aria-pressed", "true");
+    // Both investment blocks share the flag.
+    expect(within(block("investStats")).getByRole("button", { name: "Hide amounts" })).toBeInTheDocument();
+    fireEvent.click(within(invest).getByRole("button", { name: "Hide amounts" }));
     expect(hidden()).toBeGreaterThan(0);
   });
 });

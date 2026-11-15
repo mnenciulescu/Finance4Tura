@@ -14,7 +14,8 @@ const TABS = ["portfolio", "snapshots", "ops"] as const;
 
 /**
  * Investments (One-Page §7.3): Portfolio · Snapshots · Operations. Every
- * amount stays masked until the eye is held (same rule as Today's Holdings).
+ * amount stays masked until the eye is switched on; it stays shown until
+ * switched off (or the page is hidden).
  * The evolution chart is the Investment Statistics block above it.
  */
 export function InvestBlock() {
@@ -39,7 +40,7 @@ export function InvestBlock() {
       subtitle={loading ? undefined : `${dateCount} snapshot${dateCount === 1 ? "" : "s"} · ${operations.length} operation${operations.length === 1 ? "" : "s"}`}
       actions={
         <>
-          <RevealButton group="holdings" label="Hold to reveal amounts" />
+          <RevealButton group="holdings" toggle />
           <PullDownMenu
             label="Add investment data"
             icon="plus"

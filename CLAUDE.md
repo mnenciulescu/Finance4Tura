@@ -369,9 +369,11 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   menu, income eye, Add Expense, ··· New Income / New Expense);
   Split (In progress / Settled tabs, same slots and settle prompt);
   Investments (Portfolio / Snapshots / Operations; **all amounts masked**
-  behind hold-to-reveal); four statistics blocks — **Budget Statistics**
+  behind an eye that works as a show/hide flag — click to show, click again
+  to hide, shared with Investment Statistics, re-masked when the page is
+  hidden); four statistics blocks — **Budget Statistics**
   (tabs Budget, Priorities with a per-month table, ★ Special), **Investment
-  Statistics** (evolution, values hidden unless held), **HQ Statistics**
+  Statistics** (evolution, values hidden until the eye is on), **HQ Statistics**
   (water charts), **Library Statistics** (per-person 12-month chart following
   the Library filters); Library (search, Filter, a tab per person); HQ (a tab per location,
   no Overview, opening on Mosoaia — `defaultLocation` in `hq/hqMath.ts`, also
@@ -584,7 +586,7 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, hold-to-reveal (mouse and Space), shortcuts, cross-links | 36 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links | 36 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 
