@@ -909,3 +909,21 @@ Files: `features/one-page/` (`OnePage.tsx`, `Header.tsx`, `Block.tsx`,
 `ui/layout.ts`, `ui/DeskOverlays.tsx`, `ui/ShowMore.tsx`,
 `features/library/PeopleChart.tsx`; tests in
 `features/one-page/onePage.test.tsx` and `e2e/onepage.spec.ts`.
+
+### 18.1 Revision — four columns (November 2026)
+
+- **Columns**: as many as fit at 360 px each — four from 1520 px, three from
+  1144 px, two from 1024 px. Four: **Budget · Budget Statistics** | **Split
+  Payments · Investment Statistics · Investments** | **HQ Statistics · HQ** |
+  **Library Statistics · Library**. With three, the Library column moves under
+  HQ; with two, money on the left and HQ + Library on the right.
+- **Statistics** is no longer one block: its tabs became Budget Statistics
+  (Budget · Priorities · ★ Special, `?stats=`), Investment Statistics (with its
+  own hold-to-reveal eye), HQ Statistics (`?hqchart=`) and Library
+  Statistics. Cross-links scroll to these blocks.
+- **Budget** always shows every row of the period; no Show More / Less.
+- **Header** has no + New and no income eye; the eye and New Income / New
+  Expense are in the Budget block, and every other block has its own +.
+- **Type**: a 14 px root with a desk type scale in `tokens.css` (body 14,
+  footnote 12, smallest 11 px); tighter block padding, gaps and header.
+

@@ -19,10 +19,10 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* One-Page (desktop): a 15 px root for denser desktop rows. Controls keep
-   --fs-control (≥ 16 px). */
+/* One-Page (desktop): a 14 px root with its own type scale (tokens.css).
+   Controls keep --fs-control (≥ 16 px). */
 html[data-layout="desk"] {
-  font-size: 93.75%;
+  font-size: 87.5%;
   background: var(--desk-page);
   overscroll-behavior: auto;
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Button, EmptyState, IconButton, Notice, PrivateValue, PullDownMenu, SegmentedControl, ShowMore, Skeleton, useShowMore,
+  Button, EmptyState, IconButton, Notice, PrivateValue, PullDownMenu, SegmentedControl, Skeleton,
 } from "../../../ui";
 import { useExpenses, useIncomes, useToggleExpense } from "../../../data/queries";
 import { useYear } from "../../../context/YearContext";
@@ -28,14 +28,15 @@ const FILTERS: Record<Filter, (e: Expense) => boolean> = {
 
 /**
  * Budget (One-Page §7.1): one income period with a period picker instead of
- * the swipe pager, the budget bar, filter chips and the expense rows — 3 at
- * first, then Show More. Same rows, menus and deletes as Money → Budget.
+ * the swipe pager, the budget bar, filter chips and every expense row of the
+ * period. Same rows, menus and deletes as Money → Budget. The block owns the
+ * income-amount eye and the New Expense / New Income actions.
  */
 export function BudgetBlock() {
   const incomesQ = useIncomes();
   const expensesQ = useExpenses();
   const { selectedYear } = useYear();
-  const { incomeVisible } = usePrivacy();
+  const { incomeVisible, setIncomeVisible } = usePrivacy();
   const { openExpense, openIncome } = useForms();
   const toggle = useToggleExpense();
   const { requestDelete, requestIncomeDelete, dialogs } = useBudgetDeletes();
@@ -59,7 +60,6 @@ export function BudgetBlock() {
     [byIncome, income],
   );
   const list = all.filter(FILTERS[filter]);
-  const [limit, setLimit] = useShowMore(3, `${income?.incomeId}-${filter}`);
 
   const go = (i: number) => {
     const next = yearIncomes[Math.max(0, Math.min(i, yearIncomes.length - 1))];
@@ -78,6 +78,12 @@ export function BudgetBlock() {
       subtitle={income ? `Period ${idx + 1} of ${yearIncomes.length}` : undefined}
       actions={
         <>
+          <IconButton
+            icon={incomeVisible ? "eye" : "eyeSlash"}
+            label={incomeVisible ? "Hide income amounts" : "Show income amounts"}
+            title="Income amounts (H)"
+            onClick={() => setIncomeVisible(!incomeVisible)}
+          />
           <Button variant="tinted" size="small" icon="plus" onClick={() => openExpense({ date: income?.date })}>Add Expense</Button>
           <PullDownMenu
             label="Budget actions"
@@ -164,7 +170,7 @@ export function BudgetBlock() {
               {list.length === 0 && (
                 <li className={b.emptyRow}>{all.length === 0 ? "No expenses mapped" : "No expenses match this filter"}</li>
               )}
-              {list.slice(0, limit).map(exp => (
+              {list.map(exp => (
                 <li key={exp.expenseId} className={b.expenseItem}>
                   <EditableExpenseRow
                     exp={exp}
@@ -182,7 +188,6 @@ export function BudgetBlock() {
               </li>
             </ul>
           </article>
-          <ShowMore shown={limit} total={list.length} initial={3} step={5} onChange={setLimit} allowAll />
         </>
       )}
       {dialogs}

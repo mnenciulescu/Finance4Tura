@@ -8,9 +8,20 @@ import { expect, test, type Page } from "@playwright/test";
 
 const open = async (page: Page, query = "") => {
   await page.goto(`/one-page${query}`);
-  await expect(page.getByRole("heading", { name: "Budget", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Budget", level: 2, exact: true })).toBeVisible();
 };
 const block = (page: Page, id: string) => page.locator(`[data-block="${id}"]`);
+
+test("four columns at 1920 px in the planned order", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await open(page);
+  await expect(page.locator("main[data-cols='4']")).toBeVisible();
+  const order = async (n: number) => page.getByRole("region", { name: `Column ${n}` }).locator("[data-block]").evaluateAll(els => els.map(el => el.getAttribute("data-block")));
+  expect(await order(1)).toEqual(["budget", "budgetStats"]);
+  expect(await order(2)).toEqual(["split", "investStats", "invest"]);
+  expect(await order(3)).toEqual(["hqStats", "hq"]);
+  expect(await order(4)).toEqual(["libraryStats", "library"]);
+});
 
 test("three columns, each scrolling under a fixed header", async ({ page }) => {
   await open(page);
@@ -50,7 +61,7 @@ test("browser back closes the dialog first; tab switches add no history", async 
   await expect(page).toHaveURL(/inv=snapshots/);
   expect(await page.evaluate(() => history.length)).toBe(before);
 
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  await block(page, "budget").getByRole("button", { name: "Budget actions" }).click();
   await page.getByRole("menuitem", { name: "New Expense" }).click();
   const dialog = page.getByRole("dialog", { name: "New Expense" });
   await expect(dialog).toBeVisible();
@@ -73,7 +84,7 @@ test("a dirty form asks before Escape discards it", async ({ page }) => {
 test("hover reveals row actions; delete takes two clicks", async ({ page }) => {
   await open(page);
   const rows = block(page, "budget").locator("[data-expense]");
-  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(2)).toBeVisible();
   const row = rows.nth(2);
   const name = await row.getAttribute("data-expense");
   const item = block(page, "budget").locator("li", { has: page.locator(`[data-expense="${name}"]`) });
@@ -102,6 +113,7 @@ test("holdings stay masked until the eye is held (mouse and Space)", async ({ pa
   const hidden = invest.getByRole("img", { name: "Hidden amount" });
   await expect(hidden.first()).toBeVisible();
   const eye = invest.getByRole("button", { name: "Hold to reveal amounts" });
+  await eye.scrollIntoViewIfNeeded();
   const box = (await eye.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -130,9 +142,10 @@ test("keyboard: N then E opens New Expense; arrows step the budget period", asyn
   await expect(page.getByRole("dialog", { name: "New Expense" })).toBeVisible();
 });
 
-test("cross-links open the right Statistics tab", async ({ page }) => {
+test("cross-links bring the matching statistics block into view", async ({ page }) => {
   await open(page);
   await block(page, "invest").getByRole("button", { name: "View evolution →" }).click();
-  await expect(block(page, "stats").getByRole("tab", { name: "Invest", selected: true })).toBeVisible();
-  await expect(page).toHaveURL(/stats=invest/);
+  await expect(block(page, "investStats")).toBeInViewport();
+  await block(page, "library").getByRole("button", { name: "Chart →" }).click();
+  await expect(block(page, "libraryStats")).toBeInViewport();
 });

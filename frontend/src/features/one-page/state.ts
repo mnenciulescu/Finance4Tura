@@ -32,7 +32,11 @@ export function useEnumParam<T extends string>(name: string, values: readonly T[
 
 /* ── Page context ─────────────────────────────────────────────────────────── */
 
-export type BlockId = "budget" | "split" | "invest" | "stats" | "library" | "hq";
+export type BlockId =
+  | "budget" | "budgetStats"
+  | "split" | "investStats" | "invest"
+  | "hqStats" | "hq"
+  | "libraryStats" | "library";
 
 export interface DeskForms {
   openSplit: (t: { entry?: SplitPayment }) => void;
@@ -79,12 +83,25 @@ export const sendCommand = <T,>(event: string, detail?: T) => window.dispatchEve
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
 
-const query = (q: string) => typeof window !== "undefined" && !!window.matchMedia?.(q).matches;
+/** Narrowest column every block still fits in without clipping (px). */
+export const MIN_COLUMN_PX = 360;
+const GAP_PX = 16;
 
-/** 3 columns from 1280 px, 2 from 1024 px, 1 below. */
-export function useColumns(): 1 | 2 | 3 {
-  const read = () => (query("(min-width: 1280px)") ? 3 : query("(min-width: 1024px)") ? 2 : 1);
-  const [cols, setCols] = useState<1 | 2 | 3>(read);
+export type Columns = 1 | 2 | 3 | 4;
+
+/**
+ * As many columns as fit at MIN_COLUMN_PX — 4 from 1520 px, 3 from 1144 px —
+ * and never 2 below the One-Page minimum width (1024 px).
+ */
+export function columnsFor(width: number): Columns {
+  if (width < 1024) return 1;
+  const fit = Math.floor((width - GAP_PX) / (MIN_COLUMN_PX + GAP_PX));
+  return Math.max(2, Math.min(4, fit)) as Columns;
+}
+
+export function useColumns(): Columns {
+  const read = () => columnsFor(typeof window === "undefined" ? 1440 : window.innerWidth);
+  const [cols, setCols] = useState<Columns>(read);
   useEffect(() => {
     const onResize = () => setCols(read());
     window.addEventListener("resize", onResize);

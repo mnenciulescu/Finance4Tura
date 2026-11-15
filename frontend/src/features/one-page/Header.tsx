@@ -3,19 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { IconButton, PullDownMenu, SegmentedControl, type MenuEntry } from "../../ui";
 import { useAuth } from "../../context/AuthContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
-import { usePrivacy } from "../../context/PrivacyContext";
 import { useTheme } from "../../theme/ThemeProvider";
 import { availableYears, useIncomes } from "../../data/queries";
 import { ACCOUNT_ITEMS, visibleItems } from "../../app/navigation";
 import { formatRemaining, useSessionRemaining } from "../../app/AccountSheet";
 import { YearMenu } from "../money/MoneyScreen";
-import { useForms } from "../money/forms/FormsContext";
-import { useOnePage } from "./state";
 import s from "./OnePage.module.css";
 
 /**
- * One-Page header (§5.1): year, refresh, income privacy, + New, Light / Dark,
- * and the account menu.
+ * One-Page header (§5.1): year, refresh, Light / Dark and the account menu.
+ * Adding entries and the income-amount eye live in their blocks.
  */
 export function Header({ onShortcuts }: { onShortcuts: () => void }) {
   const qc = useQueryClient();
@@ -23,10 +20,7 @@ export function Header({ onShortcuts }: { onShortcuts: () => void }) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { settings } = useAppSettings();
-  const { incomeVisible, setIncomeVisible } = usePrivacy();
   const { theme, setting, setSetting } = useTheme();
-  const { openExpense, openIncome } = useForms();
-  const { openSplit, openBook, openSnapshot, openOperation } = useOnePage();
   const incomes = useIncomes();
   const remaining = useSessionRemaining();
 
@@ -58,26 +52,6 @@ export function Header({ onShortcuts }: { onShortcuts: () => void }) {
         title="Refresh (R)"
         className={fetching ? s.spinning : undefined}
         onClick={() => qc.invalidateQueries()}
-      />
-      <IconButton
-        icon={incomeVisible ? "eye" : "eyeSlash"}
-        label={incomeVisible ? "Hide income amounts" : "Show income amounts"}
-        title="Income amounts (H)"
-        onClick={() => setIncomeVisible(!incomeVisible)}
-      />
-      <PullDownMenu
-        label="New"
-        icon="plus"
-        appearance="circle"
-        items={[
-          { id: "expense", label: "New Expense", icon: "wallet", onAction: () => openExpense({}) },
-          { id: "income", label: "New Income", icon: "arrowDown", onAction: () => openIncome({}) },
-          { id: "sep", separator: true },
-          { id: "split", label: "New Split Payment", icon: "split", onAction: () => openSplit({}) },
-          { id: "snap", label: "New Snapshot", icon: "chartLine", onAction: () => openSnapshot({}) },
-          { id: "op", label: "New Operation", icon: "arrowUpRight", onAction: () => openOperation({}) },
-          { id: "book", label: "New Library Entry", icon: "book", onAction: () => openBook({}) },
-        ]}
       />
       <SegmentedControl
         label="Appearance"

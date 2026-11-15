@@ -23,7 +23,6 @@ export function HqBlock() {
   const entries = useHqEntries();
   const { focusBlock } = useOnePage();
   const [tab, setTab] = useParam("hq", OVERVIEW);
-  const [, setStats] = useParam("stats", "budget");
   const [, setChartLoc] = useParam("hqchart", "");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -33,7 +32,7 @@ export function HqBlock() {
   const active = locs.find(l => l.hqId === tab);
   const loading = locations.isPending || templates.isPending || entries.isPending;
 
-  const viewChart = (hqId: string) => { setChartLoc(hqId); setStats("hq"); focusBlock("stats"); };
+  const viewChart = (hqId: string) => { setChartLoc(hqId); focusBlock("hqStats"); };
 
   return (
     <Block

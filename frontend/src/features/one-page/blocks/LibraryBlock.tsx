@@ -15,7 +15,7 @@ const ALL = "__all__";
 
 /**
  * Library (One-Page §7.5): search and filters, one tab per person (plus All),
- * 3 entries then Show More. The 12-month chart is in Statistics → Library.
+ * 3 entries then Show More. The 12-month chart is the Library Statistics block.
  */
 export function LibraryBlock() {
   const books = useBooks();
@@ -24,7 +24,6 @@ export function LibraryBlock() {
   const toast = useToast();
   const { filters, setFilters, openBook, focusBlock } = useOnePage();
   const [person, setPerson] = useParam("lib", ALL);
-  const [, setStats] = useParam("stats", "budget");
   const [filterOpen, setFilterOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [toDelete, setToDelete] = useState<Book | null>(null);
@@ -108,7 +107,7 @@ export function LibraryBlock() {
         <>
           <div className={s.captionRow}>
             <p className={s.caption}>Last 12 months: <strong>{yearCount}</strong> completed</p>
-            <LinkButton onClick={() => { setStats("library"); focusBlock("stats"); }}>Chart →</LinkButton>
+            <LinkButton onClick={() => focusBlock("libraryStats")}>Chart →</LinkButton>
           </div>
           <div className={s.stack}>
             {items.slice(0, limit).map(b => (

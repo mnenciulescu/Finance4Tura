@@ -18,17 +18,17 @@ import { Header } from "./Header";
 import { BudgetBlock } from "./blocks/BudgetBlock";
 import { SplitBlock } from "./blocks/SplitBlock";
 import { InvestBlock } from "./blocks/InvestBlock";
-import { StatsBlock } from "./blocks/StatsBlock";
+import { BudgetStatsBlock, HqStatsBlock, InvestStatsBlock, LibraryStatsBlock } from "./blocks/StatsBlocks";
 import { LibraryBlock } from "./blocks/LibraryBlock";
 import { HqBlock } from "./blocks/HqBlock";
-import { OnePageContext, PERIOD_EVENT, SEARCH_EVENT, sendCommand, useColumns, type BlockId } from "./state";
+import { OnePageContext, PERIOD_EVENT, SEARCH_EVENT, sendCommand, useColumns, type BlockId, type Columns } from "./state";
 import s from "./OnePage.module.css";
 
 /**
  * One-Page (Documentation/OnePage_Desktop_Proposal.md): the Money, Library
- * and HQ tabs on one desktop screen. Three columns — money now (Budget,
- * Split), money over time (Investments, Statistics), life (Library, HQ) —
- * collapsing to two and one on narrower windows.
+ * and HQ tabs on one desktop screen. Four columns when they fit — Budget,
+ * Split + Investments, HQ, Library, each with its statistics block — and the
+ * rightmost columns move below the others on narrower windows.
  */
 export default function OnePage() {
   const qc = useQueryClient();
@@ -110,17 +110,16 @@ export default function OnePage() {
 
   const blocks: Record<BlockId, ReactNode> = {
     budget: <BudgetBlock />,
+    budgetStats: <BudgetStatsBlock />,
     split: <SplitBlock />,
+    investStats: <InvestStatsBlock />,
     invest: <InvestBlock />,
-    stats: <StatsBlock />,
-    library: <LibraryBlock />,
+    hqStats: <HqStatsBlock />,
     hq: <HqBlock />,
+    libraryStats: <LibraryStatsBlock />,
+    library: <LibraryBlock />,
   };
-  const layout: BlockId[][] = cols === 3
-    ? [["budget", "split"], ["invest", "stats"], ["library", "hq"]]
-    : cols === 2
-      ? [["budget", "split"], ["invest", "stats", "library", "hq"]]
-      : [["budget", "split", "invest", "stats", "library", "hq"]];
+  const layout = LAYOUTS[cols];
 
   return (
     <OnePageContext.Provider value={ctx}>
@@ -144,7 +143,7 @@ export default function OnePage() {
           )}
           <main className={s.grid} data-cols={cols}>
             {layout.map((column, i) => (
-              <div key={i} className={s.col} role="region" aria-label={`Column ${i + 1}`} tabIndex={cols === 3 ? 0 : undefined}>
+              <div key={i} className={s.col} role="region" aria-label={`Column ${i + 1}`} tabIndex={cols >= 3 ? 0 : undefined}>
                 {column.map(id => (
                   <div key={id} className={flash === id ? s.flash : undefined}>{blocks[id]}</div>
                 ))}
@@ -162,6 +161,21 @@ export default function OnePage() {
     </OnePageContext.Provider>
   );
 }
+
+/* ── Columns ──────────────────────────────────────────────────────────────── */
+
+const COLUMN_1: BlockId[] = ["budget", "budgetStats"];
+const COLUMN_2: BlockId[] = ["split", "investStats", "invest"];
+const COLUMN_3: BlockId[] = ["hqStats", "hq"];
+const COLUMN_4: BlockId[] = ["libraryStats", "library"];
+
+/** With fewer columns the rightmost ones move below the others. */
+const LAYOUTS: Record<Columns, BlockId[][]> = {
+  4: [COLUMN_1, COLUMN_2, COLUMN_3, COLUMN_4],
+  3: [COLUMN_1, COLUMN_2, [...COLUMN_3, ...COLUMN_4]],
+  2: [[...COLUMN_1, ...COLUMN_2], [...COLUMN_3, ...COLUMN_4]],
+  1: [[...COLUMN_1, ...COLUMN_2, ...COLUMN_3, ...COLUMN_4]],
+};
 
 /* ── Keyboard shortcuts (§6.4) ────────────────────────────────────────────── */
 

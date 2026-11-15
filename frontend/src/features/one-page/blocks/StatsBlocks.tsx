@@ -22,38 +22,54 @@ import s from "../OnePage.module.css";
 const PeopleChart = lazy(() => import("../../library/PeopleChart"));
 const WaterChart = lazy(() => import("../../hq/WaterChart"));
 
-const TABS = ["budget", "prio", "special", "invest", "library", "hq"] as const;
+const TABS = ["budget", "prio", "special"] as const;
 type Tab = (typeof TABS)[number];
 
-/**
- * Statistics (One-Page §7.4): one tab per topic. Budget, Priorities and
- * Special follow the header's year; the others keep their own ranges.
+/*
+ * The statistics blocks (One-Page §7.4), each beside the block it summarises:
+ * Budget Statistics (Budget · Priorities · ★ Special, following the header's
+ * year), Investment Statistics (evolution), HQ Statistics (water charts) and
+ * Library Statistics (12-month chart following the Library filters).
  */
-export function StatsBlock() {
+
+export function BudgetStatsBlock() {
   const [tab, setTab] = useEnumParam<Tab>("stats", TABS, "budget");
   return (
     <Block
-      id="stats"
-      title="Statistics"
+      id="budgetStats"
+      title="Budget Statistics"
       tabs={
         <SegmentedTabs
-          label="Statistics topics"
+          label="Budget statistics"
           value={tab}
           onChange={setTab}
           options={[
             { value: "budget", label: "Budget" },
             { value: "prio", label: "Priorities" },
             { value: "special", label: "★ Special" },
-            { value: "invest", label: "Invest" },
-            { value: "library", label: "Library" },
-            { value: "hq", label: "HQ" },
           ]}
         />
       }
     >
-      {tab === "invest" ? <InvestStats /> : tab === "library" ? <LibraryStats /> : tab === "hq" ? <HqStats /> : <BudgetStats tab={tab} />}
+      <BudgetStats tab={tab} />
     </Block>
   );
+}
+
+export function InvestStatsBlock() {
+  return (
+    <Block id="investStats" title="Investment Statistics" actions={<RevealButton group="holdings" label="Hold to reveal amounts" />}>
+      <InvestStats />
+    </Block>
+  );
+}
+
+export function HqStatsBlock() {
+  return <Block id="hqStats" title="HQ Statistics"><HqStats /></Block>;
+}
+
+export function LibraryStatsBlock() {
+  return <Block id="libraryStats" title="Library Statistics"><LibraryStats /></Block>;
 }
 
 /* ── Budget · Priorities · Special ────────────────────────────────────────── */
@@ -174,10 +190,7 @@ function InvestStats() {
   if (ops.isError || snaps.isError) return <Notice>Could not load investments data.</Notice>;
   return (
     <>
-      <div className={s.captionRow}>
-        <p className={s.caption}>Portfolio evolution in EUR{revealed ? "" : " · values hidden, hold the eye to show them"}</p>
-        <RevealButton group="holdings" label="Hold to reveal amounts" />
-      </div>
+      <p className={s.caption}>Portfolio evolution in EUR{revealed ? "" : " · values hidden, hold the eye to show them"}</p>
       <div className={st.chartCard}>
         <EvolutionPanel snapshots={snaps.data ?? []} operations={ops.data ?? []} rates={fx.data?.rates ?? null} masked={!revealed} height={250} />
       </div>

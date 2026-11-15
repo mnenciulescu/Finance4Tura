@@ -345,11 +345,14 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
 `Documentation/OnePage_Desktop_Proposal.md`. Frontend only; no backend change.
 
 - **Layout**: sticky translucent header (year menu shared with Budget/Stats,
-  Refresh, income eye, **+ New** — Expense, Income, Split, Snapshot, Operation,
-  Library entry — Light | Dark switch, account menu). Three columns from
-  1280 px, each scrolling on its own: **Budget · Split** | **Investments ·
-  Statistics** | **Library · HQ**; two columns from 1024 px, one below (with a
-  "made for larger screens" note). Blocks collapse from their title
+  Refresh, Light | Dark switch, account menu — no + or eye; adding and the
+  income eye live in the blocks). As many columns as fit at 360 px each
+  (`columnsFor` in `state.ts`): **four** from 1520 px — **Budget · Budget
+  Statistics** | **Split · Investment Statistics · Investments** | **HQ
+  Statistics · HQ** | **Library Statistics · Library** — each scrolling on its
+  own; **three** from 1144 px (Library's column moves under HQ); **two** from
+  1024 px (money | HQ + Library); one below (with a "made for larger screens"
+  note). Blocks collapse from their title
   (`onePage.collapsed` in localStorage) and each has its own error boundary.
 - **Presentation switch**: `routes.tsx` provides `LayoutContext` = `"desk"` on
   `/one-page`. There `Sheet`/`FormSheet` render as centred dialogs (520 px;
@@ -357,24 +360,28 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   header), `ActionSheet` as an alert with stacked choices, and `SwipeActions`
   as hover/focus row buttons with the same two-step delete
   (`ui/DeskOverlays.tsx`, lazy). Every form, validation and confirmation is
-  the phone's own code. `html[data-layout="desk"]` sets a 15 px root.
-- **Lists** show 3, then *Show 5 More* / *Show Less* / *Show All*
+  the phone's own code. `html[data-layout="desk"]` sets a 14 px root with
+  its own type scale in `tokens.css` (14 px body, nothing below 11 px).
+- **Lists** (except Budget, which always shows every row) show 3, then *Show 5 More* / *Show Less* / *Show All*
   (`ui/ShowMore.tsx`).
 - **Blocks**: Budget (period picker ‹ › + dropdown + Today, budget bar,
-  All/Pending/Done/★ filter, rows with hover actions and right-click menu);
+  All/Pending/Done/★ filter, every row with hover actions and right-click
+  menu, income eye, Add Expense, ··· New Income / New Expense);
   Split (In progress / Settled tabs, same slots and settle prompt);
   Investments (Portfolio / Snapshots / Operations; **all amounts masked**
-  behind hold-to-reveal); Statistics (tabs Budget, Priorities with a
-  per-month table, ★ Special, Invest evolution — values hidden unless held —,
-  Library per-person 12-month chart following the Library filters, HQ water
-  charts); Library (search, Filter, a tab per person); HQ (Overview + a tab
+  behind hold-to-reveal); four statistics blocks — **Budget Statistics**
+  (tabs Budget, Priorities with a per-month table, ★ Special), **Investment
+  Statistics** (evolution, values hidden unless held), **HQ Statistics**
+  (water charts), **Library Statistics** (per-person 12-month chart following
+  the Library filters); Library (search, Filter, a tab per person); HQ (Overview + a tab
   per location; entries inline with auto-save; ⚙ opens HQ Settings as a
   dialog).
 - **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=`),
   written with replace, so browser Back only closes dialogs. Deep links
   `?expense=new|<id>&date=` and `?income=new|<id>` open the form and are
   consumed. Cross-links ("View evolution →", "Chart →", "View chart →",
-  "Open in Budget →") switch the other block's tab and flash it.
+  "Open in Budget →") scroll to the matching block (setting its tab or
+  location) and flash it.
 - **Keyboard**: `N` then `E/I/S/P/O/B` (new …), `←/→` period, `T` current
   period, `/` library search, `H` income amounts, `R` refresh, `?` list.
   Ignored while typing or with a dialog open.
@@ -576,7 +583,7 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 3/2/1 columns, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, hold-to-reveal (mouse and Space), shortcuts, cross-links | 34 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, hold-to-reveal (mouse and Space), shortcuts, cross-links | 36 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 

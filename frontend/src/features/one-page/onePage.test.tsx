@@ -61,9 +61,12 @@ beforeEach(() => {
 });
 
 describe("One-Page — layout", () => {
-  it("shows all six blocks", async () => {
+  it("shows all nine blocks", async () => {
     renderPage();
-    for (const name of ["Budget", "Split Payments", "Investments", "Statistics", "Library", "HQ"]) {
+    for (const name of [
+      "Budget", "Budget Statistics", "Split Payments", "Investment Statistics", "Investments",
+      "HQ Statistics", "HQ", "Library Statistics", "Library",
+    ]) {
       expect(await screen.findByRole("heading", { name, level: 2 })).toBeInTheDocument();
     }
     expect(document.documentElement).toHaveAttribute("data-layout", "desk");
@@ -71,15 +74,11 @@ describe("One-Page — layout", () => {
 });
 
 describe("One-Page — Budget", () => {
-  it("opens on the current period and shows 3 expenses, then 5 more, then fewer", async () => {
+  it("opens on the current period and shows every expense, with no Show More", async () => {
     renderPage();
     await within(block("budget")).findByText("Period 9 of 12");
-    const rows = () => block("budget").querySelectorAll("[data-expense]").length;
-    await waitFor(() => expect(rows()).toBe(3));
-    fireEvent.click(within(block("budget")).getByRole("button", { name: /Show 4 More/ }));
-    expect(rows()).toBe(7);
-    fireEvent.click(within(block("budget")).getByRole("button", { name: "Show Less" }));
-    expect(rows()).toBe(3);
+    await waitFor(() => expect(block("budget").querySelectorAll("[data-expense]")).toHaveLength(7));
+    expect(within(block("budget")).queryByRole("button", { name: /Show .*(More|Less)/ })).toBeNull();
   });
 
   it("steps periods with the arrows and keeps the choice in the URL", async () => {
@@ -97,7 +96,7 @@ describe("One-Page — Budget", () => {
     await within(block("budget")).findByText("Period 9 of 12");
     const header = block("budget").querySelector("[data-period]") as HTMLElement;
     expect(within(header).getByRole("img", { name: "Hidden amount" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show income amounts" }));
+    fireEvent.click(within(block("budget")).getByRole("button", { name: "Show income amounts" }));
     expect(within(header).queryByRole("img", { name: "Hidden amount" })).toBeNull();
     expect(localStorage.getItem("incomePrivacy")).toBe("true");
   });
@@ -106,7 +105,7 @@ describe("One-Page — Budget", () => {
 describe("One-Page — navigation state", () => {
   it("restores tabs from the URL and writes tab changes back", async () => {
     renderPage("/one-page?stats=prio");
-    expect(await within(block("stats")).findByRole("tab", { name: "Priorities", selected: true })).toBeInTheDocument();
+    expect(await within(block("budgetStats")).findByRole("tab", { name: "Priorities", selected: true })).toBeInTheDocument();
     fireEvent.click(within(block("invest")).getByRole("tab", { name: "Snapshots" }));
     expect(location()).toContain("inv=snapshots");
     expect(location()).toContain("stats=prio");
@@ -114,7 +113,7 @@ describe("One-Page — navigation state", () => {
 
   it("falls back to defaults for unknown values", async () => {
     renderPage("/one-page?stats=nope&inv=zzz");
-    expect(await within(block("stats")).findByRole("tab", { name: "Budget", selected: true })).toBeInTheDocument();
+    expect(await within(block("budgetStats")).findByRole("tab", { name: "Budget", selected: true })).toBeInTheDocument();
     expect(within(block("invest")).getByRole("tab", { name: "Portfolio", selected: true })).toBeInTheDocument();
   });
 
@@ -158,6 +157,22 @@ describe("One-Page — keyboard", () => {
     const search = await within(block("library")).findByRole("searchbox", { name: "Search title or author" });
     fireEvent.keyDown(search, { key: "h" });
     expect(screen.getByRole("button", { name: "Show income amounts" })).toBeInTheDocument();
+  });
+});
+
+describe("One-Page — header", () => {
+  it("has no + New or income eye; those live in the blocks", async () => {
+    renderPage();
+    const header = (await screen.findByRole("button", { name: "Refresh" })).closest("header") as HTMLElement;
+    expect(within(header).queryByRole("button", { name: "New" })).toBeNull();
+    expect(within(header).queryByRole("button", { name: /income amounts/ })).toBeNull();
+  });
+});
+
+describe("One-Page — columns", () => {
+  it("fits four columns from 1520 px, three from 1144 px, two from 1024 px", async () => {
+    const { columnsFor } = await import("./state");
+    expect([1920, 1520, 1519, 1440, 1144, 1143, 1024, 1023].map(columnsFor)).toEqual([4, 4, 3, 3, 3, 2, 2, 1]);
   });
 });
 

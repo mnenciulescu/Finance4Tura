@@ -7,7 +7,7 @@ import {
   ConfirmOperationDelete, OperationList, PortfolioCard, SnapshotList, useInvestDeletes,
 } from "../../money/invest/InvestPanels";
 import { Block, LinkButton } from "../Block";
-import { useEnumParam, useOnePage, useParam } from "../state";
+import { useEnumParam, useOnePage } from "../state";
 import s from "../OnePage.module.css";
 
 const TABS = ["portfolio", "snapshots", "ops"] as const;
@@ -15,7 +15,7 @@ const TABS = ["portfolio", "snapshots", "ops"] as const;
 /**
  * Investments (One-Page §7.3): Portfolio · Snapshots · Operations. Every
  * amount stays masked until the eye is held (same rule as Today's Holdings).
- * The evolution chart lives in Statistics → Investments.
+ * The evolution chart is the Investment Statistics block above it.
  */
 export function InvestBlock() {
   const ops = useOperations();
@@ -25,7 +25,6 @@ export function InvestBlock() {
   const { openSnapshot, openOperation, focusBlock } = useOnePage();
   const { deleteSnap, deleteOp } = useInvestDeletes();
   const [tab, setTab] = useEnumParam("inv", TABS, "portfolio");
-  const [, setStats] = useParam("stats", "budget");
   const [confirmOp, setConfirmOp] = useState<Operation | null>(null);
 
   const snapshots = useMemo(() => snaps.data ?? [], [snaps.data]);
@@ -67,7 +66,7 @@ export function InvestBlock() {
         <>
           <PortfolioCard snapshots={snapshots} fx={fx.data} open masked />
           <div className={s.linkRow}>
-            <LinkButton onClick={() => { setStats("invest"); focusBlock("stats"); }}>View evolution →</LinkButton>
+            <LinkButton onClick={() => focusBlock("investStats")}>View evolution →</LinkButton>
           </div>
         </>
       ) : tab === "snapshots" ? (
