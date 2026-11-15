@@ -42,7 +42,7 @@ vi.mock("../../api/fxRates", async orig => ({ ...(await orig<object>()), getFxRa
 vi.mock("../../api/booksAndDev", async orig => ({ ...(await orig<object>()), listBooks: () => Promise.resolve(BOOKS) }));
 vi.mock("../../api/headquarters", async orig => ({
   ...(await orig<object>()),
-  listLocations: () => Promise.resolve([{ hqId: "h1", name: "Apartment", order: 0 }]),
+  listLocations: () => Promise.resolve([{ hqId: "h1", name: "Politehnicii", order: 1 }, { hqId: "h2", name: "Mosoaia", order: 2 }]),
   listTemplates: () => Promise.resolve([]),
   listEntries: () => Promise.resolve([]),
 }));
@@ -157,6 +157,20 @@ describe("One-Page — keyboard", () => {
     const search = await within(block("library")).findByRole("searchbox", { name: "Search title or author" });
     fireEvent.keyDown(search, { key: "h" });
     expect(screen.getByRole("button", { name: "Show income amounts" })).toBeInTheDocument();
+  });
+});
+
+describe("One-Page — HQ", () => {
+  it("has a tab per location, no Overview, and opens on Mosoaia", async () => {
+    renderPage();
+    const hq = block("hq");
+    expect(await within(hq).findByRole("tab", { name: "Mosoaia", selected: true })).toBeInTheDocument();
+    expect(within(hq).getByRole("tab", { name: "Politehnicii", selected: false })).toBeInTheDocument();
+    expect(within(hq).queryByRole("tab", { name: "Overview" })).toBeNull();
+    fireEvent.click(within(hq).getByRole("tab", { name: "Politehnicii" }));
+    expect(location()).toContain("hq=h1");
+    fireEvent.click(within(hq).getByRole("tab", { name: "Mosoaia" }));
+    expect(location()).not.toContain("hq=");
   });
 });
 

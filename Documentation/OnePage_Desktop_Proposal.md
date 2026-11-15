@@ -927,3 +927,5 @@ Files: `features/one-page/` (`OnePage.tsx`, `Header.tsx`, `Block.tsx`,
 - **Type**: a 14 px root with a desk type scale in `tokens.css` (body 14,
   footnote 12, smallest 11 px); tighter block padding, gaps and header.
 
+
+- **HQ block** (later revision): no Overview tab; one tab per location, opening on Mosoaia (`defaultLocation` in `hq/hqMath.ts`, falling back to the first location). HQ Statistics opens on the same location. The phone HQ screen keeps its Overview.

@@ -373,8 +373,9 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   (tabs Budget, Priorities with a per-month table, ★ Special), **Investment
   Statistics** (evolution, values hidden unless held), **HQ Statistics**
   (water charts), **Library Statistics** (per-person 12-month chart following
-  the Library filters); Library (search, Filter, a tab per person); HQ (Overview + a tab
-  per location; entries inline with auto-save; ⚙ opens HQ Settings as a
+  the Library filters); Library (search, Filter, a tab per person); HQ (a tab per location,
+  no Overview, opening on Mosoaia — `defaultLocation` in `hq/hqMath.ts`, also
+  used by HQ Statistics; entries inline with auto-save; ⚙ opens HQ Settings as a
   dialog).
 - **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=`),
   written with replace, so browser Back only closes dialogs. Deep links

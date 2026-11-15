@@ -103,3 +103,9 @@ export function smsText(template: HqTemplate, entriesNewestFirst: HqEntry[]): st
 }
 
 export const byDateDesc = (a: HqEntry, b: HqEntry) => b.date.localeCompare(a.date) || (b.createdAt || "").localeCompare(a.createdAt || "");
+
+/** The location HQ views open on: Mosoaia when it exists, else the first. */
+export const DEFAULT_LOCATION_NAME = "Mosoaia";
+export function defaultLocation<T extends { name: string }>(locs: T[]): T | undefined {
+  return locs.find(l => l.name.trim().toLowerCase() === DEFAULT_LOCATION_NAME.toLowerCase()) ?? locs[0];
+}

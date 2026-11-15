@@ -13,7 +13,7 @@ import { averages, buildMonthly } from "../../money/stats/statsMath";
 import { AverageTiles, FreeMonthPanel, PriorityAverages, SpecialList } from "../../money/stats/StatsPanels";
 import { EvolutionPanel } from "../../money/invest/InvestPanels";
 import { applyFilters, sectionsOf } from "../../library/libraryMath";
-import { isWaterTemplate } from "../../hq/hqMath";
+import { defaultLocation, isWaterTemplate } from "../../hq/hqMath";
 import { Block, ChipTabs, LinkButton } from "../Block";
 import { useEnumParam, useOnePage, useParam } from "../state";
 import st from "../../money/stats/Stats.module.css";
@@ -238,7 +238,7 @@ function HqStats() {
   const water = (templates.data ?? []).filter(isWaterTemplate);
   const locs = (locations.data ?? []).filter(l => water.some(t => t.hqId === l.hqId));
   if (locs.length === 0) return <p className={s.muted}>No water meter templates yet.</p>;
-  const active = locs.find(l => l.hqId === loc) ?? locs[0];
+  const active = locs.find(l => l.hqId === loc) ?? defaultLocation(locs)!;
 
   return (
     <>
