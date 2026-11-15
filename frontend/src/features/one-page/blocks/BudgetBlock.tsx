@@ -75,7 +75,6 @@ export function BudgetBlock() {
     <Block
       id="budget"
       title="Budget"
-      subtitle={income ? `Period ${idx + 1} of ${yearIncomes.length}` : undefined}
       actions={
         <>
           <IconButton
@@ -123,6 +122,7 @@ export function BudgetBlock() {
             />
             <IconButton icon="chevronRight" label="Next period" disabled={idx >= yearIncomes.length - 1} onClick={() => go(idx + 1)} />
             <span className={s.flex} />
+            <span className={s.periodCount}>{`Period ${idx + 1} of ${yearIncomes.length}`}</span>
             {idx !== homeIdx && <Button variant="tinted" size="small" onClick={() => go(homeIdx)}>Today</Button>}
           </div>
 

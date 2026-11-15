@@ -84,14 +84,14 @@ export const sendCommand = <T,>(event: string, detail?: T) => window.dispatchEve
 /* ── Layout ───────────────────────────────────────────────────────────────── */
 
 /** Narrowest column every block still fits in without clipping (px). */
-export const MIN_COLUMN_PX = 360;
+export const MIN_COLUMN_PX = 320;
 const GAP_PX = 16;
 
 export type Columns = 1 | 2 | 3 | 4;
 
 /**
- * As many columns as fit at MIN_COLUMN_PX — 4 from 1520 px, 3 from 1144 px —
- * and never 2 below the One-Page minimum width (1024 px).
+ * As many columns as fit at MIN_COLUMN_PX — 4 from 1360 px, 3 from 1024 px —
+ * and one column below the One-Page minimum width (1024 px).
  */
 export function columnsFor(width: number): Columns {
   if (width < 1024) return 1;

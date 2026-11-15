@@ -337,6 +337,11 @@ li + .fieldRow::before {
   min-width: 34px;
   min-height: var(--tap-min);
 }
+/* One-Page: pointer targets, so the stars sit closer together. */
+:global(html[data-layout="desk"]) .starButton {
+  min-width: 24px;
+  min-height: 28px;
+}
 .starOn {
   color: var(--series-8);
 }

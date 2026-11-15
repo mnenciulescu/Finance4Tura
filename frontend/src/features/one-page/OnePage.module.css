@@ -216,7 +216,7 @@
 
 /* Split slot grids fill the column width. */
 .block [data-slots] {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 }
 
 /* ── Chips, links, captions ─────────────────────────────────────────────── */
@@ -304,6 +304,11 @@
   max-width: 22em;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.periodCount {
+  font-size: var(--fs-footnote);
+  color: var(--label-secondary);
   white-space: nowrap;
 }
 .flushCard {

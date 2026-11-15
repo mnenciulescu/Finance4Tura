@@ -346,12 +346,11 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
 
 - **Layout**: sticky translucent header (year menu shared with Budget/Stats,
   Refresh, Light | Dark switch, account menu — no + or eye; adding and the
-  income eye live in the blocks). As many columns as fit at 360 px each
-  (`columnsFor` in `state.ts`): **four** from 1520 px — **Budget · Budget
+  income eye live in the blocks). As many columns as fit at 320 px each
+  (`columnsFor` in `state.ts`): **four** from 1360 px — **Budget · Budget
   Statistics** | **Split · Investment Statistics · Investments** | **HQ
   Statistics · HQ** | **Library Statistics · Library** — each scrolling on its
-  own; **three** from 1144 px (Library's column moves under HQ); **two** from
-  1024 px (money | HQ + Library); one below (with a "made for larger screens"
+  own; **three** from 1024 px (Library's column moves under HQ); one below (with a "made for larger screens"
   note). Blocks collapse from their title
   (`onePage.collapsed` in localStorage) and each has its own error boundary.
 - **Presentation switch**: `routes.tsx` provides `LayoutContext` = `"desk"` on
@@ -360,8 +359,9 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   header), `ActionSheet` as an alert with stacked choices, and `SwipeActions`
   as hover/focus row buttons with the same two-step delete
   (`ui/DeskOverlays.tsx`, lazy). Every form, validation and confirmation is
-  the phone's own code. `html[data-layout="desk"]` sets a 14 px root with
-  its own type scale in `tokens.css` (14 px body, nothing below 11 px).
+  the phone's own code. `html[data-layout="desk"]` sets a 13 px root with
+  its own type scale in `tokens.css` (13 px body, nothing below 10.5 px;
+  controls 13 px — One-Page only opens at ≥ 1024 px, where focus does not zoom).
 - **Lists** (except Budget, which always shows every row) show 3, then *Show 5 More* / *Show Less* / *Show All*
   (`ui/ShowMore.tsx`).
 - **Blocks**: Budget (period picker ‹ › + dropdown + Today, budget bar,

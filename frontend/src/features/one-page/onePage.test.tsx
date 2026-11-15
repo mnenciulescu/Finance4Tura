@@ -184,9 +184,9 @@ describe("One-Page — header", () => {
 });
 
 describe("One-Page — columns", () => {
-  it("fits four columns from 1520 px, three from 1144 px, two from 1024 px", async () => {
+  it("fits four columns from 1360 px and three from 1024 px", async () => {
     const { columnsFor } = await import("./state");
-    expect([1920, 1520, 1519, 1440, 1144, 1143, 1024, 1023].map(columnsFor)).toEqual([4, 4, 3, 3, 3, 2, 2, 1]);
+    expect([1920, 1440, 1366, 1360, 1359, 1280, 1024, 1023].map(columnsFor)).toEqual([4, 4, 4, 4, 3, 3, 3, 1]);
   });
 });
 

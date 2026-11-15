@@ -23,9 +23,9 @@ test("four columns at 1920 px in the planned order", async ({ page }) => {
   expect(await order(4)).toEqual(["libraryStats", "library"]);
 });
 
-test("three columns, each scrolling under a fixed header", async ({ page }) => {
+test("four columns at 1440 px, each scrolling under a fixed header", async ({ page }) => {
   await open(page);
-  await expect(page.locator("main[data-cols='3']")).toBeVisible();
+  await expect(page.locator("main[data-cols='4']")).toBeVisible();
   const col2 = page.getByRole("region", { name: "Column 2" });
   await col2.evaluate(el => { el.scrollTop = 400; });
   expect(await col2.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
@@ -33,10 +33,10 @@ test("three columns, each scrolling under a fixed header", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Refresh" })).toBeInViewport();
 });
 
-test("drops to two columns, then one with a note", async ({ page }) => {
+test("drops to three columns, then one with a note", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await open(page);
-  await expect(page.locator("main[data-cols='2']")).toBeVisible();
+  await expect(page.locator("main[data-cols='3']")).toBeVisible();
   await page.setViewportSize({ width: 900, height: 800 });
   await expect(page.locator("main[data-cols='1']")).toBeVisible();
   await expect(page.getByRole("note")).toContainText("made for larger screens");

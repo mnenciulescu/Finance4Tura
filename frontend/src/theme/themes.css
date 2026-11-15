@@ -45,8 +45,8 @@
   --fill-secondary: rgba(120, 120, 128, 0.16);
   --fill-pressed:   rgba(0, 0, 0, 0.06);
   --fill-hover:     rgba(0, 0, 0, 0.05);
-  --scrollbar-thumb: rgba(60, 60, 67, 0.1);
-  --scrollbar-thumb-hover: rgba(60, 60, 67, 0.22);
+  --scrollbar-thumb: rgba(60, 60, 67, 0.06);
+  --scrollbar-thumb-hover: rgba(60, 60, 67, 0.1);
 
   /* One-Page (desktop): page behind the blocks */
   --desk-page:      #E5E5EA;
@@ -112,8 +112,8 @@
   --fill-secondary: rgba(120, 120, 128, 0.32);
   --fill-pressed:   rgba(255, 255, 255, 0.08);
   --fill-hover:     rgba(255, 255, 255, 0.07);
-  --scrollbar-thumb: rgba(235, 235, 245, 0.08);
-  --scrollbar-thumb-hover: rgba(235, 235, 245, 0.18);
+  --scrollbar-thumb: rgba(235, 235, 245, 0.05);
+  --scrollbar-thumb-hover: rgba(235, 235, 245, 0.09);
 
   /* One-Page (desktop): page behind the blocks */
   --desk-page:      #0E0E10;

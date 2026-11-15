@@ -92,18 +92,21 @@
   }
 }
 
-/* One-Page (desktop): a denser, macOS-sized scale on a 14 px root —
-   14 px body, never below 11 px. Controls keep --fs-control (≥ 16 px). */
+/* One-Page (desktop): a dense, macOS-sized scale on a 13 px root — 13 px
+   body, never below 10.5 px — so four columns fit from 1360 px. Controls
+   match the body text: One-Page opens only at ≥ 1024 px (desktops and
+   tablets), where focusing a field does not zoom. */
 html[data-layout="desk"] {
-  --fs-large-title: 1.8571rem;   --lh-large-title: 2.2857rem;   /* 26 / 32 */
-  --fs-title1:      1.5714rem;   --lh-title1:      1.8571rem;   /* 22 / 26 */
-  --fs-title2:      1.2857rem;   --lh-title2:      1.5714rem;   /* 18 / 22 */
-  --fs-title3:      1.1429rem;   --lh-title3:      1.4286rem;   /* 16 / 20 */
-  --fs-headline:    1rem;        --lh-headline:    1.2857rem;   /* 14 / 18 */
-  --fs-body:        1rem;        --lh-body:        1.2857rem;   /* 14 / 18 */
-  --fs-callout:     0.9643rem;   --lh-callout:     1.2857rem;   /* 13.5 / 18 */
-  --fs-subheadline: 0.9286rem;   --lh-subheadline: 1.2143rem;   /* 13 / 17 */
-  --fs-footnote:    0.8571rem;   --lh-footnote:    1.1429rem;   /* 12 / 16 */
-  --fs-caption1:    0.8214rem;   --lh-caption1:    1.0714rem;   /* 11.5 / 15 */
-  --fs-caption2:    0.7857rem;   --lh-caption2:    1rem;        /* 11 / 14 */
+  --fs-large-title: 1.8462rem;   --lh-large-title: 2.2308rem;   /* 24 / 29 */
+  --fs-title1:      1.5385rem;   --lh-title1:      1.8462rem;   /* 20 / 24 */
+  --fs-title2:      1.3077rem;   --lh-title2:      1.6154rem;   /* 17 / 21 */
+  --fs-title3:      1.1538rem;   --lh-title3:      1.4615rem;   /* 15 / 19 */
+  --fs-headline:    1rem;        --lh-headline:    1.3077rem;   /* 13 / 17 */
+  --fs-body:        1rem;        --lh-body:        1.3077rem;   /* 13 / 17 */
+  --fs-callout:     0.9615rem;   --lh-callout:     1.2308rem;   /* 12.5 / 16 */
+  --fs-subheadline: 0.9231rem;   --lh-subheadline: 1.2308rem;   /* 12 / 16 */
+  --fs-footnote:    0.8846rem;   --lh-footnote:    1.1538rem;   /* 11.5 / 15 */
+  --fs-caption1:    0.8462rem;   --lh-caption1:    1.0769rem;   /* 11 / 14 */
+  --fs-caption2:    0.8077rem;   --lh-caption2:    1rem;        /* 10.5 / 13 */
+  --fs-control:     1rem;                                       /* 13 */
 }

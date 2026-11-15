@@ -929,3 +929,8 @@ Files: `features/one-page/` (`OnePage.tsx`, `Header.tsx`, `Block.tsx`,
 
 
 - **HQ block** (later revision): no Overview tab; one tab per location, opening on Mosoaia (`defaultLocation` in `hq/hqMath.ts`, falling back to the first location). HQ Statistics opens on the same location. The phone HQ screen keeps its Overview.
+
+- **Denser type** (later revision): a 13 px root (body 13 px, smallest 10.5 px,
+  form controls 13 px on One-Page only) and a 320 px minimum column, so four
+  columns fit from 1360 px and three from 1024 px. Stars, Split slots and the
+  Library card footer were tightened to fit; column scrollbars are very faint.
