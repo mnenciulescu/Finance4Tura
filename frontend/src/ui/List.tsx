@@ -169,8 +169,3 @@ export function IconTile({ icon, color = "var(--tint)" }: { icon: IconName; colo
     </span>
   );
 }
-
-/** A bare list item (keeps the separator) for custom rows such as swipeable ones. */
-export function ListItem({ children, className, ...rest }: { children: ReactNode; className?: string } & Record<string, unknown>) {
-  return <li className={[s.item, className ?? ""].join(" ")} {...rest}>{children}</li>;
-}

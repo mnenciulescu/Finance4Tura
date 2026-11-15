@@ -59,7 +59,8 @@ async function deleteOperation(operationId, userId) {
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 export async function handler(event) {
-  const userId      = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+  const userId      = event.requestContext?.authorizer?.claims?.sub;
+  if (!userId) return err(401, "Unauthorized");
   const method      = event.httpMethod;
   const operationId = event.pathParameters?.operationId;
   const qs          = event.queryStringParameters ?? {};

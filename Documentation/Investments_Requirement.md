@@ -293,7 +293,7 @@ Fixed application constant — no CRUD in the UI. The same 6 platforms and their
 
 ## Data Import
 
-The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/seed-investments.mjs`. That script and the local-dev seed and sync scripts were written for the DynamoDB Local setup, which no longer exists — don't re-run them against production. New operations and snapshots are entered in the app.
+The history in `Documentation/Portfolio.xlsx` was imported once with `scripts/seed-investments.mjs`, a DynamoDB Local script since deleted (it is in git history). New operations and snapshots are entered in the app.
 
 ---
 

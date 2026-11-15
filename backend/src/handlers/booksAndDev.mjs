@@ -14,7 +14,7 @@ const ok  = (body, statusCode = 200) => ({ statusCode, headers: CORS, body: JSON
 const err = (statusCode, message)    => ({ statusCode, headers: CORS, body: JSON.stringify({ message }) });
 
 function userId(event) {
-  return event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+  return event.requestContext?.authorizer?.claims?.sub;
 }
 
 async function listBooks(uid) {
@@ -85,6 +85,7 @@ async function deleteBook(bookId, uid) {
 export async function handler(event) {
   try {
     const uid    = userId(event);
+    if (!uid) return err(401, "Unauthorized");
     const method = event.httpMethod;
     const bookId = event.pathParameters?.bookId;
 

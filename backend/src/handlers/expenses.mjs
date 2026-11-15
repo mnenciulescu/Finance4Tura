@@ -270,7 +270,8 @@ export const handler = async (event) => {
     const { resource, httpMethod, pathParameters, queryStringParameters, body: rawBody } = event;
     const body      = rawBody ? JSON.parse(rawBody) : {};
     const expenseId = pathParameters?.expenseId;
-    const userId    = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+    const userId    = event.requestContext?.authorizer?.claims?.sub;
+    if (!userId) return err(401, "Unauthorized");
 
     if (resource === "/expenses/resolve-income" && httpMethod === "GET") return await resolveIncomePreview(queryStringParameters, userId);
     if (resource === "/expenses"               && httpMethod === "POST") return await createExpense(body, userId);

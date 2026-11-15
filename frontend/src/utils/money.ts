@@ -29,9 +29,3 @@ export function activePlatforms(snapshots: Snapshot[]): string[] {
   const iso = dayjs().subtract(12, "month").format("YYYY-MM-DD");
   return PLATFORMS.filter(p => snapshots.some(s => s.platform === p && s.date >= iso && s.amount > 0));
 }
-
-/** Total of the latest snapshot per platform, in EUR. */
-export function portfolioTotalEUR(snapshots: Snapshot[], rates: FxMatrix | null | undefined): number {
-  return Object.values(latestByPlatform(snapshots))
-    .reduce((sum, s) => sum + toEUR(s.amount, s.currency, rates), 0);
-}

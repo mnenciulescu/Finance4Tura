@@ -30,11 +30,3 @@ export function useKeyboardInset(): number {
 
   return inset;
 }
-
-/** Scrolls a focused field into view once the keyboard has opened. */
-export function scrollFieldIntoView(el: Element | null) {
-  if (!el) return;
-  window.setTimeout(() => {
-    el.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, 300);
-}

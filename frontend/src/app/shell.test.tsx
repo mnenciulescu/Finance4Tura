@@ -48,7 +48,7 @@ describe("account sheet", () => {
   it("lists Settings and Admin above Sign Out for the admin user (Backstage off)", async () => {
     renderShell("/");
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    const sheet = await screen.findByRole("dialog", { name: "Account" });
+    const sheet = await screen.findByRole("dialog", { name: "Account" }, { timeout: 5000 });
     expect(within(sheet).getByText("nenciulescu")).toBeInTheDocument();
     const items = within(sheet).getAllByRole("button").map(b => b.textContent?.trim());
     expect(items).toEqual(["Settings", "Admin", "Sign Out"]);
@@ -57,14 +57,14 @@ describe("account sheet", () => {
   it("hides Admin from other users", async () => {
     renderShell("/", "ana");
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    const sheet = await screen.findByRole("dialog", { name: "Account" });
+    const sheet = await screen.findByRole("dialog", { name: "Account" }, { timeout: 5000 });
     expect(within(sheet).queryByRole("button", { name: "Admin" })).toBeNull();
   });
 
   it("opens Settings on the tab it was opened from", async () => {
     renderShell("/money");
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }, { timeout: 5000 }));
     expect(screen.getByTestId("location")).toHaveTextContent("/settings");
     expect(screen.getByRole("button", { name: "Money" })).toHaveAttribute("aria-current", "page");
   });

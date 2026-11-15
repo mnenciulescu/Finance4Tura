@@ -104,7 +104,7 @@ Auth:
 
 `CognitoUserPoolArn` defaults to the deployed pool. The frontend sends the ID token in the `Authorization` header (raw token, no `Bearer` prefix), and handlers read the user from `event.requestContext.authorizer.claims.sub`.
 
-Public routes override the authorizer with `Auth: Authorizer: NONE`: `POST /auth/google`, `GET /app-settings`, `GET /fx-rates`, `GET /ai-news`.
+Public routes override the authorizer with `Auth: Authorizer: NONE`: `POST /auth/google`, `GET /app-settings`, `GET /fx-rates`.
 
 ---
 
@@ -217,15 +217,12 @@ parameter_overrides = "GoogleClientId=<your-google-client-id>.apps.googleusercon
 
 > Deploy settings must be under `[default.deploy.parameters]`, not `[default.deploy.guided]`.
 
-The optional `AnthropicApiKey` parameter (`NoEcho`) feeds the unused `/ai-news` endpoint. Leave it blank.
-
 ### 5.4 Template parameters
 
 | Parameter | Default | Purpose |
 |---|---|---|
 | `CognitoUserPoolArn` | the deployed pool | API authorizer |
 | `GoogleClientId` | `""` | Google token verification |
-| `AnthropicApiKey` | `""` | Optional summaries for `/ai-news` |
 
 ### 5.5 Get the API URL
 
@@ -337,9 +334,9 @@ Every Lambda response sets `Cache-Control: no-store`, and so do API Gateway's de
 
 `frontend/vite.config.js` sets `define: { global: 'globalThis' }`, because `amazon-cognito-identity-js` references Node's `global`.
 
-### `local-dev` fallback
+### No caller, no access
 
-Handlers default `userId` to `"local-dev"` when there is no authorizer context. That was for the removed local backend and never applies in AWS.
+Handlers take `userId` from the authorizer's `claims.sub` and answer **401** when it is missing; the admin checks deny when there is no caller. (The old `"local-dev"` fallback for the removed local backend is gone.)
 
 ---
 

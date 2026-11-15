@@ -21,10 +21,10 @@ const ok   = (body, statusCode = 200) => ({ statusCode, headers: CORS, body: JSO
 const err  = (statusCode, message)    => ({ statusCode, headers: CORS, body: JSON.stringify({ message }) });
 
 // Parse cognito:groups claim from API Gateway authorizer context.
-// Local dev (sam local start-api) has no authorizer → grant admin automatically.
+// No authenticated caller → not an admin.
 function isCallerAdmin(event) {
   const sub = event.requestContext?.authorizer?.claims?.sub;
-  if (!sub || sub === "local-dev") return true; // local dev — no auth enforced
+  if (!sub) return false;
 
   const raw = event.requestContext?.authorizer?.claims?.["cognito:groups"];
   if (!raw) return false;

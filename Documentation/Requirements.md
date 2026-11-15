@@ -249,7 +249,7 @@ Data is loaded per year with `listIncomes` / `listExpenses` and computed client-
 
 ### What Was Implemented
 1. **Cognito User Pool** (`eu-central-1_CD7AdBFwQ`) with a Pre Sign-Up trigger (`preSignUp.mjs`) that auto-confirms new users.
-2. **API Gateway Cognito authorizer** on every route except the public ones (`/auth/google`, `GET /app-settings`, `GET /fx-rates`, `/ai-news`). The ID token goes in `Authorization` without `Bearer`; handlers read `claims.sub`.
+2. **API Gateway Cognito authorizer** on every route except the public ones (`/auth/google`, `GET /app-settings`, `GET /fx-rates`). The ID token goes in `Authorization` without `Bearer`; handlers read `claims.sub`.
 3. **Per-user isolation** — every record carries `userId`; every read, write and delete checks it.
 4. **Frontend auth** — the Cognito library restores the session on load; the ID token is sent on every request; a 401 signs the user out.
 5. **S3 + CloudFront** hosting at `d34ylrmixnmvem.cloudfront.net`, with 403 → `/index.html` for client-side routes.
@@ -326,7 +326,7 @@ Bottom sheets for add/edit; two-step inline delete. EUR conversion uses the stor
 
 ## Phase 12 – AI News Page ⛔ Retired
 
-An `/ai-news` page showed AI news from Google News and MIT Technology Review RSS feeds. **The page has been removed from the frontend.** The backend endpoint `GET /ai-news` (`AiNewsFunction`, optional `AnthropicApiKey` parameter) is still deployed but unused.
+An `/ai-news` page showed AI news from Google News and MIT Technology Review RSS feeds. It was removed from the frontend, and the backend endpoint (`AiNewsFunction`, `AnthropicApiKey` parameter) was deleted in the November 2026 cleanup.
 
 ---
 

@@ -1,11 +1,9 @@
 /**
  * Tests for the resolveIncome business logic.
- * Mirrors backend/src/handlers/expenses.mjs resolveIncome() and the
- * equivalent client-side function in the Dashboard.
+ * Mirrors backend/src/handlers/expenses.mjs resolveIncome().
  *
  * This logic is critical: it determines which income period an expense
- * belongs to.  Covers local dev (same logic, userId = "local-dev") and
- * AWS (real Cognito sub) — the function is pure on the candidate list.
+ * belongs to. The function is pure on the candidate list.
  */
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";

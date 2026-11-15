@@ -1,16 +1,8 @@
-import type { ReactNode, CSSProperties, HTMLAttributes } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { Icon, type IconName } from "./icons/Icon";
 import s from "./Display.module.css";
 
-/* ── Card / Widget ────────────────────────────────────────────────────────── */
-
-export function Card({ children, className, padded = true, ...rest }: HTMLAttributes<HTMLDivElement> & { padded?: boolean }) {
-  return (
-    <div className={[s.card, padded ? s.padded : "", className ?? ""].join(" ")} {...rest}>
-      {children}
-    </div>
-  );
-}
+/* ── Widget ───────────────────────────────────────────────────────────────── */
 
 export interface WidgetProps {
   title: string;

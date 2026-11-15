@@ -161,4 +161,3 @@ export function Icon({ name, size = 24, weight = "regular", filled = false, titl
   );
 }
 
-export const ICON_NAMES = Object.keys(G) as IconName[];

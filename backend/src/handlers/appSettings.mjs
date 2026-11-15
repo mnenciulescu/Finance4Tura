@@ -19,10 +19,10 @@ const DEFAULTS = {
 const ok  = (body) => ({ statusCode: 200, headers: CORS, body: JSON.stringify(body) });
 const err = (status, message) => ({ statusCode: status, headers: CORS, body: JSON.stringify({ message }) });
 
-// Mirrors the same check in admin.mjs — local dev always passes.
+// Mirrors the same check in admin.mjs — no authenticated caller, no admin.
 function isCallerAdmin(event) {
   const sub = event.requestContext?.authorizer?.claims?.sub;
-  if (!sub || sub === "local-dev") return true;
+  if (!sub) return false;
   const raw = event.requestContext?.authorizer?.claims?.["cognito:groups"];
   if (!raw) return false;
   try {

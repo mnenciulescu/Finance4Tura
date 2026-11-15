@@ -130,7 +130,7 @@ The repo root has no `package.json`, so the script's AWS SDK imports don't resol
 
 ### Legacy scripts
 
-`scripts/seed-local.mjs`, `scripts/seed-investments.mjs` and `backend/create-tables.mjs` were written for DynamoDB Local, which no longer exists. Don't run them against production.
+The DynamoDB Local scripts (`scripts/seed-local.mjs`, `scripts/seed-investments.mjs`, `backend/create-tables.mjs`) were deleted in the November 2026 cleanup; they are in git history if ever needed.
 
 ---
 

@@ -1,14 +1,4 @@
-/* ── Card / Widget ──────────────────────────────────────────────────────── */
-.card {
-  background: var(--bg-grouped-secondary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-.padded {
-  padding: var(--space-4);
-}
-
+/* ── Widget ─────────────────────────────────────────────────────────────── */
 .widget {
   margin: 0 var(--screen-margin);
   background: var(--bg-grouped-secondary);

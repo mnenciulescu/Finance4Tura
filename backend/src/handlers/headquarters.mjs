@@ -257,7 +257,8 @@ async function deleteEntry(entryId, userId) {
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export async function handler(event) {
-  const userId = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+  const userId = event.requestContext?.authorizer?.claims?.sub;
+  if (!userId) return err(401, "Unauthorized");
   const method = event.httpMethod;
   const path   = event.path || "";
   const params = event.pathParameters || {};

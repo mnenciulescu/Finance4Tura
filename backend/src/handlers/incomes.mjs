@@ -212,7 +212,8 @@ export const handler = async (event) => {
     const { resource, httpMethod, pathParameters, queryStringParameters, body: rawBody } = event;
     const body     = rawBody ? JSON.parse(rawBody) : {};
     const incomeId = pathParameters?.incomeId;
-    const userId   = event.requestContext?.authorizer?.claims?.sub ?? "local-dev";
+    const userId   = event.requestContext?.authorizer?.claims?.sub;
+    if (!userId) return err(401, "Unauthorized");
 
     if (resource === "/incomes" && httpMethod === "POST") return await createIncome(body, userId);
     if (resource === "/incomes" && httpMethod === "GET")  return await listIncomes(queryStringParameters, userId);

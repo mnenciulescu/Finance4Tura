@@ -168,9 +168,6 @@
   color: var(--label);
   font-weight: 600;
 }
-.sectionGap {
-  height: var(--space-3);
-}
 
 /* ── One-Page: denser cards (pointer targets, less empty space) ─────────── */
 :global(html[data-layout="desk"]) .slot {

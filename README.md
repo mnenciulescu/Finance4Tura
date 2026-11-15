@@ -301,7 +301,6 @@ Protected routes need `Authorization: <Cognito ID token>` (no `Bearer` prefix). 
 | FX Rates | `GET /fx-rates` (public) · `POST /fx-rates` (refresh from frankfurter.app) | admin for POST |
 | Admin users | `GET /admin/users` · `PUT /admin/users/{username}/role` · `DELETE /admin/users/{username}` | admin |
 | Backups | `GET /admin/backup/preview` · `POST /admin/backup/prepare` · `POST /admin/backup/run-table` | admin |
-| AI News | `GET /ai-news` | public — deployed but unused by the frontend |
 
 Notable behaviour:
 - `PUT /incomes/{id}` and `PUT /expenses/{id}` on a series member set `isException: true`.
@@ -338,7 +337,6 @@ Set in `backend/template.yaml`:
 | `USER_POOL_ID`, `CLIENT_ID` | googleAuth, admin | Cognito pool and app client |
 | `GOOGLE_CLIENT_ID` | googleAuth | From the `GoogleClientId` parameter in `samconfig.toml` |
 | `GDRIVE_BACKUP_FOLDER_ID` | adminBackup | Parent Drive folder for backups |
-| `ANTHROPIC_API_KEY` | getAiNews | Optional `AnthropicApiKey` parameter; blank by default |
 
 The backup Lambda reads its Google Drive OAuth2 credentials from SSM at `/finance4tura/gdrive-oauth2`.
 
@@ -388,8 +386,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │       └── lib/                      # dynamo.mjs, expandDates.mjs (+ tests)
 │
 ├── scripts/
-│   ├── remap-expenses.mjs            # Re-map every expense to its income (cloud)
-│   └── seed-*.mjs                    # Legacy — targeted DynamoDB Local
+│   └── remap-expenses.mjs            # Re-map every expense to its income (cloud)
 │
 ├── Documentation/                    # Deploy guides and module requirements
 ├── CLAUDE.md                         # Detailed architecture and conventions

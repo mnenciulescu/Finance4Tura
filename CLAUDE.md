@@ -69,9 +69,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 ### Scripts
 - `scripts/remap-expenses.mjs` — re-resolves the mapped income on every expense
   in the cloud tables, for all users. Live; run after bulk income changes.
-- `scripts/seed-local.mjs`, `scripts/seed-investments.mjs` and
-  `backend/create-tables.mjs` are **legacy**: they target DynamoDB Local on
-  `localhost:8000`, which no longer exists. Kept for reference only.
+  (The DynamoDB Local seed / table scripts were deleted; see git history.)
 
 ## Architecture
 
@@ -80,9 +78,8 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 - **Database**: AWS DynamoDB. `lib/dynamo.mjs` builds a plain client — no endpoint override.
 - All infrastructure defined in `template.yaml`; deploy config in `samconfig.toml`
 - One Lambda per module, routing on method + path inside the handler
-- `userId` comes from the Cognito JWT `sub` claim. Handlers still fall back to
-  `"local-dev"` when there is no authorizer — a leftover from local dev; in AWS
-  every protected route has the authorizer, so it never applies.
+- `userId` comes from the Cognito JWT `sub` claim; a request without one gets
+  **401**, and the admin checks deny it.
 - Admin-only routes (`/admin/*`, `PUT /app-settings`, `POST /fx-rates`) check
   the Cognito group **`admin`** from the `cognito:groups` claim.
 - Every response carries `Cache-Control: no-store`, including API Gateway's
@@ -116,7 +113,7 @@ section describes what is implemented.
 | Folder | Contents |
 |---|---|
 | `theme/` | `tokens.css` (spacing, radii, type, motion, z), `themes.css` (the **only** stylesheet with raw colours: Light + Dark, primitives → semantic tokens), `base.css`, `themes.ts` (registry, migration), `ThemeProvider.tsx`, `domainColors.ts` (priority/platform/type/HTTP → `var(--…)`), `useChartTheme.ts` |
-| `ui/` | Component library, one CSS Module each: `Button`, `List`/`ListSection`/`ListRow`, `Sheet`/`FormSheet`, `ActionSheet`, `Alert`, `Menu` (`PullDownMenu`, `ContextMenu`), `SwipeActions`, `Segmented` (`SegmentedControl` = radiogroup, `SegmentedTabs` = tablist), `Toggle`, `Checkbox`, `Stepper`, `Fields`, `SearchField`, `Picker`, `Rating`, `DatePicker` (+ lazy `CalendarBody`), `Display` (`Card`, `Widget`, `StatTile`, `Badge`, `ProgressBar`, `ProgressRing`, …), `Toast`, `PrivateValue`, `icons/Icon.tsx` |
+| `ui/` | Component library, one CSS Module each: `Button`, `List`/`ListSection`/`ListRow`, `Sheet`/`FormSheet`, `ActionSheet`, `Alert`, `Menu` (`PullDownMenu`, `ContextMenu`), `SwipeActions`, `Segmented` (`SegmentedControl` = radiogroup, `SegmentedTabs` = tablist), `Toggle`, `Checkbox`, `Stepper`, `Fields`, `SearchField`, `Picker`, `Rating`, `DatePicker` (+ lazy `CalendarBody`), `Display` (`Widget`, `StatTile`, `Badge`, `ProgressBar`, `ProgressRing`, …), `Toast`, `PrivateValue`, `icons/Icon.tsx` |
 | `app/` | `AppShell`, `TabBar`, `Screen` (large-title nav bar), `AccountSheet`, `routes.tsx`, `navigation.ts`, `tabHistory.ts`, `overlays.ts`, `queryClient.ts`, `platform.ts`, `haptics.ts`, `install.ts`, `useKeyboardInset.ts`, `usePullToRefresh.tsx`, `UpdatePrompt.tsx`, `ErrorBoundary.tsx` |
 | `features/` | `today/`, `money/{budget,split,stats,invest,forms}/`, `library/`, `hq/`, `account/{settings,backstage,admin}/`, `auth/`, `one-page/` |
 | `data/` | `queries.ts` (reads + shared helpers), `mutations.ts` (writes for lazy screens), `hq.ts` |
@@ -504,7 +501,6 @@ Public routes are marked; everything else needs the Cognito authorizer.
 ```
 POST   /auth/google                         # public — Google Sign-In
 GET    /health
-GET    /ai-news                             # public — see Known Limitations
 
 POST   /incomes
 GET    /incomes                             # supports ?from=&to=
@@ -668,5 +664,3 @@ set nowhere. Do not reintroduce a derived-credential scheme.
 - No JWT refresh — when the ID token expires the next 401 signs the user out. The Account sheet shows the countdown.
 - No server-side pagination — all records returned per request.
 - Statistics "Survival / month" hardcodes RON 7,000 as a fixed living cost baseline (`SURVIVAL_BASELINE`).
-- `GET /ai-news` (`AiNewsFunction`, optional `AnthropicApiKey` parameter) is still deployed but **no page calls it** — the AI News page was removed from the frontend.
-- The `"local-dev"` userId fallback in handlers is dead code from the removed local backend.

@@ -37,7 +37,7 @@ const fail = (code, message) => ({
 
 function isCallerAdmin(event) {
   const sub = event.requestContext?.authorizer?.claims?.sub;
-  if (!sub) return true; // local dev — no authorizer
+  if (!sub) return false; // no authenticated caller
   const raw = event.requestContext?.authorizer?.claims?.["cognito:groups"];
   if (!raw) return false;
   try {

@@ -24,7 +24,3 @@ export function useResolvedColors<T extends Record<string, string>>(tokens: T): 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, key]);
 }
-
-/** Axis and grid defaults shared by every chart. */
-export const AXIS_TICK = { fill: "var(--label-secondary)", fontSize: 12 };
-export const GRID_STROKE = "var(--separator)";

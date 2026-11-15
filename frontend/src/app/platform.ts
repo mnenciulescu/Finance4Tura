@@ -35,9 +35,3 @@ export function isStandalone(): boolean {
 }
 
 export const isIOS = () => getPlatform() === "ios";
-export const isAndroid = () => getPlatform() === "android";
-
-/** Hook form, for components. The values cannot change during a session. */
-export function usePlatform() {
-  return { platform: getPlatform(), standalone: isStandalone() };
-}

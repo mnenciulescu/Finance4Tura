@@ -1,6 +1,6 @@
 export { Icon, type IconName } from "./icons/Icon";
 export { Button, IconButton } from "./Button";
-export { List, ListSection, ListRow, ListButtonRow, ListItem, IconTile } from "./List";
+export { List, ListSection, ListRow, ListButtonRow, IconTile } from "./List";
 export { SegmentedControl, SegmentedTabs } from "./Segmented";
 export { Toggle } from "./Toggle";
 export { Checkbox } from "./Checkbox";
@@ -10,7 +10,7 @@ export { SearchField } from "./SearchField";
 export { Picker, type PickerOption } from "./Picker";
 export { Rating } from "./Rating";
 export { DateField, DatePickerSheet, MonthField } from "./DatePicker";
-export { Card, Widget, StatTile, Badge, Dot, ProgressBar, ProgressRing, EmptyState, Skeleton, ScreenSkeleton, Notice } from "./Display";
+export { Widget, StatTile, Badge, Dot, ProgressBar, ProgressRing, EmptyState, Skeleton, ScreenSkeleton, Notice } from "./Display";
 export { Sheet, FormSheet } from "./Sheet";
 export { ActionSheet, type ActionSheetAction } from "./ActionSheet";
 export { Alert } from "./Alert";
