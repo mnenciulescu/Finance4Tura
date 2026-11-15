@@ -67,4 +67,35 @@ const users = [
   { username: "ana", email: "ana@example.com", enabled: true, role: "normal", incomes: 4, expenses: 20 },
   { username: "test-user", email: "test@example.com", enabled: false, role: "normal", incomes: 0, expenses: 0 },
 ];
-export const db = { incomes, expenses, splits, books, snapshots, operations, fx, locations, templates, entries, users };
+// Portfolio v2 — invented assets and snapshots (no real holdings).
+const iso = d => d.toISOString().slice(0, 10);
+const daysAgo = n => iso(new Date(Date.now() - n * 86400000));
+const pv2Assets = [
+  { assetId: "pa-t1", platform: "Alpha Broker", type: "Total", name: "Alpha Broker total", units: null, symbol: null, isin: null, currency: "EUR", preferredSources: [], notes: null, order: -1, active: true },
+  { assetId: "pa-1", platform: "Alpha Broker", type: "ETF", name: "Example World ETF", symbol: "EXW", units: 12.5, isin: "IE00B4L5Y983", currency: "USD", preferredSources: [], notes: null, order: 0, active: true },
+  { assetId: "pa-2", platform: "Alpha Broker", type: "Crypto", name: "Example Coin", symbol: "EXC", units: 0.25, isin: null, currency: "USD", preferredSources: [], notes: null, order: 1, active: true },
+  { assetId: "pa-t2", platform: "Beta Funds", type: "Total", name: "Beta Funds total", units: null, symbol: null, isin: null, currency: "EUR", preferredSources: [], notes: null, order: -1, active: true },
+  { assetId: "pa-3", platform: "Beta Funds", type: "MutualFund", name: "Sample Balanced Fund RON", symbol: null, units: 40.75, isin: "US0378331005", currency: "RON", preferredSources: [], notes: null, order: 0, active: true },
+];
+const pv2Snapshots = [];
+[[120, 0.9], [60, 0.95], [20, 1], [3, 1.04]].forEach(([ago, k], n) => {
+  const date = daysAgo(ago);
+  const gen = `${date}T09:00:00Z`;
+  const a1 = 12.5 * 100 * k * 0.926, a2 = 0.25 * 40000 * k * 0.926, a3 = 40.75 * 50 * k * 0.201;
+  const mk = (assetId, asset, unitPrice, value, valueEUR, cur) => ({
+    snapshotId: `ps-${assetId}-${n}`, assetId, runId: `pr-${n}`, generatedAt: gen, priceDate: date, asset, currency: cur, unitPrice, value,
+    fxRate: cur === "EUR" ? 1 : cur === "USD" ? 0.926 : 0.201, fxDate: gen, valueEUR,
+    sources: unitPrice ? [{ url: "https://example.com/price", title: "Price page", publisher: "Example Exchange", quote: `Close ${unitPrice}` }] : [],
+    confidence: unitPrice ? "official" : null, comments: unitPrice ? null : "Sum of assets", source: unitPrice ? "agent" : "computed",
+  });
+  pv2Snapshots.push(
+    mk("pa-1", pv2Assets[1], 100 * k, 1250 * k, a1, "USD"),
+    mk("pa-2", pv2Assets[2], 40000 * k, 10000 * k, a2, "USD"),
+    mk("pa-3", pv2Assets[4], 50 * k, 2037.5 * k, a3, "RON"),
+    mk("pa-t1", pv2Assets[0], null, null, a1 + a2, "EUR"),
+    mk("pa-t2", pv2Assets[3], null, null, a3, "EUR"),
+  );
+});
+const pv2Ai = { configured: true, keyUpdatedAt: `${y}-11-01T10:00:00Z`, model: "claude-opus-5-5", maxSearches: 5, enabled: true };
+
+export const db = { incomes, expenses, splits, books, snapshots, operations, fx, locations, templates, entries, users, pv2Assets, pv2Snapshots, pv2Ai };

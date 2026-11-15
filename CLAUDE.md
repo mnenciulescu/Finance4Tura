@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 dashboard PWA. Its core is budgeting: incomes are received periodically, and
 expenses are mapped to the most recent income before their date. Around that
 sit Split Payments, Investments, Statistics, Books & Development and
-Headquarters (home-utility tracking), plus an admin area.
+Headquarters (home-utility tracking), plus an admin area. **Portfolio v2**
+(One-Page only) tracks asset prices looked up by an AI agent.
 
 **Current status**: live on AWS. Everything below describes what is deployed.
 
@@ -115,7 +116,7 @@ section describes what is implemented.
 | `theme/` | `tokens.css` (spacing, radii, type, motion, z), `themes.css` (the **only** stylesheet with raw colours: Light + Dark, primitives → semantic tokens), `base.css`, `themes.ts` (registry, migration), `ThemeProvider.tsx`, `domainColors.ts` (priority/platform/type/HTTP → `var(--…)`), `useChartTheme.ts` |
 | `ui/` | Component library, one CSS Module each: `Button`, `List`/`ListSection`/`ListRow`, `Sheet`/`FormSheet`, `ActionSheet`, `Alert`, `Menu` (`PullDownMenu`, `ContextMenu`), `SwipeActions`, `Segmented` (`SegmentedControl` = radiogroup, `SegmentedTabs` = tablist), `Toggle`, `Checkbox`, `Stepper`, `Fields`, `SearchField`, `Picker`, `Rating`, `DatePicker` (+ lazy `CalendarBody`), `Display` (`Widget`, `StatTile`, `Badge`, `ProgressBar`, `ProgressRing`, …), `Toast`, `PrivateValue`, `icons/Icon.tsx` |
 | `app/` | `AppShell`, `TabBar`, `Screen` (large-title nav bar), `AccountSheet`, `routes.tsx`, `navigation.ts`, `tabHistory.ts`, `overlays.ts`, `queryClient.ts`, `platform.ts`, `haptics.ts`, `install.ts`, `useKeyboardInset.ts`, `usePullToRefresh.tsx`, `UpdatePrompt.tsx`, `ErrorBoundary.tsx` |
-| `features/` | `today/`, `money/{budget,split,stats,invest,forms}/`, `library/`, `hq/`, `account/{settings,backstage,admin}/`, `auth/`, `one-page/` |
+| `features/` | `today/`, `money/{budget,split,stats,invest,forms}/`, `library/`, `hq/`, `account/{settings,backstage,admin}/`, `auth/`, `one-page/`, `portfolio-v2/` |
 | `data/` | `queries.ts` (reads + shared helpers), `mutations.ts` (writes for lazy screens), `hq.ts` |
 | `context/` | `AuthContext`, `AppSettingsContext`, `YearContext`, `PrivacyContext` |
 | `api/`, `utils/` | API modules (unchanged); `format`, `money`, `split`, `parseAmount` |
@@ -164,7 +165,7 @@ section describes what is implemented.
 - Every screen except Today, every chart, the calendar, the forms, the
   Account sheet, Login and Motion's animation features are lazy-loaded;
   `scripts/check-bundle.mjs` keeps the first download ≤ 200 KB gzipped
-  (currently ~199 KB) and what One-Page adds ≤ 150 KB (currently ~90 KB).
+  (currently ~199 KB) and what One-Page adds ≤ 150 KB (currently ~102 KB).
 
 #### Patterns
 - **Create / edit** = a `FormSheet` (Cancel · Title · Save/Add) over the
@@ -345,7 +346,7 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   Refresh, Light | Dark switch, account menu — no + or eye; adding and the
   income eye live in the blocks). As many columns as fit at 320 px each
   (`columnsFor` in `state.ts`): **four** from 1360 px — **Budget · Budget
-  Statistics** | **Split · Investment Statistics · Investments** | **HQ
+  Statistics** | **Split · Investment Statistics · Investments · Portfolio v2** | **HQ
   Statistics · HQ** | **Library Statistics · Library** — each scrolling on its
   own; **three** from 1024 px (Library's column moves under HQ); one below (with a "made for larger screens"
   note). Blocks collapse from their title
@@ -380,8 +381,8 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   the Library filters); Library (search, Filter, a tab per person); HQ (a tab per location,
   no Overview, opening on Mosoaia — `defaultLocation` in `hq/hqMath.ts`, also
   used by HQ Statistics; entries inline with auto-save; ⚙ opens HQ Settings as a
-  dialog).
-- **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=`),
+  dialog); **Portfolio v2** (see its section below).
+- **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=&pv2range=&pv2lines=`),
   written with replace, so browser Back only closes dialogs. Deep links
   `?expense=new|<id>&date=` and `?income=new|<id>` open the form and are
   consumed. Cross-links ("View evolution →", "Chart →", "View chart →",
@@ -399,6 +400,50 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   `StatsPanels`, `BookCard`, `ReadList`, `HqSettingsContent`,
   `useBudgetDeletes`, `splitGroups` / `outstandingByCurrency`.
 
+### Portfolio v2 (One-Page block)
+
+Block `portfolioV2` under Investments — `features/portfolio-v2/`,
+`features/one-page/blocks/PortfolioV2Block.tsx`; backend
+`handlers/portfolioV2.mjs` (API), `handlers/portfolioV2Worker.mjs` (async
+worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
+`store.mjs`, `aiConfig.mjs`). Spec: `Documentation/Portfolio_v2_Requirements.md`
+(kept local, not in the repo). Independent of the manual Investments module.
+
+- **Assets** = the current portfolio (platform, type, symbol, name, units,
+  ISIN, quote currency). Each platform has one `Total` asset (created
+  automatically, computed, never priced). Add/edit in a form dialog; remove =
+  **Archive** (keeps history) or **Delete** (with its snapshots).
+  **Import from Excel**: read in the browser by `portfolio-v2/xlsx.ts` (no
+  library — zip + XML via `DecompressionStream`), header row with Platform and
+  Type, units read exactly as stored, currency guessed and editable in the
+  preview; a server dry run, then an idempotent import (matches on platform +
+  ISIN / symbol / name).
+- **Snapshot run** (manual): `POST /portfolio-v2/runs` creates the run and
+  invokes `PortfolioV2WorkerFunction` once per asset (async, no retries); each
+  worker asks Claude (`claude-opus-5-5` by default, adaptive thinking, effort
+  medium, server-side refusal fallbacks, `web_search` + `web_fetch`) to report
+  through a strict `report_price` tool: price, currency, price date, sources
+  with the quoted text, official/secondary. **The model never calculates.**
+  Code checks the result (price > 0, date ≤ today and ≤ 10 days old — crypto 1
+  day, currency = the asset's, an https source), applies the **new-data rule**
+  (no previous snapshot, a later price date, changed units, or crypto older
+  than 1 h) and computes `value = units × unitPrice` and `valueEUR` with the
+  stored FX matrix (no rate → failed, never guessed). The last worker computes
+  each platform **Total** = Σ the latest `valueEUR` of the platform's active
+  assets (carried forward; unpriced → flagged incomplete), written only when
+  something on the platform is new. Price moves > 30 % are flagged.
+- **Block**: holdings eye (shared with Investments), **Generate** (confirm →
+  progress dialog: status per asset — queued, searching, computing, updated,
+  no new data, no confirmed price, failed in red, skipped — per-row and bulk
+  Retry, Cancel, "Run in Background"; polled every 2 s), total EUR with the
+  change over the range, step chart of the platform Totals and their sum
+  (1W · 1M · 3M · 1Y · All, line chips), **Last snapshot** per platform
+  (expand: units × price = value, price date, stale > 7 days, sources,
+  comments), collapsible **Assets** area, Snapshot Runs history.
+- **AI key**: Admin → **Portfolio v2 AI**; stored as a SecureString in SSM
+  (`/finance4tura/anthropic-api-key`), cached 5 min by the worker, never
+  returned by the API. Without a key, Generate is disabled with a hint.
+
 ### Settings, Backstage and Admin
 
 Pushed from the Account sheet.
@@ -410,8 +455,9 @@ Pushed from the Account sheet.
   Operations, Snapshots, Splits), search, 10 per page, swipe or two-step delete,
   live **API log** of the last 50 calls (method, URL, status, ms; tap for time
   and params).
-- **Admin** (`nenciulescu` only): App Settings toggles; FX matrix + **Update
-  FX Rates**; **Back Up All Tables** (preview → per-table progress → Drive
+- **Admin** (`nenciulescu` only): App Settings toggles; FX matrix (every
+  supported currency) + **Update FX Rates**; **Portfolio v2 AI** (write-only
+  Anthropic API key, model, searches per asset, agent on/off); **Back Up All Tables** (preview → per-table progress → Drive
   link); Users (email, counts, Admin/Disabled badges) → user sheet: admin role
   toggle (not for yourself), **Delete User and All Data** after re-entering
   your password.
@@ -475,10 +521,32 @@ All tables are pay-per-request with a single string hash key.
 **AppSettings** table (PK: `settingKey`):
 - Single global item `settingKey = "global"` with `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled`
 - No `userId` — applies to all users; GET is public, PUT is admin-only
+- Item `settingKey = "portfolioV2Ai"`: `enabled`, `model`, `maxSearches`, `keyUpdatedAt` (the key itself is in SSM, never here)
+
+**PortfolioV2_Assets** (PK: `assetId`, GSI `userId-index`): `userId`, `platform`,
+`type` (`Total`|`MutualFund`|`Stock`|`ETF`|`Crypto`|`Bond`|`Other`), `symbol`,
+`name`, `units` (null for Total), `isin`, `currency`, `preferredSources[]`,
+`notes`, `order`, `active` (false = archived), `createdAt`, `updatedAt`. One
+`Total` per platform, created automatically.
+
+**PortfolioV2_Snapshots** (PK: `snapshotId`, GSI `userId-index`): `userId`,
+`assetId`, `runId`, `generatedAt`, `priceDate`, `asset` (copy of the asset
+fields incl. units), `currency`, `unitPrice`, `value` (= units × unitPrice),
+`fxRate`, `fxDate`, `valueEUR`, `sources[]` (`url`, `title`, `publisher`,
+`quote`, `retrievedAt`), `confidence` (`official`|`secondary`), `priceType`,
+`flagged` (> 30 % move), `incomplete` (Total with unpriced assets), `comments`,
+`source` (`agent`|`computed`). Totals have only `valueEUR`.
+
+**PortfolioV2_Runs** (PK: `runId`, GSI `userId-index`, TTL `expiresAt` 90 days):
+`userId`, `trigger`, `status` (`running`|`completed`|`completed_with_errors`|`failed`|`cancelled`),
+`startedAt`, `finishedAt`, `items[]` (one per asset, then per platform Total:
+`status` `queued`|`searching`|`computing`|`updated`|`no_new_data`|`not_found`|`failed`|`skipped`,
+`message`, price, source), `remaining`, `attempt`, `summary`, `model`,
+`usage` (`inputTokens`, `outputTokens`, `webSearches`), `cancelRequested`.
 
 **FxRates** table (PK: `rateId`):
 - Single global item `rateId = "global"` with `rates` and `updatedAt`
-- `rates` is the full EUR/USD/RON matrix: `rates[FROM][TO]` = value of 1 `FROM` in `TO` (e.g. `rates.USD.EUR`); all 9 combinations stored, diagonal = 1
+- `rates` is the full matrix of `SUPPORTED_CURRENCIES` (EUR, RON, USD, GBP, CHF — `backend/src/lib/currencies.mjs`, mirrored in `frontend/src/utils/money.ts`): `rates[FROM][TO]` = value of 1 `FROM` in `TO` (e.g. `rates.USD.EUR`); every combination stored, diagonal = 1. Adding a currency = one entry in both lists, then Update FX Rates. Budget, Split and Investments keep their EUR/RON/USD pickers
 - GET is public; POST (refresh from frankfurter.app, deriving the matrix from EUR base) is admin-only
 - Refreshed manually from **Admin → FX Rates**. No runtime fetching — all pages read these stored rates. Frontend `toEUR()` uses `rates[currency].EUR` (with legacy flat-form fallback)
 
@@ -554,6 +622,21 @@ DELETE /headquarters/entries/{entryId}
 GET    /app-settings                        # public
 PUT    /app-settings                        # admin
 
+GET    /portfolio-v2/assets
+POST   /portfolio-v2/assets                 # creates the platform's Total if missing
+PUT    /portfolio-v2/assets/{assetId}
+DELETE /portfolio-v2/assets/{assetId}       # ?mode=archive (default) | delete (with its snapshots)
+POST   /portfolio-v2/assets/import          # { rows }; ?dryRun=true previews; idempotent
+GET    /portfolio-v2/snapshots              # ?assetId=&from=&to=
+GET    /portfolio-v2/snapshots/latest       # latest per asset
+GET    /portfolio-v2/runs                   # ?limit=
+POST   /portfolio-v2/runs                   # start a manual run (409 if one is running / no AI key)
+GET    /portfolio-v2/runs/{runId}           # polled by the progress dialog
+POST   /portfolio-v2/runs/{runId}/cancel
+POST   /portfolio-v2/runs/{runId}/retry     # { assetIds? } — failed / not found / skipped items
+GET    /portfolio-v2/ai-config              # { configured, keyUpdatedAt, model, maxSearches, enabled } — never the key
+PUT    /portfolio-v2/ai-config              # admin — { apiKey?, clearKey?, model?, maxSearches?, enabled? }
+
 GET    /fx-rates                            # public — stored { rates, updatedAt }
 POST   /fx-rates                            # admin — refresh from frankfurter.app
 
@@ -586,10 +669,12 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
+| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, .xlsx reader (stored + deflated), row mapping and currency guess, masked block, platform expand, run dialog statuses and Retry | 9 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links | 36 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, values, Totals, run summary, agent loop with a mocked SDK | 23 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
@@ -605,8 +690,8 @@ from invented fixtures, nothing reaches AWS. Time-dependent tests pin "today".
 | S3 bucket | `finance4tura-frontend` |
 | CloudFront | `E1O9C9K6CO439` (`d34ylrmixnmvem.cloudfront.net`) |
 | Cognito User Pool | `eu-central-1_CD7AdBFwQ` · Client: `2nh5dljhrg9mq7nsmdg7cef21v` · group `admin` |
-| DynamoDB tables | `Incomes`, `Expenses`, `InvestmentOperations`, `PortfolioSnapshots`, `SplitPayments`, `Books_and_Dev`, `HQ_Locations`, `HQ_Templates`, `HQ_Entries`, `AppSettings`, `FxRates` |
-| SSM parameter | `/finance4tura/gdrive-oauth2` — Google Drive OAuth2 client + refresh token for backups |
+| DynamoDB tables | `Incomes`, `Expenses`, `InvestmentOperations`, `PortfolioSnapshots`, `SplitPayments`, `Books_and_Dev`, `HQ_Locations`, `HQ_Templates`, `HQ_Entries`, `AppSettings`, `FxRates`, `PortfolioV2_Assets`, `PortfolioV2_Snapshots`, `PortfolioV2_Runs` |
+| SSM parameters | `/finance4tura/gdrive-oauth2` — Google Drive OAuth2 client + refresh token for backups; `/finance4tura/anthropic-api-key` — SecureString, Portfolio v2 AI key (written from Admin only) |
 | Region | `eu-central-1` |
 
 ## Design Decisions
@@ -664,3 +749,4 @@ set nowhere. Do not reintroduce a derived-credential scheme.
 - No JWT refresh — when the ID token expires the next 401 signs the user out. The Account sheet shows the countdown.
 - No server-side pagination — all records returned per request.
 - Statistics "Survival / month" hardcodes RON 7,000 as a fixed living cost baseline (`SURVIVAL_BASELINE`).
+- Portfolio v2 runs are manual only; each asset costs one Claude request with web search (billed to the configured key). The run shows the tokens and searches used.

@@ -3,6 +3,12 @@ import dayjs from "dayjs";
 import { PLATFORMS } from "../theme/domainColors";
 
 /**
+ * Currencies the stored FX matrix covers (mirrors backend/src/lib/currencies.mjs).
+ * Budget, Split and Investments keep their own EUR / RON / USD pickers.
+ */
+export const SUPPORTED_CURRENCIES = ["EUR", "RON", "USD", "GBP", "CHF"] as const;
+
+/**
  * Converts to EUR with the stored FX matrix: rates[FROM][TO], so
  * rates[currency].EUR is the value of 1 CUR in EUR. Falls back to the legacy
  * flat form (base EUR, rates.USD = 1 EUR in USD).

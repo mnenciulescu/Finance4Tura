@@ -19,6 +19,9 @@ Globals:
         HQ_LOCATIONS_TABLE: HQ_Locations
         HQ_TEMPLATES_TABLE: HQ_Templates
         HQ_ENTRIES_TABLE: HQ_Entries
+        PV2_ASSETS_TABLE: PortfolioV2_Assets
+        PV2_SNAPSHOTS_TABLE: PortfolioV2_Snapshots
+        PV2_RUNS_TABLE: PortfolioV2_Runs
 
 Parameters:
   CognitoUserPoolArn:
@@ -201,6 +204,73 @@ Resources:
       KeySchema:
         - AttributeName: entryId
           KeyType: HASH
+
+  # Portfolio v2 (One-Page block; AI-priced asset snapshots)
+  PortfolioV2AssetsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PortfolioV2_Assets
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: assetId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: assetId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PortfolioV2SnapshotsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PortfolioV2_Snapshots
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: snapshotId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: snapshotId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PortfolioV2RunsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PortfolioV2_Runs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: runId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: runId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   # ──────────────────────────────────────────
   # API Gateway
@@ -423,6 +493,12 @@ Resources:
             TableName: !Ref IncomesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ExpensesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2AssetsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2SnapshotsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2RunsTable
         - Statement:
             - Effect: Allow
               Action:
@@ -751,6 +827,150 @@ Resources:
             Method: DELETE
 
   # ──────────────────────────────────────────
+  # Portfolio v2 — API + async price worker
+  # ──────────────────────────────────────────
+  PortfolioV2WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/portfolioV2Worker.handler
+      CodeUri: .
+      Timeout: 600
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2AssetsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2SnapshotsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2RunsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref FxRatesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AppSettingsTable
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/finance4tura/anthropic-api-key"
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+
+  PortfolioV2Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/portfolioV2.handler
+      CodeUri: .
+      Timeout: 29
+      MemorySize: 512
+      Environment:
+        Variables:
+          PV2_WORKER_FUNCTION: !Ref PortfolioV2WorkerFunction
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2AssetsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2SnapshotsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioV2RunsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref FxRatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppSettingsTable
+        - LambdaInvokePolicy:
+            FunctionName: !Ref PortfolioV2WorkerFunction
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:PutParameter
+                - ssm:DeleteParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/finance4tura/anthropic-api-key"
+      Events:
+        Pv2AssetsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/assets
+            Method: GET
+        Pv2AssetsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/assets
+            Method: POST
+        Pv2AssetsImport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/assets/import
+            Method: POST
+        Pv2AssetPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/assets/{assetId}
+            Method: PUT
+        Pv2AssetDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/assets/{assetId}
+            Method: DELETE
+        Pv2SnapshotsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/snapshots
+            Method: GET
+        Pv2SnapshotsLatest:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/snapshots/latest
+            Method: GET
+        Pv2RunsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/runs
+            Method: GET
+        Pv2RunsPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/runs
+            Method: POST
+        Pv2RunGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/runs/{runId}
+            Method: GET
+        Pv2RunCancel:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/runs/{runId}/cancel
+            Method: POST
+        Pv2RunRetry:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/runs/{runId}/retry
+            Method: POST
+        Pv2AiConfigGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/ai-config
+            Method: GET
+        Pv2AiConfigPut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portfolio-v2/ai-config
+            Method: PUT
+
+  # ──────────────────────────────────────────
   # Admin — Database Backup
   # ──────────────────────────────────────────
   AdminBackupFunction:
@@ -779,6 +999,9 @@ Resources:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Locations"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Templates"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/HQ_Entries"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioV2_Assets"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioV2_Snapshots"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioV2_Runs"
             - Effect: Allow
               Action: ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:eu-central-1:${AWS::AccountId}:parameter/finance4tura/gdrive-oauth2"

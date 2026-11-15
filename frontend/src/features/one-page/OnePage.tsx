@@ -19,6 +19,7 @@ import { MoneyMask } from "./Block";
 import { BudgetBlock } from "./blocks/BudgetBlock";
 import { SplitBlock } from "./blocks/SplitBlock";
 import { InvestBlock } from "./blocks/InvestBlock";
+import { PortfolioV2Block } from "./blocks/PortfolioV2Block";
 import { BudgetStatsBlock, HqStatsBlock, InvestStatsBlock, LibraryStatsBlock } from "./blocks/StatsBlocks";
 import { LibraryBlock } from "./blocks/LibraryBlock";
 import { HqBlock } from "./blocks/HqBlock";
@@ -28,7 +29,7 @@ import s from "./OnePage.module.css";
 /**
  * One-Page (Documentation/OnePage_Desktop_Proposal.md): the Money, Library
  * and HQ tabs on one desktop screen. Four columns when they fit — Budget,
- * Split + Investments, HQ, Library, each with its statistics block — and the
+ * Split + Investments + Portfolio v2, HQ, Library, each with its statistics block — and the
  * rightmost columns move below the others on narrower windows.
  */
 export default function OnePage() {
@@ -77,13 +78,22 @@ export default function OnePage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const flashTimer = useRef<number | undefined>(undefined);
+  const settleTimer = useRef<number | undefined>(undefined);
   const focusBlock = useCallback((id: BlockId) => {
-    document.getElementById(`block-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.getElementById(`block-${id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // A layout change in the column (a block finishing loading) can cancel a
+    // smooth scroll in WebKit; if it did not land, finish it instantly.
+    window.clearTimeout(settleTimer.current);
+    settleTimer.current = window.setTimeout(() => {
+      const r = el?.getBoundingClientRect();
+      if (el && r && (r.bottom < 0 || r.top > window.innerHeight)) el.scrollIntoView({ block: "start" });
+    }, 700);
     setFlash(id);
     window.clearTimeout(flashTimer.current);
     flashTimer.current = window.setTimeout(() => setFlash(null), 1200);
   }, []);
-  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
+  useEffect(() => () => { window.clearTimeout(flashTimer.current); window.clearTimeout(settleTimer.current); }, []);
 
   const ctx = useMemo(() => ({
     filters,
@@ -115,6 +125,7 @@ export default function OnePage() {
     split: <SplitBlock />,
     investStats: <InvestStatsBlock />,
     invest: <InvestBlock />,
+    portfolioV2: <PortfolioV2Block />,
     hqStats: <HqStatsBlock />,
     hq: <HqBlock />,
     libraryStats: <LibraryStatsBlock />,
@@ -166,7 +177,7 @@ export default function OnePage() {
 /* ── Columns ──────────────────────────────────────────────────────────────── */
 
 const COLUMN_1: BlockId[] = ["budget", "budgetStats"];
-const COLUMN_2: BlockId[] = ["split", "investStats", "invest"];
+const COLUMN_2: BlockId[] = ["split", "investStats", "invest", "portfolioV2"];
 const COLUMN_3: BlockId[] = ["hqStats", "hq"];
 const COLUMN_4: BlockId[] = ["libraryStats", "library"];
 

@@ -9,6 +9,7 @@ const TABLES = [
   "Incomes", "Expenses", "InvestmentOperations", "PortfolioSnapshots",
   "SplitPayments", "AppSettings", "FxRates", "Books_and_Dev",
   "HQ_Locations", "HQ_Templates", "HQ_Entries",
+  "PortfolioV2_Assets", "PortfolioV2_Snapshots", "PortfolioV2_Runs",
 ];
 
 const FOLDER_ID = process.env.GDRIVE_BACKUP_FOLDER_ID;

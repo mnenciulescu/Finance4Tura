@@ -180,7 +180,7 @@ graph TB
 - **Tab bar**: Today · Money · Library · HQ. Money has a segmented control: Budget · Split · Stats · Invest.
 - **Account sheet** (initials, top right): username, session countdown, Settings, Backstage (when enabled), Admin (admin only), Sign Out.
 - System back (Android) closes the top sheet or menu first; iPhone gets an edge swipe on pushed screens. Old URLs redirect. Details in `CLAUDE.md`.
-- **One-Page** (`/one-page`, desktop): three columns of blocks — Budget and Split; Investments and Statistics (a tab per topic); Library and HQ. Reached by URL, from the Account sheet on screens ≥ 1024 px, or automatically with Settings → Desktop → *Open One-Page on this computer*. Spec: `Documentation/OnePage_Desktop_Proposal.md`.
+- **One-Page** (`/one-page`, desktop): up to four columns of blocks — Budget and Budget Statistics; Split, Investment Statistics, Investments and **Portfolio v2**; HQ Statistics and HQ; Library Statistics and Library. Reached by URL, from the Account sheet on screens ≥ 1024 px, or automatically with Settings → Desktop → *Open One-Page on this computer*. Spec: `Documentation/OnePage_Desktop_Proposal.md`.
 
 
 ---
@@ -298,7 +298,8 @@ Protected routes need `Authorization: <Cognito ID token>` (no `Bearer` prefix). 
 | Books & Dev | `GET/POST /books-and-dev` · `PUT/DELETE /books-and-dev/{id}` | Cognito |
 | Headquarters | `GET/POST /headquarters` · `PUT/DELETE /headquarters/{hqId}` · same under `/headquarters/templates` and `/headquarters/entries` | Cognito |
 | App Settings | `GET /app-settings` (public) · `PUT /app-settings` | admin for PUT |
-| FX Rates | `GET /fx-rates` (public) · `POST /fx-rates` (refresh from frankfurter.app) | admin for POST |
+| Portfolio v2 | `GET/POST /portfolio-v2/assets` · `PUT/DELETE /portfolio-v2/assets/{id}` · `POST /portfolio-v2/assets/import` · `GET /portfolio-v2/snapshots[/latest]` · `GET/POST /portfolio-v2/runs` · `GET /portfolio-v2/runs/{id}` · `POST /portfolio-v2/runs/{id}/cancel|retry` · `GET/PUT /portfolio-v2/ai-config` | Cognito; admin for PUT ai-config |
+| FX Rates | `GET /fx-rates` (public) · `POST /fx-rates` (refresh EUR, RON, USD, GBP, CHF from frankfurter.app) | admin for POST |
 | Admin users | `GET /admin/users` · `PUT /admin/users/{username}/role` · `DELETE /admin/users/{username}` | admin |
 | Backups | `GET /admin/backup/preview` · `POST /admin/backup/prepare` · `POST /admin/backup/run-table` | admin |
 
@@ -411,6 +412,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 | Authentication | Cognito + GIS popup via a custom Lambda | Cognito handles JWTs; Google sign-in works without Hosted UI redirects. |
 | Cache-Control | `no-store` on every response | Stops API Gateway's CloudFront layer serving stale per-user data. |
 | FX rates | Stored once, refreshed by an admin | Pages never call a third party at load time. |
+| Portfolio v2 prices | An AI agent (Claude + web search) reports prices with sources; code does every calculation | Official sources only, a snapshot only when there is new data, and every number is reproducible from units × price × FX. |
 | Design tokens | All colours, radii, shadows, spacing and type as CSS variables | A test fails the build on raw values outside the token files. |
 
 ---

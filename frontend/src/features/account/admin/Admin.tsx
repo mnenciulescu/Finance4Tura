@@ -10,11 +10,12 @@ import { useAppSettings, type AppSettings } from "../../../context/AppSettingsCo
 import { listUsers, updateUserRole, deleteUser } from "../../../api/admin";
 import { updateFxRates } from "../../../api/fxRates";
 import { keys, useFxRates } from "../../../data/queries";
+import { SUPPORTED_CURRENCIES } from "../../../utils/money";
 import type { AdminUser } from "../../../types";
 import { BackupSheet } from "./BackupSheet";
+import { PortfolioAiSection } from "./PortfolioAiSection";
 import s from "./Admin.module.css";
 
-const FX = ["EUR", "USD", "RON"];
 
 const SETTINGS: { key: keyof AppSettings; label: string; desc: string }[] = [
   { key: "backstageEnabled", label: "Backstage", desc: "Show Backstage in the account sheet for all users" },
@@ -64,6 +65,8 @@ export default function Admin() {
       : `Failed to load users (HTTP ${usersError?.response?.status ?? "none"}: ${usersError?.response?.data?.message || usersError?.message || "unknown"})`;
 
   const rates = fx.data?.rates as Record<string, Record<string, number>> | null | undefined;
+  // Every currency the stored matrix has, in the app's order (new ones appear after an update).
+  const FX = rates ? [...SUPPORTED_CURRENCIES.filter(c => rates[c]), ...Object.keys(rates).filter(c => !(SUPPORTED_CURRENCIES as readonly string[]).includes(c))] : [];
 
   return (
     <Screen title="Admin" large={false} back={back}>
@@ -82,10 +85,11 @@ export default function Admin() {
 
       <ListSection
         header="FX rates"
-        footer="Conversion rates between EUR, USD and RON used across the app for all users. Update fetches the latest rates and stores every combination."
+        footer={`Conversion rates between ${SUPPORTED_CURRENCIES.join(", ")} used across the app for all users. Update fetches the latest rates and stores every combination.`}
       >
         <div className={s.card}>
           {rates?.EUR ? (
+            <div className={s.fxWrap}>
             <table className={s.fx} aria-label="FX rate matrix">
               <thead>
                 <tr><th scope="col"><span className="visually-hidden">From</span></th>{FX.map(c => <th key={c} scope="col">{c}</th>)}</tr>
@@ -99,6 +103,7 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
             <p className={s.muted}>No FX rates stored yet.</p>
           )}
@@ -110,6 +115,8 @@ export default function Admin() {
           </div>
         </div>
       </ListSection>
+
+      <PortfolioAiSection />
 
       <ListSection header="Database backup" footer="Exports every DynamoDB table to CSV in a dated Google Drive folder.">
         <div className={s.padded}>

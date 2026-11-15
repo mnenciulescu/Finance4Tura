@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import { ScanCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../lib/dynamo.mjs";
+import { deleteUserData as deletePortfolioV2 } from "../lib/portfolioV2/store.mjs";
 
 const cognito        = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION || "eu-central-1" });
 const USER_POOL_ID   = process.env.USER_POOL_ID || "eu-central-1_CD7AdBFwQ";
@@ -135,6 +136,9 @@ async function deleteUser(username, callerSub) {
       await docClient.send(new BatchWriteCommand({ RequestItems: { [EXPENSES_TABLE]: chunk } }));
     }
   }
+
+  // Portfolio v2 assets, snapshots and runs
+  if (sub) await deletePortfolioV2(sub);
 
   // Delete from Cognito
   await cognito.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: username }));

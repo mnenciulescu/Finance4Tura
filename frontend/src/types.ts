@@ -128,3 +128,85 @@ export interface AdminUser {
   incomes: number;
   expenses: number;
 }
+
+/* ── Portfolio v2 ─────────────────────────────────────────────────────────── */
+
+export type Pv2AssetType = "Total" | "MutualFund" | "Stock" | "ETF" | "Crypto" | "Bond" | "Other";
+
+export interface Pv2Asset {
+  assetId: string;
+  platform: string;
+  type: Pv2AssetType;
+  symbol: string | null;
+  name: string;
+  units: number | null;
+  isin: string | null;
+  /** Original quote currency (ISO 4217, one of SUPPORTED_CURRENCIES). */
+  currency: string;
+  preferredSources: string[];
+  notes: string | null;
+  order: number;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Pv2Source { url: string; title: string | null; publisher: string | null; quote: string | null; retrievedAt?: string; }
+
+export interface Pv2Snapshot {
+  snapshotId: string;
+  assetId: string;
+  runId: string;
+  generatedAt: string;
+  priceDate: string;
+  asset: Pick<Pv2Asset, "platform" | "type" | "symbol" | "name" | "units" | "isin" | "currency">;
+  currency: string;
+  unitPrice: number | null;
+  value: number | null;
+  fxRate: number | null;
+  fxDate: string | null;
+  valueEUR: number;
+  sources: Pv2Source[];
+  confidence: "official" | "secondary" | null;
+  priceType?: string | null;
+  flagged?: boolean;
+  incomplete?: boolean;
+  comments: string | null;
+  source: "agent" | "manual" | "computed";
+}
+
+export type Pv2ItemStatus = "queued" | "searching" | "computing" | "updated" | "no_new_data" | "not_found" | "failed" | "skipped";
+
+export interface Pv2RunItem {
+  assetId: string;
+  name: string;
+  platform: string;
+  type: Pv2AssetType;
+  symbol?: string | null;
+  isin?: string | null;
+  status: Pv2ItemStatus;
+  message?: string | null;
+  snapshotId?: string | null;
+  unitPrice?: number | null;
+  currency?: string | null;
+  priceDate?: string | null;
+  value?: number | null;
+  valueEUR?: number | null;
+  sourceUrl?: string | null;
+  flagged?: boolean;
+}
+
+export interface Pv2Run {
+  runId: string;
+  trigger: "manual" | "scheduled";
+  status: "running" | "completed" | "completed_with_errors" | "failed" | "cancelled";
+  startedAt: string;
+  finishedAt: string | null;
+  items: Pv2RunItem[];
+  summary: { updated: number; noNewData: number; notFound: number; failed: number; skipped: number } | null;
+  model: string;
+  usage: { inputTokens: number; outputTokens: number; webSearches: number };
+  cancelRequested?: boolean;
+}
+
+export interface Pv2AiConfig { configured: boolean; keyUpdatedAt: string | null; model: string; maxSearches: number; enabled: boolean; }

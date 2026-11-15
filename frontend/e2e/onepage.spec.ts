@@ -18,12 +18,13 @@ test("four columns at 1920 px in the planned order", async ({ page }) => {
   await expect(page.locator("main[data-cols='4']")).toBeVisible();
   const order = async (n: number) => page.getByRole("region", { name: `Column ${n}` }).locator("[data-block]").evaluateAll(els => els.map(el => el.getAttribute("data-block")));
   expect(await order(1)).toEqual(["budget", "budgetStats"]);
-  expect(await order(2)).toEqual(["split", "investStats", "invest"]);
+  expect(await order(2)).toEqual(["split", "investStats", "invest", "portfolioV2"]);
   expect(await order(3)).toEqual(["hqStats", "hq"]);
   expect(await order(4)).toEqual(["libraryStats", "library"]);
 });
 
 test("four columns at 1440 px, each scrolling under a fixed header", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
   await expect(page.locator("main[data-cols='4']")).toBeVisible();
   const col2 = page.getByRole("region", { name: "Column 2" });
@@ -146,4 +147,32 @@ test("cross-links bring the matching statistics block into view", async ({ page 
   await expect(block(page, "investStats")).toBeInViewport();
   await block(page, "library").getByRole("button", { name: "Chart →" }).click();
   await expect(block(page, "libraryStats")).toBeInViewport();
+});
+
+test("Portfolio v2: masked values, range switch, platform expand", async ({ page }) => {
+  await open(page);
+  const pv2 = block(page, "portfolioV2");
+  await pv2.scrollIntoViewIfNeeded();
+  await expect(pv2.getByLabel("Portfolio v2 total").getByRole("img", { name: "Hidden amount" })).toBeVisible();
+  await pv2.getByRole("button", { name: "Show amounts" }).click();
+  await expect(pv2.getByLabel("Portfolio v2 total").getByRole("img", { name: "Hidden amount" })).toHaveCount(0);
+  await pv2.getByRole("radio", { name: "1Y" }).click();
+  await expect(page).toHaveURL(/pv2range=1y/);
+  await pv2.getByRole("group", { name: "Chart lines" }).getByRole("button", { name: "Alpha Broker" }).click();
+  await expect(page).toHaveURL(/pv2lines=Total%2CAlpha(\+|%20)Broker/);
+  await pv2.getByRole("region", { name: "Last snapshot" }).getByRole("button", { name: /^Alpha Broker/ }).click();
+  await expect(pv2.getByRole("list", { name: "Alpha Broker assets" })).toContainText("Example World ETF");
+});
+
+test("Portfolio v2: generate a snapshot and follow each asset's status", async ({ page }) => {
+  await open(page);
+  const pv2 = block(page, "portfolioV2");
+  await pv2.scrollIntoViewIfNeeded();
+  await pv2.getByRole("button", { name: "Generate Snapshot" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Generate Snapshot" }).click();
+  const dialog = page.getByRole("dialog", { name: /Generating snapshot|Snapshot run/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[data-status="failed"]')).toContainText("AI rate limit reached", { timeout: 15000 });
+  await expect(dialog.locator('[data-status="updated"]').first()).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Retry 1 Failed/ })).toBeVisible({ timeout: 15000 });
 });

@@ -1,0 +1,137 @@
+// Portfolio v2 — the price-lookup agent. One Claude request per asset with
+// web search / web fetch; the model reports the price through the
+// `report_price` tool and never does arithmetic.
+export const DEFAULT_MODEL = "claude-opus-5-5";
+export const DEFAULT_MAX_SEARCHES = 5;
+
+export const SYSTEM_PROMPT = `You look up the latest published price of one financial instrument for a personal portfolio tracker.
+
+Rules:
+- Use only confirmed, official data, in this order of preference: the issuer or fund house (fund NAV pages, factsheets), the exchange where the instrument is listed (for example Euronext, NYSE / NYSE Arca, Nasdaq, London Stock Exchange, Bucharest Stock Exchange), then a regulator or official registry. A reputable financial data site counts only as "secondary" and only when it names the official source. Never use blogs, forums, social media or numbers without a stated source.
+- Identify the instrument by ISIN first, then by symbol and name. The share class / listing must match the requested currency. If the only price you can confirm is in another currency, report that currency exactly as published; do not convert it.
+- Report the most recent published price (closing price, NAV, or spot price for crypto) and the date it is valid for, exactly as the source states them.
+- For every source, include the exact text from the page where the price appears.
+- Do not calculate, convert, estimate or round anything. Report numbers exactly as published, as plain decimals with "." as the decimal separator.
+- If you cannot confirm a price from an acceptable source, report found=false with a short reason. That is a valid and useful answer.
+
+When you are done, call the report_price tool exactly once. Do not write any other final answer.`;
+
+/** The tool the agent reports through (strict: inputs always match the schema). */
+export const REPORT_TOOL = {
+  name: "report_price",
+  description: "Report the latest confirmed price of the instrument, or that none was found. Call exactly once, at the end.",
+  strict: true,
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["found", "unitPrice", "currency", "priceDate", "priceType", "sources", "confidence", "comments", "reasonIfNotFound"],
+    properties: {
+      found: { type: "boolean", description: "true when a confirmed price was found" },
+      unitPrice: { type: ["number", "null"], description: "Price of one unit, exactly as published" },
+      currency: { type: ["string", "null"], description: "ISO 4217 code of the published price" },
+      priceDate: { type: ["string", "null"], description: "Date the price is valid for, YYYY-MM-DD" },
+      priceType: { type: ["string", "null"], description: "close, nav or spot" },
+      sources: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["url", "title", "publisher", "quote"],
+          properties: {
+            url: { type: "string" },
+            title: { type: "string" },
+            publisher: { type: "string" },
+            quote: { type: "string", description: "Exact text on the page where the price appears" },
+          },
+        },
+      },
+      confidence: { type: ["string", "null"], description: "official (issuer, fund house, exchange, regulator) or secondary (reputable site naming the official source)" },
+      comments: { type: ["string", "null"], description: "Short note, e.g. publication delay" },
+      reasonIfNotFound: { type: ["string", "null"] },
+    },
+  },
+};
+
+const TYPE_LABEL = { MutualFund: "mutual fund", ETF: "ETF", Stock: "stock", Crypto: "cryptocurrency", Bond: "bond", Other: "instrument" };
+
+export function buildUserPrompt(asset, last, today) {
+  const lines = [
+    `Instrument: ${asset.name}`,
+    `Type: ${TYPE_LABEL[asset.type] ?? asset.type}`,
+    asset.isin ? `ISIN: ${asset.isin}` : null,
+    asset.symbol ? `Symbol / ticker: ${asset.symbol}` : null,
+    `Held on platform: ${asset.platform}`,
+    `Requested price currency: ${asset.currency}`,
+    asset.preferredSources?.length ? `Preferred sources to try first: ${asset.preferredSources.join(", ")}` : null,
+    last ? `Last recorded price: ${last.unitPrice} ${last.currency} for ${last.priceDate}. Only a later price, or the same date confirmed again, is useful.` : "No price has been recorded before.",
+    `Today is ${today}.`,
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * Runs the lookup. `client` is an Anthropic SDK client (injected for tests).
+ * Returns { result, usage } or throws on API errors / refusals.
+ */
+export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, now = new Date() }) {
+  const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10)) }];
+  const usage = { inputTokens: 0, outputTokens: 0, webSearches: 0 };
+  const tools = [
+    { type: "web_search_20260209", name: "web_search", max_uses: maxSearches },
+    { type: "web_fetch_20260209", name: "web_fetch", max_uses: maxSearches },
+    REPORT_TOOL,
+  ];
+
+  for (let turn = 0; turn < 6; turn++) {
+    const response = await client.beta.messages.create({
+      model,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      thinking: { type: "adaptive" },
+      output_config: { effort: "medium" },
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools,
+      messages,
+    });
+    usage.inputTokens += response.usage?.input_tokens ?? 0;
+    usage.outputTokens += response.usage?.output_tokens ?? 0;
+    usage.webSearches += response.usage?.server_tool_use?.web_search_requests ?? 0;
+
+    if (response.stop_reason === "refusal") {
+      const why = response.stop_details?.explanation || response.stop_details?.category || "declined";
+      throw new AgentError(`The AI model declined the request (${why})`);
+    }
+
+    const report = response.content.find(b => b.type === "tool_use" && b.name === "report_price");
+    if (report) {
+      if (response.stop_reason === "max_tokens") throw new AgentError("The AI answer was cut off; try again");
+      return { result: report.input, usage };
+    }
+
+    if (response.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: response.content });
+      continue;
+    }
+    if (response.stop_reason === "max_tokens") throw new AgentError("The AI answer was cut off; try again");
+
+    // Ended without reporting: ask once more for the report, then give up.
+    messages.push({ role: "assistant", content: response.content });
+    messages.push({ role: "user", content: "Call the report_price tool now with what you found (found=false if nothing was confirmed)." });
+  }
+  throw new AgentError("The AI agent did not report a result");
+}
+
+export class AgentError extends Error {}
+
+/** A short, user-facing message for any error from a lookup. */
+export function describeError(e) {
+  if (e instanceof AgentError) return e.message;
+  const status = e?.status;
+  if (status === 401) return "The AI key was rejected — check it in Admin → App Settings";
+  if (status === 429) return "AI rate limit reached — retry in a minute";
+  if (status === 529 || status === 503) return "The AI service is overloaded — retry later";
+  if (status >= 400 && status < 500) return `The AI request was rejected (${status}): ${String(e?.error?.error?.message ?? e?.message ?? "").slice(0, 200)}`;
+  if (e?.name === "APIConnectionTimeoutError" || /timed? ?out/i.test(String(e?.message))) return "The AI lookup timed out";
+  return `Lookup failed: ${String(e?.message ?? e).slice(0, 200)}`;
+}

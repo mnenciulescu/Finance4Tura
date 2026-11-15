@@ -47,6 +47,14 @@ vi.mock("../../api/headquarters", async orig => ({
   listEntries: () => Promise.resolve([]),
 }));
 
+vi.mock("../../api/portfolioV2", async orig => ({
+  ...(await orig<object>()),
+  listPv2Assets: () => Promise.resolve([]),
+  listPv2Snapshots: () => Promise.resolve([]),
+  listPv2Runs: () => Promise.resolve([]),
+  getPv2AiConfig: () => Promise.resolve({ configured: false, keyUpdatedAt: null, model: "claude-opus-5-5", maxSearches: 5, enabled: true }),
+}));
+
 const { default: OnePage } = await import("./OnePage");
 
 const renderPage = (route = "/one-page") => renderApp(
@@ -61,10 +69,10 @@ beforeEach(() => {
 });
 
 describe("One-Page — layout", () => {
-  it("shows all nine blocks", async () => {
+  it("shows all ten blocks", async () => {
     renderPage();
     for (const name of [
-      "Budget", "Budget Statistics", "Split Payments", "Investment Statistics", "Investments",
+      "Budget", "Budget Statistics", "Split Payments", "Investment Statistics", "Investments", "Portfolio v2",
       "HQ Statistics", "HQ", "Library Statistics", "Library",
     ]) {
       expect(await screen.findByRole("heading", { name, level: 2 })).toBeInTheDocument();
@@ -145,8 +153,9 @@ describe("One-Page — sensitive values", () => {
     expect(hidden()).toBe(0);
     // Still shown after the click ends — it is a flag, not press-and-hold.
     expect(within(invest).getByRole("button", { name: "Hide amounts" })).toHaveAttribute("aria-pressed", "true");
-    // Both investment blocks share the flag.
+    // The investment blocks share the flag.
     expect(within(block("investStats")).getByRole("button", { name: "Hide amounts" })).toBeInTheDocument();
+    expect(within(block("portfolioV2")).getByRole("button", { name: "Hide amounts" })).toBeInTheDocument();
     fireEvent.click(within(invest).getByRole("button", { name: "Hide amounts" }));
     expect(hidden()).toBeGreaterThan(0);
   });

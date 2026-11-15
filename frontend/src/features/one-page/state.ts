@@ -34,7 +34,7 @@ export function useEnumParam<T extends string>(name: string, values: readonly T[
 
 export type BlockId =
   | "budget" | "budgetStats"
-  | "split" | "investStats" | "invest"
+  | "split" | "investStats" | "invest" | "portfolioV2"
   | "hqStats" | "hq"
   | "libraryStats" | "library";
 

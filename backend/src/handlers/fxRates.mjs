@@ -1,5 +1,6 @@
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../lib/dynamo.mjs";
+import { buildMatrix, SUPPORTED_CURRENCIES } from "../lib/currencies.mjs";
 
 const TABLE  = process.env.FX_RATES_TABLE || "FxRates";
 const DB_KEY = "global";
@@ -34,51 +35,40 @@ async function handleGet() {
   return ok({ rates: item?.rates ?? null, updatedAt: item?.updatedAt ?? null });
 }
 
-const round6 = (n) => Math.round(n * 1e6) / 1e6;
-
-// Build the full 3×3 conversion matrix between EUR, USD and RON from the two
-// EUR-based rates. rates[FROM][TO] = value of 1 FROM expressed in TO.
-function buildMatrix(eurToUsd, eurToRon) {
-  const u = eurToUsd; // 1 EUR = u USD
-  const r = eurToRon; // 1 EUR = r RON
-  return {
-    EUR: { EUR: 1,            USD: round6(u),     RON: round6(r)     },
-    USD: { EUR: round6(1 / u), USD: 1,            RON: round6(r / u) },
-    RON: { EUR: round6(1 / r), USD: round6(u / r), RON: 1            },
-  };
-}
-
-// POST /fx-rates (admin only) — fetch fresh rates from frankfurter.app and persist
-// the full EUR/USD/RON conversion matrix so it is shared across all users.
+// POST /fx-rates (admin only) — fetch fresh EUR-based rates from frankfurter.app
+// and persist the full conversion matrix for every supported currency, so it is
+// shared across all users.
 async function handlePost(event) {
   if (!isCallerAdmin(event)) return err(403, "Admin access required");
 
+  const others = SUPPORTED_CURRENCIES.filter(c => c !== "EUR");
   const log = [];
-  log.push("Fetching latest EUR→USD,RON rates from frankfurter.app…");
+  log.push(`Fetching latest EUR→${others.join(",")} rates from frankfurter.app…`);
 
   let data;
   try {
-    const res = await fetch("https://api.frankfurter.app/latest?from=EUR&to=USD,RON");
+    const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${others.join(",")}`);
     data = await res.json();
   } catch {
     log.push("Error: could not reach frankfurter.app.");
     return err(502, JSON.stringify(log));
   }
 
-  if (!data?.rates || data.rates.USD == null || data.rates.RON == null) {
-    log.push("Error: no rates returned.");
+  const missing = others.filter(c => data?.rates?.[c] == null);
+  if (!data?.rates || missing.length) {
+    log.push(`Error: no rates returned for ${missing.join(", ") || "any currency"}.`);
     return err(502, JSON.stringify(log));
   }
 
-  const rates = buildMatrix(data.rates.USD, data.rates.RON);
+  const rates = buildMatrix(data.rates);
   const updatedAt = new Date().toISOString();
   await docClient.send(new PutCommand({
     TableName: TABLE,
     Item: { rateId: DB_KEY, rates, updatedAt },
   }));
 
-  for (const from of ["EUR", "USD", "RON"]) {
-    for (const to of ["EUR", "USD", "RON"]) {
+  for (const from of SUPPORTED_CURRENCIES) {
+    for (const to of SUPPORTED_CURRENCIES) {
       if (from !== to) log.push(`1 ${from} = ${rates[from][to]} ${to}`);
     }
   }
