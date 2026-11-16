@@ -69,15 +69,17 @@ beforeEach(() => {
 });
 
 describe("One-Page — layout", () => {
-  it("shows all ten blocks", async () => {
+  it("shows all eight blocks, without the old Investments ones", async () => {
     renderPage();
     for (const name of [
-      "Budget", "Budget Statistics", "Split Payments", "Investment Statistics", "Investments", "Portfolio v2",
+      "Budget", "Budget Statistics", "Split Payments", "Portfolio v2",
       "HQ Statistics", "HQ", "Library Statistics", "Library",
     ]) {
       expect(await screen.findByRole("heading", { name, level: 2 })).toBeInTheDocument();
     }
     expect(document.documentElement).toHaveAttribute("data-layout", "desk");
+    expect(screen.queryByRole("heading", { name: "Investments", level: 2 })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Investment Statistics", level: 2 })).toBeNull();
   });
 });
 
@@ -124,15 +126,15 @@ describe("One-Page — navigation state", () => {
   it("restores tabs from the URL and writes tab changes back", async () => {
     renderPage("/one-page?stats=prio");
     expect(await within(block("budgetStats")).findByRole("tab", { name: "Priorities", selected: true })).toBeInTheDocument();
-    fireEvent.click(within(block("invest")).getByRole("tab", { name: "Snapshots" }));
-    expect(location()).toContain("inv=snapshots");
+    fireEvent.click(await within(block("split")).findByRole("tab", { name: /^Settled/ }));
+    expect(location()).toContain("split=settled");
     expect(location()).toContain("stats=prio");
   });
 
   it("falls back to defaults for unknown values", async () => {
-    renderPage("/one-page?stats=nope&inv=zzz");
+    renderPage("/one-page?stats=nope&split=zzz");
     expect(await within(block("budgetStats")).findByRole("tab", { name: "Budget", selected: true })).toBeInTheDocument();
-    expect(within(block("invest")).getByRole("tab", { name: "Portfolio", selected: true })).toBeInTheDocument();
+    expect(await within(block("split")).findByRole("tab", { name: /^In progress/, selected: true })).toBeInTheDocument();
   });
 
   it("opens a form from a deep link and consumes the parameters", async () => {
@@ -145,17 +147,14 @@ describe("One-Page — navigation state", () => {
 describe("One-Page — sensitive values", () => {
   it("masks holdings until the eye is switched on, and again when switched off", async () => {
     renderPage();
-    const invest = block("invest");
-    await within(invest).findByText("eToro");
+    const invest = block("portfolioV2");
+    await within(invest).findByLabelText("Portfolio v2 total");
     const hidden = () => within(invest).queryAllByRole("img", { name: "Hidden amount" }).length;
     expect(hidden()).toBeGreaterThan(0);
     fireEvent.click(within(invest).getByRole("button", { name: "Show amounts" }));
     expect(hidden()).toBe(0);
     // Still shown after the click ends — it is a flag, not press-and-hold.
     expect(within(invest).getByRole("button", { name: "Hide amounts" })).toHaveAttribute("aria-pressed", "true");
-    // The investment blocks share the flag.
-    expect(within(block("investStats")).getByRole("button", { name: "Hide amounts" })).toBeInTheDocument();
-    expect(within(block("portfolioV2")).getByRole("button", { name: "Hide amounts" })).toBeInTheDocument();
     fireEvent.click(within(invest).getByRole("button", { name: "Hide amounts" }));
     expect(hidden()).toBeGreaterThan(0);
   });

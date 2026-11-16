@@ -19,9 +19,10 @@ test("four columns at 1920 px in the planned order", async ({ page }) => {
   const ids = (scope: ReturnType<Page["locator"]>) => scope.locator("[data-block]").evaluateAll(els => els.map(el => el.getAttribute("data-block")));
   const wide = page.getByRole("region", { name: "Columns 2–3" });
   expect(await ids(page.getByRole("region", { name: "Column 1" }))).toEqual(["budget", "budgetStats"]);
-  expect(await ids(wide)).toEqual(["portfolioV2", "investStats", "invest", "hqStats", "hq"]);
-  expect(await ids(wide.locator("[data-subcol='1']"))).toEqual(["investStats", "invest"]);
-  expect(await ids(wide.locator("[data-subcol='2']"))).toEqual(["hqStats", "hq"]);
+  expect(await ids(wide)).toEqual(["portfolioV2", "hqStats", "hq"]);
+  expect(await ids(wide.locator("[data-subcol='1']"))).toEqual(["hqStats"]);
+  expect(await ids(wide.locator("[data-subcol='2']"))).toEqual(["hq"]);
+  await expect(page.locator("[data-block='invest'], [data-block='investStats']")).toHaveCount(0);
   expect(await ids(page.getByRole("region", { name: "Column 4" }))).toEqual(["split", "libraryStats", "library"]);
   // Portfolio v2 is about twice as wide as a single column.
   const pv2 = await block(page, "portfolioV2").boundingBox();
@@ -64,8 +65,8 @@ for (const width of [1024, 1280, 1440, 1920]) {
 test("browser back closes the dialog first; tab switches add no history", async ({ page }) => {
   await open(page);
   const before = await page.evaluate(() => history.length);
-  await block(page, "invest").getByRole("tab", { name: "Snapshots" }).click();
-  await expect(page).toHaveURL(/inv=snapshots/);
+  await block(page, "split").getByRole("tab", { name: /^Settled/ }).click();
+  await expect(page).toHaveURL(/split=settled/);
   expect(await page.evaluate(() => history.length)).toBe(before);
 
   await block(page, "budget").getByRole("button", { name: "Budget actions" }).click();
@@ -74,7 +75,7 @@ test("browser back closes the dialog first; tab switches add no history", async 
   await expect(dialog).toBeVisible();
   await page.goBack();
   await expect(dialog).toBeHidden();
-  await expect(page).toHaveURL(/\/one-page\?inv=snapshots/);
+  await expect(page).toHaveURL(/\/one-page\?split=settled/);
 });
 
 test("a dirty form asks before Escape discards it", async ({ page }) => {
@@ -116,7 +117,7 @@ test("right-click shows the app's own menu", async ({ page }) => {
 
 test("the holdings eye is a flag: click shows, click again hides (mouse and Space)", async ({ page }) => {
   await open(page);
-  const invest = block(page, "invest");
+  const invest = block(page, "portfolioV2");
   const hidden = invest.getByRole("img", { name: "Hidden amount" });
   await expect(hidden.first()).toBeVisible();
   await invest.getByRole("button", { name: "Show amounts" }).click();
@@ -149,8 +150,6 @@ test("keyboard: N then E opens New Expense; arrows step the budget period", asyn
 
 test("cross-links bring the matching statistics block into view", async ({ page }) => {
   await open(page);
-  await block(page, "invest").getByRole("button", { name: "View evolution →" }).click();
-  await expect(block(page, "investStats")).toBeInViewport();
   await block(page, "library").getByRole("button", { name: "Chart →" }).click();
   await expect(block(page, "libraryStats")).toBeInViewport();
 });

@@ -348,11 +348,11 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   Refresh, Light | Dark switch, account menu — no + or eye; adding and the
   income eye live in the blocks). As many columns as fit at 320 px each
   (`columnsFor` in `state.ts`): **four** from 1360 px — **Budget · Budget
-  Statistics** | **Portfolio v2** across columns 2–3, with **Investment
-  Statistics · Investments** and **HQ Statistics · HQ** below it | **Split ·
-  Library Statistics · Library** — each column (and the 2–3 region as a whole)
+  Statistics** | **Portfolio v2** across columns 2–3, with **HQ Statistics**
+  under its left half and **HQ** under its right | **Split · Library
+  Statistics · Library** — each column (and the 2–3 region as a whole)
   scrolling on its own (`LAYOUTS` in `OnePage.tsx`); **three** from 1024 px
-  (Portfolio v2 still spans 2–3: Investments + HQ under its left half, Split +
+  (Portfolio v2 still spans 2–3: HQ Statistics + HQ under its left half, Split +
   Library under its right); two (Portfolio v2 across the top); one below (with a "made for larger screens"
   note). Blocks collapse from their title
   (`onePage.collapsed` in localStorage) and each has its own error boundary.
@@ -376,21 +376,22 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   `AmountMaskContext` + `<Amount>` (`ui/PrivateValue.tsx`; the phone never
   provides it, so phone screens are unchanged);
   Split (In progress / Settled tabs, same slots and settle prompt);
-  Investments (Portfolio / Snapshots / Operations; **all amounts masked**
-  behind an eye that works as a show/hide flag — click to show, click again
-  to hide, shared with Investment Statistics, re-masked when the page is
-  hidden); four statistics blocks — **Budget Statistics**
-  (tabs Budget, Priorities with a per-month table, ★ Special), **Investment
-  Statistics** (evolution, values hidden until the eye is on), **HQ Statistics**
+  three statistics blocks — **Budget Statistics**
+  (tabs Budget, Priorities with a per-month table, ★ Special), **HQ Statistics**
   (water charts), **Library Statistics** (per-person 12-month chart following
   the Library filters); Library (search, Filter, a tab per person); HQ (a tab per location,
   no Overview, opening on Mosoaia — `defaultLocation` in `hq/hqMath.ts`, also
   used by HQ Statistics; entries inline with auto-save; ⚙ opens HQ Settings as a
-  dialog); **Portfolio v2** (see its section below).
-- **State in the URL** (`?period=&split=&inv=&stats=&lib=&hq=&hqchart=&pv2range=&pv2lines=`),
+  dialog); **Portfolio v2** (see its section below; its holdings eye is a
+  show/hide flag — click to show, click again to hide, re-masked when the page
+  is hidden). The old **Investments** and **Investment Statistics** blocks were
+  removed from One-Page (the phone's Money → Invest is unchanged); their
+  operations list lives in Portfolio v2, and `N` then `P` / `O` still open the
+  old module's snapshot / operation forms.
+- **State in the URL** (`?period=&split=&stats=&lib=&hq=&hqchart=&pv2range=&pv2lines=`),
   written with replace, so browser Back only closes dialogs. Deep links
   `?expense=new|<id>&date=` and `?income=new|<id>` open the form and are
-  consumed. Cross-links ("View evolution →", "Chart →", "View chart →",
+  consumed. Cross-links ("Chart →", "View chart →",
   "Open in Budget →") scroll to the matching block (setting its tab or
   location) and flash it.
 - **Keyboard**: `N` then `E/I/S/P/O/B` (new …), `←/→` period, `T` current
@@ -407,7 +408,7 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
 
 ### Portfolio v2 (One-Page block)
 
-Block `portfolioV2` under Investments — `features/portfolio-v2/`,
+Block `portfolioV2` across One-Page columns 2–3 — `features/portfolio-v2/`,
 `features/one-page/blocks/PortfolioV2Block.tsx`; backend
 `handlers/portfolioV2.mjs` (API), `handlers/portfolioV2Worker.mjs` (async
 worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
@@ -709,7 +710,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry | 7 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 | Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 30 |

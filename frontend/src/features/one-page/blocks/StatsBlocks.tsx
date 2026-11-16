@@ -1,8 +1,8 @@
 import { lazy, Suspense, useMemo } from "react";
 import {
-  Amount, Dot, EmptyState, Notice, RevealButton, SegmentedTabs, ShowMore, Skeleton, useRevealed, useShowMore,
+  Amount, Dot, EmptyState, Notice, SegmentedTabs, ShowMore, Skeleton, useShowMore,
 } from "../../../ui";
-import { useBooks, useExpensesForYear, useFxRates, useIncomesForYear, useOperations, useSnapshots } from "../../../data/queries";
+import { useBooks, useExpensesForYear, useIncomesForYear } from "../../../data/queries";
 import { useHqEntries, useHqLocations, useHqTemplates } from "../../../data/hq";
 import { useYear } from "../../../context/YearContext";
 import { usePrivacy } from "../../../context/PrivacyContext";
@@ -11,7 +11,6 @@ import { PRIORITY_COLOR } from "../../../theme/domainColors";
 import { fmtInt, MONTH_ABBR } from "../../../utils/format";
 import { averages, buildMonthly } from "../../money/stats/statsMath";
 import { AverageTiles, FreeMonthPanel, PriorityAverages, SpecialList } from "../../money/stats/StatsPanels";
-import { EvolutionPanel } from "../../money/invest/InvestPanels";
 import { applyFilters, sectionsOf } from "../../library/libraryMath";
 import { defaultLocation, isWaterTemplate } from "../../hq/hqMath";
 import { Block, ChipTabs, LinkButton, MoneyEye } from "../Block";
@@ -53,14 +52,6 @@ export function BudgetStatsBlock() {
       }
     >
       <BudgetStats tab={tab} />
-    </Block>
-  );
-}
-
-export function InvestStatsBlock() {
-  return (
-    <Block id="investStats" title="Investment Statistics" actions={<RevealButton group="holdings" toggle />}>
-      <InvestStats />
     </Block>
   );
 }
@@ -176,25 +167,6 @@ function BudgetStats({ tab }: { tab: "budget" | "prio" | "special" }) {
       <p className={s.caption}>{special.length} special expense{special.length === 1 ? "" : "s"} in {selectedYear} · <Amount>{fmtInt(specialTotal)}</Amount></p>
       <SpecialList special={special} total={specialTotal} year={selectedYear} limit={limit} onOpen={e => openExpense({ id: e.expenseId })} />
       <ShowMore shown={limit} total={special.length} initial={3} step={5} onChange={setLimit} allowAll />
-    </>
-  );
-}
-
-/* ── Investments ──────────────────────────────────────────────────────────── */
-
-function InvestStats() {
-  const ops = useOperations();
-  const snaps = useSnapshots();
-  const fx = useFxRates();
-  const revealed = useRevealed("holdings");
-  if (ops.isPending || snaps.isPending) return <Skeleton height={240} />;
-  if (ops.isError || snaps.isError) return <Notice>Could not load investments data.</Notice>;
-  return (
-    <>
-      <p className={s.caption}>Portfolio evolution in EUR{revealed ? "" : " · values hidden, use the eye to show them"}</p>
-      <div className={st.chartCard}>
-        <EvolutionPanel snapshots={snaps.data ?? []} operations={ops.data ?? []} rates={fx.data?.rates ?? null} masked={!revealed} height={250} compact />
-      </div>
     </>
   );
 }

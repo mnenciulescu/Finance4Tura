@@ -18,9 +18,8 @@ import { Header } from "./Header";
 import { MoneyMask } from "./Block";
 import { BudgetBlock } from "./blocks/BudgetBlock";
 import { SplitBlock } from "./blocks/SplitBlock";
-import { InvestBlock } from "./blocks/InvestBlock";
 import { PortfolioV2Block } from "./blocks/PortfolioV2Block";
-import { BudgetStatsBlock, HqStatsBlock, InvestStatsBlock, LibraryStatsBlock } from "./blocks/StatsBlocks";
+import { BudgetStatsBlock, HqStatsBlock, LibraryStatsBlock } from "./blocks/StatsBlocks";
 import { LibraryBlock } from "./blocks/LibraryBlock";
 import { HqBlock } from "./blocks/HqBlock";
 import { OnePageContext, PERIOD_EVENT, SEARCH_EVENT, sendCommand, useColumns, type BlockId, type Columns } from "./state";
@@ -29,7 +28,7 @@ import s from "./OnePage.module.css";
 /**
  * One-Page (Documentation/OnePage_Desktop_Proposal.md): the Money, Library
  * and HQ tabs on one desktop screen. Four columns when they fit — Budget;
- * Portfolio v2 across columns 2–3 above Investments and HQ; Split + Library —
+ * Portfolio v2 across columns 2–3 above HQ Statistics and HQ; Split + Library —
  * and the rightmost columns move below the others on narrower windows.
  */
 export default function OnePage() {
@@ -123,8 +122,6 @@ export default function OnePage() {
     budget: <MoneyMask><BudgetBlock /></MoneyMask>,
     budgetStats: <MoneyMask><BudgetStatsBlock /></MoneyMask>,
     split: <SplitBlock />,
-    investStats: <InvestStatsBlock />,
-    invest: <InvestBlock />,
     portfolioV2: <PortfolioV2Block />,
     hqStats: <HqStatsBlock />,
     hq: <HqBlock />,
@@ -203,8 +200,8 @@ export default function OnePage() {
 type LayoutItem = BlockId[] | { top: BlockId[]; below: BlockId[][] };
 
 const COLUMN_1: BlockId[] = ["budget", "budgetStats"];
-const COLUMN_2: BlockId[] = ["investStats", "invest"];
-const COLUMN_3: BlockId[] = ["hqStats", "hq"];
+const COLUMN_2: BlockId[] = ["hqStats"];
+const COLUMN_3: BlockId[] = ["hq"];
 const COLUMN_4: BlockId[] = ["split", "libraryStats", "library"];
 const WIDE: BlockId[] = ["portfolioV2"];
 
