@@ -132,7 +132,7 @@ test("checkAgentResult: an old confirmed price is accepted and marked stale (cry
 });
 
 test("isNewData: first, later date, unit change, crypto after an hour", () => {
-  const last = { priceDate: "2026-11-13", generatedAt: "2026-11-15T09:30:00Z", asset: { units: 10 } };
+  const last = { latestPriceDate: "2026-11-13", generatedAt: "2026-11-15T09:30:00Z", asset: { units: 10 } };
   assert.equal(isNewData(null, fund, "2026-11-13", NOW), true);
   assert.equal(isNewData(last, fund, "2026-11-13", NOW), false);
   assert.equal(isNewData(last, fund, "2026-11-14", NOW), true);
@@ -151,13 +151,15 @@ test("computeValues: units × price, then FX to EUR; fails without a rate", () =
 
 test("buildAssetSnapshot copies the asset and flags big price moves", () => {
   const values = computeValues(fund, 20, fx);
-  const snap = buildAssetSnapshot({ asset: fund, result: good({ unitPrice: 20 }), values, last: { unitPrice: 12.5, priceDate: "2026-11-01" }, runId: "r", snapshotId: "s", userId: "u", now: NOW });
+  const snap = buildAssetSnapshot({ asset: fund, result: good({ unitPrice: 20 }), values, last: { unitPrice: 12.5, latestPriceDate: "2026-11-01" }, runId: "r", snapshotId: "s", userId: "u", now: NOW });
   assert.equal(snap.asset.units, 10);
   assert.equal(snap.valueEUR, 40);
   assert.equal(snap.flagged, true);
   assert.match(snap.comments, /Check price: 60\.0%/);
   assert.equal(snap.sources[0].retrievedAt, NOW.toISOString());
-  assert.equal(snap.latestPriceDate, snap.priceDate);
+  assert.equal(snap.latestPriceDate, "2026-11-13");
+  assert.equal("priceDate" in snap, false); // the search date is generatedAt
+  assert.equal(snap.generatedAt, NOW.toISOString());
   assert.equal(snap.stale, false);
   const old = buildAssetSnapshot({ asset: fund, result: good({ priceDate: "2026-10-01" }), values, last: null, runId: "r", snapshotId: "s2", userId: "u", now: NOW });
   assert.equal(old.latestPriceDate, "2026-10-01");
@@ -174,7 +176,7 @@ test("snapshotDay follows Romanian time, not UTC", () => {
 });
 
 test("sameDaySlot: a same-day run replaces that day's snapshot and compares with the day before", () => {
-  const s = (id, generatedAt, priceDate, unitPrice) => ({ snapshotId: id, assetId: "a1", generatedAt, priceDate, unitPrice });
+  const s = (id, generatedAt, latestPriceDate, unitPrice) => ({ snapshotId: id, assetId: "a1", generatedAt, latestPriceDate, unitPrice });
   const yesterday = s("y", "2026-11-14T09:00:00Z", "2026-11-13", 10);
   const morning = s("m", "2026-11-15T07:00:00Z", "2026-11-14", 11);
   const older = s("o", "2026-11-15T06:00:00Z", "2026-11-14", 11);
@@ -199,15 +201,15 @@ test("sameDaySlot: a same-day run replaces that day's snapshot and compares with
 
 test("platform Total sums latest snapshots, carries forward, flags missing assets", () => {
   const snaps = [
-    { snapshotId: "s1", assetId: "a2", priceDate: "2026-11-01", generatedAt: "x1", valueEUR: 100 },
-    { snapshotId: "s2", assetId: "a2", priceDate: "2026-11-14", generatedAt: "x2", valueEUR: 110 },
+    { snapshotId: "s1", assetId: "a2", latestPriceDate: "2026-11-01", generatedAt: "x1", valueEUR: 100 },
+    { snapshotId: "s2", assetId: "a2", latestPriceDate: "2026-11-14", generatedAt: "x2", valueEUR: 110 },
   ];
   const latest = latestByAsset(snaps);
   const t = computePlatformTotal([etf, coin, total], latest, new Set(["s2"]));
   assert.equal(t.valueEUR, 110);
   assert.equal(t.hasNew, true);
   assert.equal(t.missing, 1);
-  assert.equal(t.priceDate, "2026-11-14");
+  assert.equal(t.latestPriceDate, "2026-11-14");
   assert.match(t.comments, /incomplete: 1 asset without a price/);
   const t2 = computePlatformTotal([etf, total], latest, new Set());
   assert.equal(t2.hasNew, false);
@@ -276,7 +278,7 @@ test("lookupPrice: default search budget, and the deeper pass's effort, budget a
   assert.match(req.messages[0].content, /previous search was not good enough: it found 9 RON for 2026-10-01/);
 
   const again = one();
-  const last = { unitPrice: 12, currency: "RON", priceDate: "2026-11-10", sources: [{ url: "https://fund.example/nav" }] };
+  const last = { unitPrice: 12, currency: "RON", latestPriceDate: "2026-11-10", sources: [{ url: "https://fund.example/nav" }] };
   await lookupPrice({ client: again, asset: fund, last, now: NOW });
   assert.match(again.calls[0].messages[0].content, /found before \(fetch these first\): https:\/\/fund\.example\/nav/);
 });

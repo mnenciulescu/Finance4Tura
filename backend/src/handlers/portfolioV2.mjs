@@ -232,9 +232,9 @@ export async function handler(event) {
       case "GET /portfolio-v2/snapshots": {
         let items = await store.listSnapshots(userId);
         if (qs.assetId) items = items.filter(s => s.assetId === qs.assetId);
-        if (qs.from) items = items.filter(s => s.priceDate >= qs.from);
-        if (qs.to) items = items.filter(s => s.priceDate <= qs.to);
-        items.sort((a, b) => a.priceDate.localeCompare(b.priceDate) || a.generatedAt.localeCompare(b.generatedAt));
+        if (qs.from) items = items.filter(s => s.latestPriceDate >= qs.from);
+        if (qs.to) items = items.filter(s => s.latestPriceDate <= qs.to);
+        items.sort((a, b) => a.latestPriceDate.localeCompare(b.latestPriceDate) || a.generatedAt.localeCompare(b.generatedAt));
         return ok(items);
       }
       case "GET /portfolio-v2/snapshots/latest": return ok(Object.values(latestByAsset(await store.listSnapshots(userId))));

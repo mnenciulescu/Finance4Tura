@@ -31,7 +31,7 @@ export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSumma
                 <span className={s.rowMain}>
                   <span className={s.rowTitle}>{p.platform}</span>
                   <span className={s.rowSub}>
-                    {p.rows.length} asset{p.rows.length === 1 ? "" : "s"} · {p.priceDate ? fmtDate(p.priceDate) : "no prices yet"}
+                    {p.rows.length} asset{p.rows.length === 1 ? "" : "s"} · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : "no prices yet"}
                   </span>
                 </span>
                 <span className={s.badges}>
@@ -57,7 +57,7 @@ export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSumma
                             {fmtUnits(snap.asset.units)} × <H chars={5}>{fmtNum(snap.unitPrice ?? 0)}</H> {snap.currency} = <H>{fmtNum(snap.value ?? 0)}</H> {snap.currency}
                           </span>
                           <span className={stale ? s.warnText : s.meta}>
-                            Price of {fmtDate(snap.priceDate)}{stale ? " · stale" : ""}
+                            Price of {fmtDate(snap.latestPriceDate)}{stale ? " · stale" : ""} · searched {fmtDate(new Date(snap.generatedAt).toLocaleDateString("en-CA"))}
                             {snap.confidence === "secondary" ? " · secondary source" : ""}
                             {snap.flagged ? " · check price" : ""}
                           </span>

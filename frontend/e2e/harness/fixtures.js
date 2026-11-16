@@ -83,7 +83,7 @@ const pv2Snapshots = [];
   const gen = `${date}T09:00:00Z`;
   const a1 = 12.5 * 100 * k * 0.926, a2 = 0.25 * 40000 * k * 0.926, a3 = 40.75 * 50 * k * 0.201;
   const mk = (assetId, asset, unitPrice, value, valueEUR, cur) => ({
-    snapshotId: `ps-${assetId}-${n}`, assetId, runId: `pr-${n}`, generatedAt: gen, priceDate: date, asset, currency: cur, unitPrice, value,
+    snapshotId: `ps-${assetId}-${n}`, assetId, runId: `pr-${n}`, generatedAt: gen, latestPriceDate: date, asset, currency: cur, unitPrice, value,
     fxRate: cur === "EUR" ? 1 : cur === "USD" ? 0.926 : 0.201, fxDate: gen, valueEUR,
     sources: unitPrice ? [{ url: "https://example.com/price", title: "Price page", publisher: "Example Exchange", quote: `Close ${unitPrice}` }] : [],
     confidence: unitPrice ? "official" : null, comments: unitPrice ? null : "Sum of assets", source: unitPrice ? "agent" : "computed",

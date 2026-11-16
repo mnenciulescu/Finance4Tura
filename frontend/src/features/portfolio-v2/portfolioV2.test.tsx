@@ -23,7 +23,7 @@ const ASSETS: Pv2Asset[] = [
   asset({ assetId: "b1", platform: "Beta", type: "MutualFund", name: "Balanced Fund", units: 2.809, currency: "RON" }),
 ];
 const snap = (assetId: string, priceDate: string, valueEUR: number, over: Partial<Pv2Snapshot> = {}): Pv2Snapshot => ({
-  snapshotId: `${assetId}-${priceDate}`, assetId, runId: "r", generatedAt: `${priceDate}T09:00:00Z`, priceDate,
+  snapshotId: `${assetId}-${priceDate}`, assetId, runId: "r", generatedAt: `${priceDate}T09:00:00Z`, latestPriceDate: priceDate,
   asset: { platform: "", type: "ETF", symbol: null, name: "", units: 10, isin: null, currency: "USD" },
   currency: "USD", unitPrice: 10, value: 100, fxRate: 0.9, fxDate: null, valueEUR, sources: [], confidence: "official",
   comments: null, source: "agent", ...over,
@@ -73,7 +73,7 @@ const RUN: Pv2Run = {
   model: "claude-opus-5-5", usage: { inputTokens: 12000, outputTokens: 800, webSearches: 6 },
   summary: { updated: 1, noNewData: 0, notFound: 1, failed: 1, skipped: 0 },
   items: [
-    { assetId: "a1", name: "World ETF", platform: "Alpha", type: "ETF", status: "updated", unitPrice: 11, currency: "USD", priceDate: "2026-11-13", valueEUR: 110, sourceUrl: "https://example.com/p" },
+    { assetId: "a1", name: "World ETF", platform: "Alpha", type: "ETF", status: "updated", unitPrice: 11, currency: "USD", latestPriceDate: "2026-11-13", valueEUR: 110, sourceUrl: "https://example.com/p" },
     { assetId: "a2", name: "Unpriced Co", platform: "Alpha", type: "Stock", status: "failed", message: "AI rate limit reached — retry in a minute" },
     { assetId: "b1", name: "Balanced Fund", platform: "Beta", type: "MutualFund", status: "not_found", message: "No confirmed price found" },
     { assetId: "t1", name: "Alpha total", platform: "Alpha", type: "Total", status: "updated", valueEUR: 110, message: "Sum of 1 asset" },

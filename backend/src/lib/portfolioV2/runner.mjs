@@ -80,7 +80,7 @@ export async function processItem({ runId, userId, index, deps }) {
     if (!check.ok) {
       await store.updateRunItem(runId, index, {
         status: check.status, message: check.message, finishedAt: new Date().toISOString(),
-        unitPrice: r?.unitPrice ?? null, currency: r?.currency ?? null, priceDate: r?.priceDate ?? null,
+        unitPrice: r?.unitPrice ?? null, currency: r?.currency ?? null, latestPriceDate: r?.priceDate ?? null,
         sourceUrl: r?.sources?.[0]?.url ?? null,
       });
       return;
@@ -89,8 +89,8 @@ export async function processItem({ runId, userId, index, deps }) {
     const now = deps.now?.() ?? new Date();
     if (!isNewData(last, asset, r.priceDate, now)) {
       await store.updateRunItem(runId, index, {
-        status: "no_new_data", message: `Latest price ${last.priceDate} already recorded`,
-        unitPrice: Number(r.unitPrice), currency: asset.currency, priceDate: r.priceDate,
+        status: "no_new_data", message: `Latest price ${last.latestPriceDate} already recorded`,
+        unitPrice: Number(r.unitPrice), currency: asset.currency, latestPriceDate: r.priceDate,
         sourceUrl: r.sources?.[0]?.url ?? null, finishedAt: new Date().toISOString(),
       });
       return;
@@ -112,7 +112,7 @@ export async function processItem({ runId, userId, index, deps }) {
     if (slot.extra.length) await store.deleteSnapshots(slot.extra.map(s => s.snapshotId));
     await store.updateRunItem(runId, index, {
       status: "updated", snapshotId: snap.snapshotId, unitPrice: snap.unitPrice, currency: snap.currency,
-      priceDate: snap.priceDate, value: snap.value, valueEUR: snap.valueEUR, sourceUrl: snap.sources[0]?.url ?? null,
+      value: snap.value, valueEUR: snap.valueEUR, sourceUrl: snap.sources[0]?.url ?? null,
       flagged: snap.flagged, stale: snap.stale, latestPriceDate: snap.latestPriceDate, finishedAt: new Date().toISOString(),
       message: [snap.flagged ? snap.comments : check.message, slot.replace ? "Replaced today's earlier snapshot" : null].filter(Boolean).join(" · ") || null,
     });
@@ -154,7 +154,7 @@ export async function finalizeRun({ runId, userId, attempt, fx, timedOut = false
       const totalAsset = assets.find(a => a.assetId === it.assetId);
       if (!totalAsset) { items[i] = { ...it, status: "skipped", message: "Total removed" }; continue; }
       const total = computePlatformTotal(assets.filter(a => a.platform === totalAsset.platform), latest, newIds);
-      if (!total.hasNew || total.priceDate == null) {
+      if (!total.hasNew || total.latestPriceDate == null) {
         items[i] = { ...it, status: "no_new_data", message: total.counted ? `${total.comments}; nothing new` : "No asset prices yet", finishedAt: now.toISOString() };
         continue;
       }
@@ -163,7 +163,7 @@ export async function finalizeRun({ runId, userId, attempt, fx, timedOut = false
       await store.putSnapshot(snap);
       if (slot.extra.length) await store.deleteSnapshots(slot.extra.map(s => s.snapshotId));
       items[i] = {
-        ...it, status: "updated", snapshotId: snap.snapshotId, valueEUR: snap.valueEUR, priceDate: snap.priceDate,
+        ...it, status: "updated", snapshotId: snap.snapshotId, valueEUR: snap.valueEUR, latestPriceDate: snap.latestPriceDate,
         currency: "EUR", message: slot.replace ? `${total.comments} · replaced today's earlier total` : total.comments, flagged: total.missing > 0, finishedAt: now.toISOString(),
       };
     } catch (e) {

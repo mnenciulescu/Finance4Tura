@@ -144,7 +144,7 @@ export function latestByAsset(snapshots) {
   const out = {};
   for (const s of snapshots) {
     const cur = out[s.assetId];
-    if (!cur || s.priceDate > cur.priceDate || (s.priceDate === cur.priceDate && s.generatedAt > cur.generatedAt)) out[s.assetId] = s;
+    if (!cur || s.latestPriceDate > cur.latestPriceDate || (s.latestPriceDate === cur.latestPriceDate && s.generatedAt > cur.generatedAt)) out[s.assetId] = s;
   }
   return out;
 }
@@ -211,7 +211,7 @@ export function priceAge(priceDate, asset, now = new Date()) {
  */
 export function isNewData(last, asset, priceDate, now = new Date()) {
   if (!last) return true;
-  if (priceDate > last.priceDate) return true;
+  if (priceDate > last.latestPriceDate) return true;
   if (Number(last.asset?.units) !== Number(asset.units)) return true;
   if (asset.type === "Crypto" && now.getTime() - Date.parse(last.generatedAt) >= CRYPTO_REFRESH_MS) return true;
   return false;
@@ -239,12 +239,11 @@ export function buildAssetSnapshot({ asset, result, values, last, runId, snapsho
   if (stale) notes.push(`Latest published price is ${ageDays} days old`);
   if (last?.unitPrice > 0) {
     const move = Number(result.unitPrice) / last.unitPrice - 1;
-    if (Math.abs(move) > JUMP_THRESHOLD) notes.push(`Check price: ${(move * 100).toFixed(1)}% vs ${last.priceDate}`);
+    if (Math.abs(move) > JUMP_THRESHOLD) notes.push(`Check price: ${(move * 100).toFixed(1)}% vs ${last.latestPriceDate}`);
   }
   return {
     snapshotId, userId, assetId: asset.assetId, runId,
     generatedAt: now.toISOString(),
-    priceDate: result.priceDate,
     latestPriceDate: result.priceDate,
     stale,
     asset: assetCopy(asset),
@@ -280,7 +279,7 @@ export function buildAssetSnapshot({ asset, result, values, last, runId, snapsho
 export function computePlatformTotal(platformAssets, latest, newIds = new Set()) {
   const parts = platformAssets.filter(a => a.type !== "Total" && a.active !== false);
   let valueEUR = 0;
-  let priceDate = null;
+  let latestPriceDate = null;
   let hasNew = false;
   const carried = [];
   const missing = [];
@@ -288,23 +287,22 @@ export function computePlatformTotal(platformAssets, latest, newIds = new Set())
     const snap = latest[a.assetId];
     if (!snap) { missing.push(a.name); continue; }
     valueEUR += Number(snap.valueEUR) || 0;
-    if (!priceDate || snap.priceDate > priceDate) priceDate = snap.priceDate;
+    if (!latestPriceDate || snap.latestPriceDate > latestPriceDate) latestPriceDate = snap.latestPriceDate;
     if (newIds.has(snap.snapshotId)) hasNew = true;
-    else carried.push(snap.priceDate);
+    else carried.push(snap.latestPriceDate);
   }
   const counted = parts.length - missing.length;
   const notes = [`Sum of ${counted} asset${counted === 1 ? "" : "s"}`];
   if (carried.length) notes.push(`${carried.length} carried forward from ${[...new Set(carried)].sort()[0]}`);
   if (missing.length) notes.push(`incomplete: ${missing.length} asset${missing.length === 1 ? "" : "s"} without a price`);
-  return { valueEUR, priceDate, hasNew, counted, carried: carried.length, missing: missing.length, comments: notes.join("; ") };
+  return { valueEUR, latestPriceDate, hasNew, counted, carried: carried.length, missing: missing.length, comments: notes.join("; ") };
 }
 
 export function buildTotalSnapshot({ totalAsset, total, runId, snapshotId, userId, now = new Date() }) {
   return {
     snapshotId, userId, assetId: totalAsset.assetId, runId,
     generatedAt: now.toISOString(),
-    priceDate: total.priceDate,
-    latestPriceDate: total.priceDate,
+    latestPriceDate: total.latestPriceDate,
     asset: assetCopy(totalAsset),
     currency: "EUR",
     unitPrice: null, value: null, fxRate: null, fxDate: null,

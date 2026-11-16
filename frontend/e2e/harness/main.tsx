@@ -46,7 +46,7 @@ function portfolioV2(url: string, method: string, config: any) {
     const next = pv2Run.items.findIndex((i: any) => i.type !== "Total" && i.status === "queued");
     if (next >= 0) {
       const outcome = ["updated", "failed", "no_new_data"][next % 3];
-      pv2Run.items[next] = { ...pv2Run.items[next], status: outcome, message: outcome === "failed" ? "AI rate limit reached — retry in a minute" : outcome === "no_new_data" ? "Latest price already recorded" : null, unitPrice: 101.5, currency: "USD", priceDate: new Date().toISOString().slice(0, 10), valueEUR: 1175, sourceUrl: "https://example.com/price" };
+      pv2Run.items[next] = { ...pv2Run.items[next], status: outcome, message: outcome === "failed" ? "AI rate limit reached — retry in a minute" : outcome === "no_new_data" ? "Latest price already recorded" : null, unitPrice: 101.5, currency: "USD", latestPriceDate: new Date().toISOString().slice(0, 10), valueEUR: 1175, sourceUrl: "https://example.com/price" };
     } else if (pv2Run.status === "running") {
       pv2Run.items = pv2Run.items.map((i: any) => (i.type === "Total" ? { ...i, status: "updated", valueEUR: 9000, message: "Sum of 2 assets" } : i));
       pv2Run.status = "completed_with_errors";

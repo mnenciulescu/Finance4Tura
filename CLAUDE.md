@@ -452,7 +452,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   Retry, Cancel, "Run in Background"; polled every 2 s), total EUR with the
   change over the range, step chart of the platform Totals and their sum
   (1W · 1M · 3M · 1Y · All, line chips), **Last snapshot** per platform
-  (expand: units × price = value, price date, stale > 7 days, sources,
+  (expand: units × price = value, price date and search date, stale > 7 days, sources,
   comments), collapsible **Assets** area, Snapshot Runs history.
 - **AI key**: Admin → **Portfolio v2 AI**; stored as a SecureString in SSM
   (`/finance4tura/anthropic-api-key`), cached 5 min by the worker, never
@@ -544,9 +544,9 @@ All tables are pay-per-request with a single string hash key.
 `Total` per platform, created automatically.
 
 **PortfolioV2_Snapshots** (PK: `snapshotId`, GSI `userId-index`): `userId`,
-`assetId`, `runId`, `generatedAt`, `priceDate`, `latestPriceDate` (date of
-the newest price found — the asset's price date, or for a Total the newest of
-its assets), `stale` (asset price older than 10 days / crypto 1 day), `asset` (copy of the asset
+`assetId`, `runId`, **two dates**: `generatedAt` (when the search ran — the
+search date) and `latestPriceDate` (the date of the newest price found — for a
+Total the newest of its assets; there is no separate `priceDate`), `stale` (asset price older than 10 days / crypto 1 day), `asset` (copy of the asset
 fields incl. units), `currency`, `unitPrice`, `value` (= units × unitPrice),
 `fxRate`, `fxDate`, `valueEUR`, `sources[]` (`url`, `title`, `publisher`,
 `quote`, `retrievedAt`), `confidence` (`official`|`secondary`), `priceType`,

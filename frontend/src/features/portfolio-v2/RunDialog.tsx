@@ -52,7 +52,7 @@ function detail(item: Pv2RunItem) {
     case "updated":
       return (
         <>
-          <H>{fmtNum(item.unitPrice ?? 0)}</H> {item.currency} · {item.priceDate ? fmtDate(item.priceDate) : ""}
+          <H>{fmtNum(item.unitPrice ?? 0)}</H> {item.currency} · {item.latestPriceDate ? fmtDate(item.latestPriceDate) : ""}
           {item.valueEUR != null && <> · ≈ <H>{fmtNum(item.valueEUR)}</H> EUR</>}
           {item.flagged && item.message && <span className={s.warnText}> · {item.message}</span>}
         </>

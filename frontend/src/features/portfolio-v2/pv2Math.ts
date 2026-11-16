@@ -35,7 +35,7 @@ export function latestByAsset(snapshots: Pv2Snapshot[]): Record<string, Pv2Snaps
   const out: Record<string, Pv2Snapshot> = {};
   for (const s of snapshots) {
     const cur = out[s.assetId];
-    if (!cur || s.priceDate > cur.priceDate || (s.priceDate === cur.priceDate && s.generatedAt > cur.generatedAt)) out[s.assetId] = s;
+    if (!cur || s.latestPriceDate > cur.latestPriceDate || (s.latestPriceDate === cur.latestPriceDate && s.generatedAt > cur.generatedAt)) out[s.assetId] = s;
   }
   return out;
 }
@@ -51,7 +51,7 @@ export interface PlatformSummary {
   platform: string;
   valueEUR: number;
   share: number;
-  priceDate: string | null;
+  latestPriceDate: string | null;
   incomplete: boolean;
   /** Assets with no price yet. */
   missing: number;
@@ -74,7 +74,7 @@ export function summarize(assets: Pv2Asset[], snapshots: Pv2Snapshot[], today: s
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const rows = parts.map(asset => {
       const snap = latest[asset.assetId] ?? null;
-      const stale = !!snap && (toTime(today) - toTime(snap.priceDate)) / DAY > STALE_DAYS;
+      const stale = !!snap && (toTime(today) - toTime(snap.latestPriceDate)) / DAY > STALE_DAYS;
       return { asset, snap, stale };
     });
     const totalSnap = total ? latest[total.assetId] : undefined;
@@ -84,7 +84,7 @@ export function summarize(assets: Pv2Asset[], snapshots: Pv2Snapshot[], today: s
       platform,
       valueEUR: totalSnap ? totalSnap.valueEUR : summed,
       share: 0,
-      priceDate: totalSnap?.priceDate ?? priced.map(r => r.snap!.priceDate).sort().at(-1) ?? null,
+      latestPriceDate: totalSnap?.latestPriceDate ?? priced.map(r => r.snap!.latestPriceDate).sort().at(-1) ?? null,
       incomplete: totalSnap ? !!totalSnap.incomplete : priced.length < rows.length,
       missing: rows.length - priced.length,
       stale: rows.filter(r => r.stale).length,
@@ -112,7 +112,7 @@ export function buildSeries(assets: Pv2Asset[], snapshots: Pv2Snapshot[], range:
   for (const s of snapshots) {
     const platform = totalOf.get(s.assetId);
     if (!platform) continue;
-    (byPlatform[platform] ??= []).push({ date: s.priceDate, value: s.valueEUR, gen: s.generatedAt });
+    (byPlatform[platform] ??= []).push({ date: s.latestPriceDate, value: s.valueEUR, gen: s.generatedAt });
   }
   Object.values(byPlatform).forEach(list => list.sort((a, b) => a.date.localeCompare(b.date) || a.gen.localeCompare(b.gen)));
   const platforms = platformsOf(assets).filter(p => byPlatform[p]?.length);

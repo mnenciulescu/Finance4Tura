@@ -83,7 +83,7 @@ export function buildUserPrompt(asset, last, today, hint = null, budget = search
     `Held on platform: ${asset.platform}`,
     `Requested price currency: ${asset.currency}`,
     asset.preferredSources?.length ? `Preferred sources to try first: ${asset.preferredSources.join(", ")}` : null,
-    last ? `Last recorded price: ${last.unitPrice} ${last.currency} for ${last.priceDate}. Only a later price, or the same date confirmed again, is useful.` : "No price has been recorded before.",
+    last ? `Last recorded price: ${last.unitPrice} ${last.currency} for ${last.latestPriceDate}. Only a later price, or the same date confirmed again, is useful.` : "No price has been recorded before.",
     last?.sources?.length ? `Pages where the price was found before (fetch these first): ${last.sources.map(s => s.url).filter(Boolean).slice(0, 3).join(" , ")}` : null,
     `Budget: up to ${budget.searches} web searches and ${budget.fetches} page fetches.`,
     `Today is ${today}.`,
