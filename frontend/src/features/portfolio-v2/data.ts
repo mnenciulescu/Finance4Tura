@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  cancelPv2Run, createPv2Asset, deletePv2Asset, getPv2AiConfig, getPv2Run, importPv2Assets, listPv2Assets,
+  cancelPv2Run, createPv2Asset, deletePv2Asset, getPv2AiConfig, getPv2Run, listPv2Assets,
   listPv2Runs, listPv2Snapshots, retryPv2Run, startPv2Run, updatePv2Asset, updatePv2AiConfig,
 } from "../../api/portfolioV2";
 import type { Pv2AiConfig, Pv2Asset, Pv2Run, Pv2Snapshot } from "../../types";
@@ -68,14 +68,6 @@ export function useDeletePv2Asset() {
       qc.invalidateQueries({ queryKey: pv2Keys.assets });
       qc.invalidateQueries({ queryKey: pv2Keys.snapshots });
     },
-  });
-}
-
-export function useImportPv2Assets() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ rows, dryRun }: { rows: unknown[]; dryRun: boolean }) => importPv2Assets(rows, dryRun),
-    onSuccess: (_d, v) => { if (!v.dryRun) qc.invalidateQueries({ queryKey: pv2Keys.assets }); },
   });
 }
 

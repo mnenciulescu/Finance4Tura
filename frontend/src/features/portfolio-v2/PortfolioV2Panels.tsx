@@ -92,12 +92,11 @@ function hostOf(url: string) {
 /* ── Assets ───────────────────────────────────────────────────────────────── */
 
 export function AssetsArea({
-  assets, onAdd, onEdit, onImport,
+  assets, onAdd, onEdit,
 }: {
   assets: Pv2Asset[];
   onAdd: (platform?: string) => void;
   onEdit: (a: Pv2Asset) => void;
-  onImport: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<Pv2Asset | null>(null);
@@ -127,9 +126,8 @@ export function AssetsArea({
         <>
           <div className={s.areaActions}>
             <Button variant="tinted" size="small" icon="plus" onClick={() => onAdd()}>Add Asset</Button>
-            <Button variant="gray" size="small" icon="download" onClick={onImport}>Import from Excel</Button>
           </div>
-          {assets.length === 0 ? <p className={s.empty}>No assets yet. Add one, or import the Excel list.</p> : (
+          {assets.length === 0 ? <p className={s.empty}>No assets yet. Add one to start.</p> : (
             <ul className={s.list} aria-label="Asset list">
               {platforms.map(platform => {
                 const rows = assets.filter(a => a.platform === platform)

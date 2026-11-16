@@ -5,7 +5,6 @@ import { LayoutContext } from "../../ui/layout";
 import { RevealScope } from "../../ui";
 import type { Pv2Asset, Pv2Run, Pv2Snapshot } from "../../types";
 import { buildSeries, change, rangeStart, summarize } from "./pv2Math";
-import { inferCurrency, mapRows, readFirstSheet } from "./xlsx";
 
 /* Invented data only. */
 
@@ -64,84 +63,6 @@ describe("Portfolio v2 math", () => {
     expect(s.platforms.map(p => [p.platform, p.valueEUR, p.missing, p.incomplete])).toEqual([["Alpha", 110, 1, true], ["Beta", 50, 0, false]]);
     expect(s.platforms[1].stale).toBe(1);
     expect(s.platforms[0].share).toBeCloseTo(68.75);
-  });
-});
-
-/* ── Excel reader ─────────────────────────────────────────────────────────── */
-
-const enc = new TextEncoder();
-async function deflateRaw(data: Uint8Array) {
-  const stream = new Response(data as BodyInit).body!.pipeThrough(new CompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-/** A minimal zip: `deflate` entries compressed, others stored. */
-async function zip(files: Record<string, string>, deflate: string[] = []) {
-  const parts: Uint8Array[] = [];
-  const central: Uint8Array[] = [];
-  let offset = 0;
-  for (const [name, text] of Object.entries(files)) {
-    const raw = enc.encode(text);
-    const method = deflate.includes(name) ? 8 : 0;
-    const data = method ? await deflateRaw(raw) : raw;
-    const n = enc.encode(name);
-    const local = new DataView(new ArrayBuffer(30));
-    local.setUint32(0, 0x04034b50, true); local.setUint16(8, method, true);
-    local.setUint32(18, data.length, true); local.setUint32(22, raw.length, true); local.setUint16(26, n.length, true);
-    const cen = new DataView(new ArrayBuffer(46));
-    cen.setUint32(0, 0x02014b50, true); cen.setUint16(10, method, true);
-    cen.setUint32(20, data.length, true); cen.setUint32(24, raw.length, true); cen.setUint16(28, n.length, true); cen.setUint32(42, offset, true);
-    parts.push(new Uint8Array(local.buffer), n, data);
-    central.push(new Uint8Array(cen.buffer), n);
-    offset += 30 + n.length + data.length;
-  }
-  const cenSize = central.reduce((s, p) => s + p.length, 0);
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true); end.setUint16(8, Object.keys(files).length, true); end.setUint16(10, Object.keys(files).length, true);
-  end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
-  const all = [...parts, ...central, new Uint8Array(end.buffer)];
-  const out = new Uint8Array(all.reduce((s, p) => s + p.length, 0));
-  let p = 0;
-  for (const a of all) { out.set(a, p); p += a.length; }
-  return out.buffer;
-}
-
-const strings = ["Platform", "Type", "Symbol", "Name item", "Nr. Units", "Details / ISIN", "Alpha RON", "Total", "Mutual fond", "Sample Fund RON", "Beta Broker", "ETF", "EXW", "Example World"];
-const SHARED = `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${strings.map(t => `<si><t>${t}</t></si>`).join("")}</sst>`;
-const c = (ref: string, v: string | number, s = true) => (s ? `<c r="${ref}" t="s"><v>${strings.indexOf(String(v))}</v></c>` : `<c r="${ref}"><v>${v}</v></c>`);
-const SHEET = `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
-<row r="2">${c("B2", "Platform")}${c("C2", "Type")}${c("D2", "Symbol")}${c("E2", "Name item")}${c("F2", "Nr. Units")}${c("G2", "Details / ISIN")}</row>
-<row r="3">${c("B3", "Alpha RON")}${c("C3", "Total")}</row>
-<row r="4">${c("B4", "Alpha RON")}${c("C4", "Mutual fond")}${c("E4", "Sample Fund RON")}${c("F4", 2.809, false)}<c r="G4" t="inlineStr"><is><t>US0378331005</t></is></c></row>
-<row r="5">${c("B5", "Beta Broker")}${c("C5", "ETF")}${c("D5", "EXW")}${c("E5", "Example World")}${c("F5", 64.846593, false)}</row>
-</sheetData></worksheet>`;
-
-describe("Portfolio v2 Excel import", () => {
-  it("reads shared strings, inline strings and numbers from a stored or deflated sheet", async () => {
-    for (const deflate of [[], ["xl/worksheets/sheet1.xml", "xl/sharedStrings.xml"]]) {
-      const buf = await zip({ "xl/sharedStrings.xml": SHARED, "xl/worksheets/sheet1.xml": SHEET }, deflate);
-      const grid = await readFirstSheet(buf);
-      expect(grid[1].slice(1)).toEqual(["Platform", "Type", "Symbol", "Name item", "Nr. Units", "Details / ISIN"]);
-      expect(grid[3][5]).toBe("2.809");
-      expect(grid[3][6]).toBe("US0378331005");
-    }
-  });
-
-  it("maps rows by header, keeps units as stored, and guesses currencies", async () => {
-    const grid = await readFirstSheet(await zip({ "xl/sharedStrings.xml": SHARED, "xl/worksheets/sheet1.xml": SHEET }));
-    const { rows, error } = mapRows(grid);
-    expect(error).toBeUndefined();
-    expect(rows).toEqual([
-      { platform: "Alpha RON", type: "Total", symbol: "", name: "", units: null, isin: "", currency: "EUR", line: 3 },
-      { platform: "Alpha RON", type: "Mutual fond", symbol: "", name: "Sample Fund RON", units: 2.809, isin: "US0378331005", currency: "RON", line: 4 },
-      { platform: "Beta Broker", type: "ETF", symbol: "EXW", name: "Example World", units: 64.846593, isin: "", currency: "EUR", line: 5 },
-    ]);
-    expect(inferCurrency({ platform: "eToro", type: "ETF", name: "Some ETF" })).toBe("USD");
-    expect(inferCurrency({ platform: "X", type: "Stock", name: "Thing GBP" })).toBe("GBP");
-  });
-
-  it("rejects files that are not spreadsheets or have no header", async () => {
-    await expect(readFirstSheet(new TextEncoder().encode("hello").buffer)).rejects.toThrow(/Not an .xlsx/);
-    expect(mapRows([["a", "b"]]).error).toMatch(/header row/);
   });
 });
 

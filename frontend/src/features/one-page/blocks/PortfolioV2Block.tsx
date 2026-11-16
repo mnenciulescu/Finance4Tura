@@ -11,7 +11,6 @@ import { pv2Keys, usePv2AiConfig, usePv2Assets, usePv2Runs, usePv2Snapshots, use
 import { buildSeries, change, DEFAULT_RANGE, platformColor, platformsOf, RANGE_LABEL, RANGES, summarize } from "../../portfolio-v2/pv2Math";
 import { AssetsArea, LatestSnapshot, RunHistory } from "../../portfolio-v2/PortfolioV2Panels";
 import { AssetSheet } from "../../portfolio-v2/AssetSheet";
-import { ImportSheet } from "../../portfolio-v2/ImportSheet";
 import { RunDialog } from "../../portfolio-v2/RunDialog";
 import { Block } from "../Block";
 import { useEnumParam, useParam } from "../state";
@@ -41,7 +40,6 @@ export function PortfolioV2Block() {
   const [confirm, setConfirm] = useState(false);
   const [history, setHistory] = useState(false);
   const [assetTarget, setAssetTarget] = useState<{ asset?: Pv2Asset; platform?: string } | null>(null);
-  const [importing, setImporting] = useState(false);
 
   const today = todayIso();
   const assetList = useMemo(() => assets.data ?? [], [assets.data]);
@@ -121,7 +119,6 @@ export function PortfolioV2Block() {
             label="Portfolio v2 actions"
             items={[
               { id: "add", label: "Add Asset", icon: "plus", onAction: () => setAssetTarget({}) },
-              { id: "import", label: "Import from Excel", icon: "download", onAction: () => setImporting(true) },
               { id: "runs", label: "Snapshot Runs", icon: "clock", onAction: () => setHistory(true) },
             ]}
           />
@@ -181,7 +178,7 @@ export function PortfolioV2Block() {
           </div>
 
           <LatestSnapshot platforms={summary.platforms} colors={colors} />
-          <AssetsArea assets={assetList} onAdd={platform => setAssetTarget({ platform })} onEdit={asset => setAssetTarget({ asset })} onImport={() => setImporting(true)} />
+          <AssetsArea assets={assetList} onAdd={platform => setAssetTarget({ platform })} onEdit={asset => setAssetTarget({ asset })} />
         </>
       )}
 
@@ -195,7 +192,6 @@ export function PortfolioV2Block() {
       <RunDialog runId={runId} onClose={() => setRunId(null)} />
       <RunHistory isOpen={history} runs={runs.data ?? []} onOpenRun={id => { setHistory(false); setRunId(id); }} onClose={() => setHistory(false)} />
       <AssetSheet target={assetTarget} platforms={allPlatforms} onClose={() => setAssetTarget(null)} />
-      <ImportSheet isOpen={importing} onClose={() => setImporting(false)} />
     </Block>
   );
 }

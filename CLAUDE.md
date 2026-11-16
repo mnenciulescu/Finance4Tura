@@ -413,11 +413,10 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   ISIN, quote currency). Each platform has one `Total` asset (created
   automatically, computed, never priced). Add/edit in a form dialog; remove =
   **Archive** (keeps history) or **Delete** (with its snapshots).
-  **Import from Excel**: read in the browser by `portfolio-v2/xlsx.ts` (no
-  library — zip + XML via `DecompressionStream`), header row with Platform and
-  Type, units read exactly as stored, currency guessed and editable in the
-  preview; a server dry run, then an idempotent import (matches on platform +
-  ISIN / symbol / name).
+  The initial list was loaded once from the local Excel file (not in the repo)
+  through `POST /portfolio-v2/assets/import`; the app has no import screen.
+  The route stays for maintenance: a dry run, then an idempotent import
+  (matches on platform + ISIN / symbol / name).
 - **Snapshot run** (manual): `POST /portfolio-v2/runs` creates the run and
   invokes `PortfolioV2WorkerFunction` once per asset (async, no retries); each
   worker asks Claude (`claude-opus-5-5` by default, adaptive thinking, effort
@@ -626,7 +625,7 @@ GET    /portfolio-v2/assets
 POST   /portfolio-v2/assets                 # creates the platform's Total if missing
 PUT    /portfolio-v2/assets/{assetId}
 DELETE /portfolio-v2/assets/{assetId}       # ?mode=archive (default) | delete (with its snapshots)
-POST   /portfolio-v2/assets/import          # { rows }; ?dryRun=true previews; idempotent
+POST   /portfolio-v2/assets/import          # { rows }; ?dryRun=true previews; idempotent — maintenance only, no UI
 GET    /portfolio-v2/snapshots              # ?assetId=&from=&to=
 GET    /portfolio-v2/snapshots/latest       # latest per asset
 GET    /portfolio-v2/runs                   # ?limit=
@@ -669,7 +668,7 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
-| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, .xlsx reader (stored + deflated), row mapping and currency guess, masked block, platform expand, run dialog statuses and Retry | 9 |
+| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, masked block, platform expand, run dialog statuses and Retry | 6 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
