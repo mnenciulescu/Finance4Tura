@@ -57,6 +57,16 @@ describe("Portfolio v2 math", () => {
     expect(change(m1.data, "Total")).toEqual({ abs: 20, pct: (20 / 140) * 100 });
   });
 
+  it("marks the days with a snapshot (chart points), not the range start or today", () => {
+    expect(buildSeries(ASSETS, SNAPS, "all", "2026-11-15").data.map(d => [d.date, d.snapped])).toEqual([
+      ["2026-08-01", "Alpha"],
+      ["2026-10-01", "Beta"],
+      ["2026-11-13", "Alpha"],
+      ["2026-11-15", ""],
+    ]);
+    expect(buildSeries(ASSETS, SNAPS, "1m", "2026-11-15").data[0]).toMatchObject({ date: "2026-10-15", snapped: "" });
+  });
+
   it("summarises the last snapshot per platform, largest first, with missing prices", () => {
     const s = summarize(ASSETS, SNAPS, "2026-11-15");
     expect(s.totalEUR).toBe(160);

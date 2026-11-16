@@ -468,7 +468,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
   Retry, Cancel, "Run in Background"; polled every 2 s), total EUR with the
-  change over the range, curved line chart (`monotone`) of the platform Totals and their sum
+  change over the range, curved line chart (`monotone`) of the platform Totals and their sum, with a point on each day a line has a snapshot (Total: any platform's; `SeriesPoint.snapped`)
   (1W · 1M · 3M · 1Y · All, line chips), then two columns (one below 560 px of block width):
   **Last snapshot** per platform (expand: one compact wrapping line per asset —
   units × price, price date, search date, stale, sources; the agent's comments are

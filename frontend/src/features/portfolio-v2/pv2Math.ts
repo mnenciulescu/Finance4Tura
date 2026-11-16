@@ -108,12 +108,14 @@ export interface SeriesPoint {
   date: string; t: number; Total: number | null;
   /** Platforms whose value here comes from imported history, comma-separated. */
   imported: string;
+  /** Platforms with a Total snapshot dated exactly on this day, comma-separated (chart points). */
+  snapped: string;
   [platform: string]: number | null | string;
 }
 
 /**
  * Portfolio value in EUR over time from the platform Totals, carried forward
- * between snapshots (a step line). A platform's line starts at its first
+ * between snapshots. A platform's line starts at its first
  * Total; the portfolio line is the sum of every platform's latest Total.
  * Within a range, the value in force at the range start is the first point.
  */
@@ -146,20 +148,22 @@ export function buildSeries(assets: Pv2Asset[], snapshots: Pv2Snapshot[], range:
     dates = dates.filter(d => d >= start);
     if (before && dates[0] !== start) dates.unshift(start);
   }
-  // Extend the last value to today so the step line reaches the present.
+  // Extend the last value to today so the line reaches the present.
   if (dates.length && dates.at(-1)! < today) dates.push(today);
 
   const data: SeriesPoint[] = dates.map(date => {
-    const point: SeriesPoint = { date, t: toTime(date), Total: null, imported: "" };
+    const point: SeriesPoint = { date, t: toTime(date), Total: null, imported: "", snapped: "" };
     let sum = 0;
     let any = false;
     const imported: string[] = [];
+    const snapped: string[] = [];
     for (const p of platforms) {
       const e = at(p, date);
       point[p] = e ? e.value : null;
-      if (e) { sum += e.value; any = true; if (e.legacy) imported.push(p); }
+      if (e) { sum += e.value; any = true; if (e.legacy) imported.push(p); if (e.date === date) snapped.push(p); }
     }
     point.imported = imported.join(",");
+    point.snapped = snapped.join(",");
     point.Total = any ? sum : null;
     return point;
   });
