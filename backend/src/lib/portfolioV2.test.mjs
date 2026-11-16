@@ -230,6 +230,7 @@ test("lookupPrice returns the report_price input and totals usage, resuming paus
   assert.equal(req.model, "claude-opus-5-5");
   assert.equal(req.fallbacks, "default");
   assert.deepEqual(req.betas, ["server-side-fallback-2026-07-01"]);
+  assert.equal(req.tools[0].type, "web_search_20260209");
   assert.ok(req.tools.some(t => t.type === "web_search_20260209"));
   assert.ok(req.tools.some(t => t.name === "report_price" && t.strict));
   assert.match(req.messages[0].content, /ISIN: LU0000000000/);
@@ -350,4 +351,16 @@ test("buildLegacyTotal / buildLegacyClose / buildLegacyTotalAsset", () => {
 test("sameDaySlot never replaces imported history", () => {
   const legacy = { snapshotId: "legacy-1", assetId: "a1", source: "legacy", generatedAt: "2026-11-15T12:00:00.000Z", latestPriceDate: "2026-11-15" };
   assert.equal(sameDaySlot([legacy], NOW).replace, null);
+});
+
+test("lookupPrice on Haiku: no fallbacks, earlier web tool versions", async () => {
+  const client = mockClient([
+    { stop_reason: "tool_use", content: [{ type: "tool_use", name: "report_price", id: "t", input: good() }], usage },
+  ]);
+  await lookupPrice({ client, asset: fund, last: null, model: "claude-haiku-5-5", now: NOW });
+  const req = client.calls[0];
+  assert.equal(req.model, "claude-haiku-5-5");
+  assert.equal(req.fallbacks, undefined);
+  assert.equal(req.betas, undefined);
+  assert.deepEqual(req.tools.slice(0, 2).map(t => t.type), ["web_search_20250305", "web_fetch_20250910"]);
 });

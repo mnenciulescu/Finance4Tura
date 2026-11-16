@@ -93,6 +93,20 @@ export function buildUserPrompt(asset, last, today, hint = null, budget = search
 }
 
 /**
+ * What the request may use per model. Haiku has no server-side fallback and
+ * is not documented for the dynamic-filtering web tools (20260209), so it gets
+ * the earlier tool versions.
+ */
+export function modelCaps(model) {
+  const haiku = /^claude-haiku-/.test(model);
+  return {
+    fallbacks: !haiku,
+    webSearch: haiku ? "web_search_20250305" : "web_search_20260209",
+    webFetch: haiku ? "web_fetch_20250910" : "web_fetch_20260209",
+  };
+}
+
+/**
  * Runs the lookup. `client` is an Anthropic SDK client (injected for tests).
  * Returns { result, usage } or throws on API errors / refusals.
  */
@@ -104,9 +118,10 @@ export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, 
   const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint, budget) }];
   // input_tokens excludes prompt-cache reads and writes, so those are counted separately.
   const usage = { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 };
+  const caps = modelCaps(model);
   const tools = [
-    { type: "web_search_20260209", name: "web_search", max_uses: budget.searches },
-    { type: "web_fetch_20260209", name: "web_fetch", max_uses: budget.fetches },
+    { type: caps.webSearch, name: "web_search", max_uses: budget.searches },
+    { type: caps.webFetch, name: "web_fetch", max_uses: budget.fetches },
     REPORT_TOOL,
   ];
 
@@ -114,8 +129,7 @@ export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, 
     const response = await client.beta.messages.create({
       model,
       max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(caps.fallbacks && { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" }),
       thinking: { type: "adaptive" },
       output_config: { effort },
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],

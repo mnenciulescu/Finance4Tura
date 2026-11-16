@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, FieldRow, List, ListRow, ListSection, Notice, TextField, Toggle, useToast } from "../../../ui";
+import { Alert, Button, FieldRow, List, ListRow, ListSection, Notice, SegmentedControl, TextField, Toggle, useToast } from "../../../ui";
 import { usePv2AiConfig, useUpdatePv2AiConfig } from "../../portfolio-v2/data";
 import s from "./Admin.module.css";
 
@@ -8,18 +8,23 @@ import s from "./Admin.module.css";
  * stored encrypted in AWS SSM, never shown again), the model, the search
  * budget per asset, and an on/off switch for the agent.
  */
+/** The models offered; a stored id outside this list still shows, as "Other". */
+const MODELS = [
+  { value: "claude-opus-5-5", label: "Opus 5.5" },
+  { value: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+  { value: "claude-haiku-5-5", label: "Haiku 5.5" },
+] as const;
+
 export function PortfolioAiSection() {
   const cfg = usePv2AiConfig();
   const update = useUpdatePv2AiConfig();
   const toast = useToast();
   const [key, setKey] = useState("");
-  // Drafts; null = show the saved value.
-  const [modelDraft, setModel] = useState<string | null>(null);
+  // Draft; null = show the saved value.
   const [searchesDraft, setSearches] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const model = modelDraft ?? cfg.data?.model ?? "";
   const searches = searchesDraft ?? (cfg.data ? String(cfg.data.maxSearches) : "");
 
   const fail = (e: any) => setError(e?.response?.data?.message || e?.message || "Could not save.");
@@ -33,8 +38,8 @@ export function PortfolioAiSection() {
   };
   const saveSettings = () => {
     setError(null);
-    update.mutate({ model: model.trim(), maxSearches: Number(searches) }, {
-      onSuccess: () => { setModel(null); setSearches(null); toast.show({ message: "AI settings saved", tone: "positive" }); },
+    update.mutate({ maxSearches: Number(searches) }, {
+      onSuccess: () => { setSearches(null); toast.show({ message: "AI settings saved", tone: "positive" }); },
       onError: fail,
     });
   };
@@ -44,7 +49,16 @@ export function PortfolioAiSection() {
   };
 
   const c = cfg.data;
-  const settingsDirty = !!c && (model.trim() !== c.model || Number(searches) !== c.maxSearches);
+  const settingsDirty = !!c && Number(searches) !== c.maxSearches;
+  // The model saves as soon as it is picked, like the switch above.
+  const pickModel = (m: string) => {
+    setError(null);
+    update.mutate({ model: m }, {
+      onSuccess: () => toast.show({ message: `Model: ${MODELS.find(x => x.value === m)?.label ?? m}`, tone: "positive" }),
+      onError: fail,
+    });
+  };
+  const known = MODELS.some(x => x.value === c?.model);
 
   return (
     <ListSection
@@ -75,11 +89,20 @@ export function PortfolioAiSection() {
             onChange={v => update.mutate({ enabled: v }, { onError: fail })}
           />
         </FieldRow>
-        <TextField label="Model" value={model} onChange={setModel} placeholder="claude-opus-5-5" autoCapitalize="none" />
+        <ListRow title="Model" subtitle={c && !known ? `Other: ${c.model}` : c?.model}>
+          <SegmentedControl
+            label="Model"
+            value={known ? c!.model : ""}
+            options={MODELS.map(x => ({ value: x.value, label: x.label }))}
+            onChange={pickModel}
+            isDisabled={!c || update.isPending}
+            className={s.modelPick}
+          />
+        </ListRow>
         <TextField label="Searches per asset" value={searches} onChange={v => setSearches(v.replace(/\D/g, ""))} inputMode="numeric" align="end" />
       </List>
       <div className={s.actionsRow}>
-        <Button variant="tinted" size="small" disabled={!settingsDirty} loading={update.isPending && settingsDirty} onClick={saveSettings}>Save Settings</Button>
+        <Button variant="tinted" size="small" disabled={!settingsDirty} loading={update.isPending && settingsDirty} onClick={saveSettings}>Save Searches</Button>
         <Button variant="filled" size="small" icon="key" disabled={key.trim().length < 20} loading={update.isPending && !!key} onClick={saveKey}>Save Key</Button>
       </div>
       <Alert

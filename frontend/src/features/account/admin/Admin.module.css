@@ -168,3 +168,8 @@
 .fxWrap {
   overflow-x: auto;
 }
+
+/* Portfolio v2 AI: the model picker under its row title, full width. */
+.modelPick {
+  margin-top: var(--space-2);
+}

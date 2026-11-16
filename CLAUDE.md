@@ -422,6 +422,8 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   The initial list was loaded once from the local Excel file (not in the repo);
   there is no import route or screen. An asset is unique per platform + ISIN /
   symbol / name (`assetMatchKey`).
+- **Model**: chosen in Admin (default Opus 5.5). Haiku gets no server-side `fallbacks` (it has none) and the
+  earlier web tools `web_search_20250305` / `web_fetch_20250910` (`modelCaps` in `agent.mjs`).
 - **Snapshot run** (manual): `POST /portfolio-v2/runs` creates the run and
   invokes `PortfolioV2WorkerFunction` once per asset (async, no retries); each
   worker asks Claude (`claude-opus-5-5` by default, adaptive thinking, effort
@@ -492,7 +494,8 @@ Pushed from the Account sheet.
   and params).
 - **Admin** (`nenciulescu` only): App Settings toggles; FX matrix (every
   supported currency) + **Update FX Rates**; **Portfolio v2 AI** (write-only
-  Anthropic API key, model, searches per asset, agent on/off); **Back Up All Tables** (preview → per-table progress → Drive
+  Anthropic API key; model picker Opus 5.5 · Sonnet 5.5 · Haiku 5.5, saved on pick;
+  searches per asset; agent on/off); **Back Up All Tables** (preview → per-table progress → Drive
   link); Users (email, counts, Admin/Disabled badges) → user sheet: admin role
   toggle (not for yourself), **Delete User and All Data** after re-entering
   your password.
@@ -711,7 +714,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 28 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 29 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the

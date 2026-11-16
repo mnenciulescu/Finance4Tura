@@ -12,6 +12,12 @@ vi.mock("../../api/admin", () => ({
   deleteUser: (...a: any[]) => (deleteUser as any)(...a),
 }));
 vi.mock("../../api/fxRates", async orig => ({ ...(await orig<object>()), getFxRates: () => Promise.resolve({ rates: { EUR: { EUR: 1, USD: 1.08, RON: 4.97 }, USD: { EUR: 0.93, USD: 1, RON: 4.6 }, RON: { EUR: 0.2, USD: 0.22, RON: 1 } }, updatedAt: "2026-09-10T00:00:00Z" }) }));
+const updateAi = vi.fn((body: object) => Promise.resolve({ configured: true, keyUpdatedAt: "2026-11-16T15:07:18Z", model: "claude-opus-5-5", maxSearches: 15, enabled: true, ...body }));
+vi.mock("../../api/portfolioV2", async orig => ({
+  ...(await orig<object>()),
+  getPv2AiConfig: () => Promise.resolve({ configured: true, keyUpdatedAt: "2026-11-16T15:07:18Z", model: "claude-opus-5-5", maxSearches: 15, enabled: true }),
+  updatePv2AiConfig: (body: object) => updateAi(body),
+}));
 vi.mock("../../api/appSettings", async orig => ({ ...(await orig<object>()), getAppSettings: () => Promise.resolve({ googleLoginEnabled: false, createAccountEnabled: true }) }));
 
 const { default: Settings } = await import("./settings/Settings");
@@ -59,6 +65,15 @@ describe("Admin", () => {
     fireEvent.change(within(alert).getByLabelText("Your password"), { target: { value: "right" } });
     fireEvent.click(within(alert).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(deleteUser).toHaveBeenCalledWith("ana"));
+  });
+
+  it("saves the Portfolio v2 AI model as soon as it is picked", async () => {
+    renderApp(<Admin />, { route: "/admin" });
+    const picker = await screen.findByRole("radiogroup", { name: "Model" });
+    await waitFor(() => expect(within(picker).getByRole("radio", { name: "Opus 5.5" })).toHaveAttribute("aria-checked", "true"));
+    fireEvent.click(within(picker).getByRole("radio", { name: "Haiku 5.5" }));
+    await waitFor(() => expect(updateAi).toHaveBeenCalledWith({ model: "claude-haiku-5-5" }));
+    await waitFor(() => expect(within(picker).getByRole("radio", { name: "Haiku 5.5" })).toHaveAttribute("aria-checked", "true"));
   });
 
   it("does not let the admin change their own role", async () => {
