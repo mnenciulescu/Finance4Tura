@@ -28,9 +28,9 @@ import s from "./OnePage.module.css";
 
 /**
  * One-Page (Documentation/OnePage_Desktop_Proposal.md): the Money, Library
- * and HQ tabs on one desktop screen. Four columns when they fit — Budget,
- * Split + Investments + Portfolio v2, HQ, Library, each with its statistics block — and the
- * rightmost columns move below the others on narrower windows.
+ * and HQ tabs on one desktop screen. Four columns when they fit — Budget;
+ * Portfolio v2 across columns 2–3 above Investments and HQ; Split + Library —
+ * and the rightmost columns move below the others on narrower windows.
  */
 export default function OnePage() {
   const qc = useQueryClient();
@@ -132,6 +132,7 @@ export default function OnePage() {
     library: <LibraryBlock />,
   };
   const layout = LAYOUTS[cols];
+  const renderBlock = (id: BlockId) => <div key={id} className={flash === id ? s.flash : undefined}>{blocks[id]}</div>;
 
   return (
     <OnePageContext.Provider value={ctx}>
@@ -154,13 +155,31 @@ export default function OnePage() {
             </div>
           )}
           <main className={s.grid} data-cols={cols}>
-            {layout.map((column, i) => (
-              <div key={i} className={s.col} role="region" aria-label={`Column ${i + 1}`} tabIndex={cols >= 3 ? 0 : undefined}>
-                {column.map(id => (
-                  <div key={id} className={flash === id ? s.flash : undefined}>{blocks[id]}</div>
-                ))}
-              </div>
-            ))}
+            {layout.map((item, i) => {
+              const label = `Column ${regionNumber(layout, i)}`;
+              const scrollable = cols >= 3 ? 0 : undefined;
+              if (Array.isArray(item)) {
+                return (
+                  <div key={i} className={s.col} role="region" aria-label={label} tabIndex={scrollable}>
+                    {item.map(renderBlock)}
+                  </div>
+                );
+              }
+              const end = regionNumber(layout, i) + item.below.length - 1;
+              return (
+                <div
+                  key={i} className={s.col} role="region" tabIndex={scrollable}
+                  aria-label={`Columns ${regionNumber(layout, i)}–${end}`} style={{ gridColumn: `span ${item.below.length}` }}
+                >
+                  {item.top.map(renderBlock)}
+                  <div className={s.subgrid} style={{ gridTemplateColumns: item.below.map(() => "minmax(0, 1fr)").join(" ") }}>
+                    {item.below.map((column, j) => (
+                      <div key={j} className={s.subcol} data-subcol={j + 1}>{column.map(renderBlock)}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </main>
         </div>
 
@@ -176,18 +195,31 @@ export default function OnePage() {
 
 /* ── Columns ──────────────────────────────────────────────────────────────── */
 
-const COLUMN_1: BlockId[] = ["budget", "budgetStats"];
-const COLUMN_2: BlockId[] = ["split", "investStats", "invest", "portfolioV2"];
-const COLUMN_3: BlockId[] = ["hqStats", "hq"];
-const COLUMN_4: BlockId[] = ["libraryStats", "library"];
+/**
+ * A plain column, or a region spanning several grid columns: blocks across
+ * its full width on top, then one sub-column per spanned column below. The
+ * whole region scrolls as one.
+ */
+type LayoutItem = BlockId[] | { top: BlockId[]; below: BlockId[][] };
 
-/** With fewer columns the rightmost ones move below the others. */
-const LAYOUTS: Record<Columns, BlockId[][]> = {
-  4: [COLUMN_1, COLUMN_2, COLUMN_3, COLUMN_4],
-  3: [COLUMN_1, COLUMN_2, [...COLUMN_3, ...COLUMN_4]],
-  2: [[...COLUMN_1, ...COLUMN_2], [...COLUMN_3, ...COLUMN_4]],
-  1: [[...COLUMN_1, ...COLUMN_2, ...COLUMN_3, ...COLUMN_4]],
+const COLUMN_1: BlockId[] = ["budget", "budgetStats"];
+const COLUMN_2: BlockId[] = ["investStats", "invest"];
+const COLUMN_3: BlockId[] = ["hqStats", "hq"];
+const COLUMN_4: BlockId[] = ["split", "libraryStats", "library"];
+const WIDE: BlockId[] = ["portfolioV2"];
+
+/** Portfolio v2 spans columns 2–3; with fewer columns the rightmost ones move below the others. */
+const LAYOUTS: Record<Columns, LayoutItem[]> = {
+  4: [COLUMN_1, { top: WIDE, below: [COLUMN_2, COLUMN_3] }, COLUMN_4],
+  3: [COLUMN_1, { top: WIDE, below: [[...COLUMN_2, ...COLUMN_3], COLUMN_4] }],
+  2: [{ top: WIDE, below: [[...COLUMN_1, ...COLUMN_2], [...COLUMN_4, ...COLUMN_3]] }],
+  1: [[...COLUMN_1, ...WIDE, ...COLUMN_2, ...COLUMN_3, ...COLUMN_4]],
 };
+
+/** The number of the first grid column an item starts at. */
+function regionNumber(layout: LayoutItem[], index: number) {
+  return 1 + layout.slice(0, index).reduce((n, item) => n + (Array.isArray(item) ? 1 : item.below.length), 0);
+}
 
 /* ── Keyboard shortcuts (§6.4) ────────────────────────────────────────────── */
 

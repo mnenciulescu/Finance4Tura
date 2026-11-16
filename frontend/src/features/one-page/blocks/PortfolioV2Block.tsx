@@ -171,7 +171,7 @@ export function PortfolioV2Block() {
             {series.data.length < 2 ? (
               <p className={s.empty}>{snapList.length === 0 ? "No snapshots yet — generate the first one." : "Not enough history in this range yet."}</p>
             ) : (
-              <Suspense fallback={<Skeleton height={200} />}>
+              <Suspense fallback={<Skeleton height={260} />}>
                 <PortfolioChart data={series.data} platforms={series.platforms} colors={colors} visible={visible} masked={!revealed} />
               </Suspense>
             )}

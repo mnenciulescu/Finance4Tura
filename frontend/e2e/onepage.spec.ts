@@ -16,18 +16,24 @@ test("four columns at 1920 px in the planned order", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await open(page);
   await expect(page.locator("main[data-cols='4']")).toBeVisible();
-  const order = async (n: number) => page.getByRole("region", { name: `Column ${n}` }).locator("[data-block]").evaluateAll(els => els.map(el => el.getAttribute("data-block")));
-  expect(await order(1)).toEqual(["budget", "budgetStats"]);
-  expect(await order(2)).toEqual(["split", "investStats", "invest", "portfolioV2"]);
-  expect(await order(3)).toEqual(["hqStats", "hq"]);
-  expect(await order(4)).toEqual(["libraryStats", "library"]);
+  const ids = (scope: ReturnType<Page["locator"]>) => scope.locator("[data-block]").evaluateAll(els => els.map(el => el.getAttribute("data-block")));
+  const wide = page.getByRole("region", { name: "Columns 2–3" });
+  expect(await ids(page.getByRole("region", { name: "Column 1" }))).toEqual(["budget", "budgetStats"]);
+  expect(await ids(wide)).toEqual(["portfolioV2", "investStats", "invest", "hqStats", "hq"]);
+  expect(await ids(wide.locator("[data-subcol='1']"))).toEqual(["investStats", "invest"]);
+  expect(await ids(wide.locator("[data-subcol='2']"))).toEqual(["hqStats", "hq"]);
+  expect(await ids(page.getByRole("region", { name: "Column 4" }))).toEqual(["split", "libraryStats", "library"]);
+  // Portfolio v2 is about twice as wide as a single column.
+  const pv2 = await block(page, "portfolioV2").boundingBox();
+  const budget = await block(page, "budget").boundingBox();
+  expect(pv2!.width).toBeGreaterThan(budget!.width * 1.6);
 });
 
 test("four columns at 1440 px, each scrolling under a fixed header", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
   await expect(page.locator("main[data-cols='4']")).toBeVisible();
-  const col2 = page.getByRole("region", { name: "Column 2" });
+  const col2 = page.getByRole("region", { name: "Columns 2–3" });
   await col2.evaluate(el => { el.scrollTop = 400; });
   expect(await col2.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);

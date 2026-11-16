@@ -180,7 +180,7 @@ graph TB
 - **Tab bar**: Today · Money · Library · HQ. Money has a segmented control: Budget · Split · Stats · Invest.
 - **Account sheet** (initials, top right): username, session countdown, Settings, Backstage (when enabled), Admin (admin only), Sign Out.
 - System back (Android) closes the top sheet or menu first; iPhone gets an edge swipe on pushed screens. Old URLs redirect. Details in `CLAUDE.md`.
-- **One-Page** (`/one-page`, desktop): up to four columns of blocks — Budget and Budget Statistics; Split, Investment Statistics, Investments and **Portfolio v2**; HQ Statistics and HQ; Library Statistics and Library. Reached by URL, from the Account sheet on screens ≥ 1024 px, or automatically with Settings → Desktop → *Open One-Page on this computer*. Spec: `Documentation/OnePage_Desktop_Proposal.md`.
+- **One-Page** (`/one-page`, desktop): up to four columns of blocks — Budget and Budget Statistics; **Portfolio v2** across columns 2–3, with Investment Statistics + Investments and HQ Statistics + HQ below it; Split, Library Statistics and Library. Reached by URL, from the Account sheet on screens ≥ 1024 px, or automatically with Settings → Desktop → *Open One-Page on this computer*. Spec: `Documentation/OnePage_Desktop_Proposal.md`.
 
 
 ---

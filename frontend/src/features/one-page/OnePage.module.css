@@ -109,7 +109,7 @@
 }
 .grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid[data-cols="3"] { grid-template-columns: minmax(0, 4fr) minmax(0, 4fr) minmax(0, 3.5fr); }
-.grid[data-cols="4"] { grid-template-columns: minmax(0, 4.4fr) minmax(0, 4fr) minmax(0, 3.6fr) minmax(0, 3.6fr); }
+.grid[data-cols="4"] { grid-template-columns: minmax(0, 4.4fr) minmax(0, 3.8fr) minmax(0, 3.8fr) minmax(0, 4fr); }
 .grid[data-cols="3"],
 .grid[data-cols="4"] {
   height: calc(100dvh - var(--desk-header-h));
@@ -374,4 +374,17 @@
   border-radius: var(--radius-xs);
   background: var(--fill-secondary);
   border: var(--hairline) solid var(--separator);
+}
+
+/* A region spanning two grid columns: wide blocks on top, sub-columns below. */
+.subgrid {
+  display: grid;
+  gap: var(--desk-gap);
+  align-items: start;
+}
+.subcol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--desk-gap);
+  min-width: 0;
 }

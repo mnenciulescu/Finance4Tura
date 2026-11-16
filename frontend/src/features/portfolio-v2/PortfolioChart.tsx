@@ -40,11 +40,11 @@ function ChartTooltip({ active, payload, lines, first }: {
 }
 
 /**
- * Portfolio v2 value in EUR over time: a step line per visible platform and
+ * Portfolio v2 value in EUR over time: a curved line per visible platform and
  * the portfolio total. Masked: the shape stays, axis values and tooltip go.
  */
 export default function PortfolioChart({
-  data, platforms, colors, visible, masked, height = 200,
+  data, platforms, colors, visible, masked, height = 260,
 }: {
   data: SeriesPoint[]; platforms: string[]; colors: Record<string, string>; visible: Set<string>; masked?: boolean; height?: number;
 }) {
@@ -78,12 +78,12 @@ export default function PortfolioChart({
           {!masked && <Tooltip content={<ChartTooltip lines={lines} first={data[0]} />} />}
           {platforms.map(p => (
             <Line
-              key={p} type="stepAfter" dataKey={p} stroke={c[p]} strokeWidth={1.5} dot={false}
+              key={p} type="monotone" dataKey={p} stroke={c[p]} strokeWidth={1.5} dot={false}
               hide={!visible.has(p)} connectNulls isAnimationActive={false}
             />
           ))}
           <Line
-            type="stepAfter" dataKey="Total" name="Portfolio" stroke={c.total} strokeWidth={2.5} dot={false}
+            type="monotone" dataKey="Total" name="Portfolio" stroke={c.total} strokeWidth={2.5} dot={false}
             hide={!visible.has("Total")} connectNulls isAnimationActive={false}
           />
         </LineChart>

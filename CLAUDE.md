@@ -348,9 +348,12 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   Refresh, Light | Dark switch, account menu — no + or eye; adding and the
   income eye live in the blocks). As many columns as fit at 320 px each
   (`columnsFor` in `state.ts`): **four** from 1360 px — **Budget · Budget
-  Statistics** | **Split · Investment Statistics · Investments · Portfolio v2** | **HQ
-  Statistics · HQ** | **Library Statistics · Library** — each scrolling on its
-  own; **three** from 1024 px (Library's column moves under HQ); one below (with a "made for larger screens"
+  Statistics** | **Portfolio v2** across columns 2–3, with **Investment
+  Statistics · Investments** and **HQ Statistics · HQ** below it | **Split ·
+  Library Statistics · Library** — each column (and the 2–3 region as a whole)
+  scrolling on its own (`LAYOUTS` in `OnePage.tsx`); **three** from 1024 px
+  (Portfolio v2 still spans 2–3: Investments + HQ under its left half, Split +
+  Library under its right); two (Portfolio v2 across the top); one below (with a "made for larger screens"
   note). Blocks collapse from their title
   (`onePage.collapsed` in localStorage) and each has its own error boundary.
 - **Presentation switch**: `routes.tsx` provides `LayoutContext` = `"desk"` on
@@ -465,7 +468,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
   Retry, Cancel, "Run in Background"; polled every 2 s), total EUR with the
-  change over the range, step chart of the platform Totals and their sum
+  change over the range, curved line chart (`monotone`) of the platform Totals and their sum
   (1W · 1M · 3M · 1Y · All, line chips), **Last snapshot** per platform
   (expand: units × price = value, price date and search date, stale > 7 days, sources,
   comments), collapsible **Assets** area, Snapshot Runs history.
@@ -703,7 +706,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry | 7 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 | Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 30 |
