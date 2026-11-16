@@ -108,22 +108,27 @@ const good = (over = {}) => ({
 });
 
 test("checkAgentResult accepts a confirmed, recent, same-currency price", () => {
-  assert.deepEqual(checkAgentResult(good(), fund, NOW), { ok: true });
+  assert.deepEqual(checkAgentResult(good(), fund, NOW), { ok: true, stale: false, ageDays: 2, message: null });
 });
 
-test("checkAgentResult: not found, stale, future, currency mismatch, no https source", () => {
+test("checkAgentResult: not found, future, currency mismatch, no https source", () => {
   assert.equal(checkAgentResult(good({ found: false, reasonIfNotFound: "No NAV" }), fund, NOW).status, "not_found");
-  assert.equal(checkAgentResult(good({ priceDate: "2026-10-01" }), fund, NOW).status, "not_found");
   assert.equal(checkAgentResult(good({ priceDate: "2026-11-16" }), fund, NOW).status, "failed");
   assert.match(checkAgentResult(good({ currency: "EUR" }), fund, NOW).message, /Currency mismatch/);
   assert.equal(checkAgentResult(good({ sources: [{ url: "http://x" }] }), fund, NOW).status, "failed");
   assert.equal(checkAgentResult(good({ unitPrice: 0 }), fund, NOW).status, "failed");
 });
 
-test("checkAgentResult: crypto prices must be from the last day", () => {
+test("checkAgentResult: an old confirmed price is accepted and marked stale (crypto after a day)", () => {
+  const old = checkAgentResult(good({ priceDate: "2026-10-01" }), fund, NOW);
+  assert.equal(old.ok, true);
+  assert.equal(old.stale, true);
+  assert.equal(old.ageDays, 45);
+  assert.match(old.message, /from 2026-10-01 \(45 days old\)/);
+  assert.equal(checkAgentResult(good({ priceDate: "2026-11-05" }), fund, NOW).stale, false); // 10 days
   const r = good({ currency: "USD", priceDate: "2026-11-13" });
-  assert.equal(checkAgentResult(r, coin, NOW).status, "not_found");
-  assert.equal(checkAgentResult({ ...r, priceDate: "2026-11-15" }, coin, NOW).ok, true);
+  assert.equal(checkAgentResult(r, coin, NOW).stale, true);
+  assert.equal(checkAgentResult({ ...r, priceDate: "2026-11-15" }, coin, NOW).stale, false);
 });
 
 test("isNewData: first, later date, unit change, crypto after an hour", () => {
@@ -152,6 +157,12 @@ test("buildAssetSnapshot copies the asset and flags big price moves", () => {
   assert.equal(snap.flagged, true);
   assert.match(snap.comments, /Check price: 60\.0%/);
   assert.equal(snap.sources[0].retrievedAt, NOW.toISOString());
+  assert.equal(snap.latestPriceDate, snap.priceDate);
+  assert.equal(snap.stale, false);
+  const old = buildAssetSnapshot({ asset: fund, result: good({ priceDate: "2026-10-01" }), values, last: null, runId: "r", snapshotId: "s2", userId: "u", now: NOW });
+  assert.equal(old.latestPriceDate, "2026-10-01");
+  assert.equal(old.stale, true);
+  assert.match(old.comments, /45 days old/);
 });
 
 /* ── Totals ───────────────────────────────────────────────────────────────── */
@@ -252,6 +263,8 @@ test("lookupPrice: default search budget, and the deeper pass's effort, budget a
   await lookupPrice({ client: first, asset: fund, last: null, now: NOW });
   assert.equal(first.calls[0].output_config.effort, "medium");
   assert.equal(first.calls[0].tools.find(t => t.name === "web_search").max_uses, 15);
+  assert.equal(first.calls[0].tools.find(t => t.name === "web_fetch").max_uses, 30);
+  assert.match(first.calls[0].messages[0].content, /Budget: up to 15 web searches and 30 page fetches/);
   assert.doesNotMatch(first.calls[0].messages[0].content, /previous search/);
 
   const deeper = one();
@@ -259,8 +272,13 @@ test("lookupPrice: default search budget, and the deeper pass's effort, budget a
   const req = deeper.calls[0];
   assert.equal(req.output_config.effort, "high");
   assert.equal(req.tools.find(t => t.name === "web_search").max_uses, 30);
-  assert.equal(req.tools.find(t => t.name === "web_fetch").max_uses, 30);
+  assert.equal(req.tools.find(t => t.name === "web_fetch").max_uses, 60);
   assert.match(req.messages[0].content, /previous search was not good enough: it found 9 RON for 2026-10-01/);
+
+  const again = one();
+  const last = { unitPrice: 12, currency: "RON", priceDate: "2026-11-10", sources: [{ url: "https://fund.example/nav" }] };
+  await lookupPrice({ client: again, asset: fund, last, now: NOW });
+  assert.match(again.calls[0].messages[0].content, /found before \(fetch these first\): https:\/\/fund\.example\/nav/);
 });
 
 test("lookupPrice asks again when the model ends without reporting, then gives up", async () => {

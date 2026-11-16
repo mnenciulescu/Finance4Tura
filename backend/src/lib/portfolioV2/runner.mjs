@@ -61,8 +61,9 @@ export async function processItem({ runId, userId, index, deps }) {
     let r = found.result;
     let check = checkAgentResult(r, asset, deps.now?.() ?? new Date());
 
-    // Not good enough (nothing found, too old, wrong currency…): one deeper
-    // pass with twice the searches, more effort and what went wrong.
+    // Nothing usable (not found, wrong currency, no source…): one deeper pass
+    // with twice the searches, more effort and what went wrong. An old but
+    // confirmed price is usable and is kept (marked stale) without a retry.
     if (!check.ok && Date.now() - t0 < SECOND_PASS_BEFORE_MS) {
       await store.updateRunItem(runId, index, { status: "searching", message: `Searching deeper: ${check.message}`.slice(0, 300) });
       const hint = r?.found && r.unitPrice != null
@@ -112,7 +113,8 @@ export async function processItem({ runId, userId, index, deps }) {
     await store.updateRunItem(runId, index, {
       status: "updated", snapshotId: snap.snapshotId, unitPrice: snap.unitPrice, currency: snap.currency,
       priceDate: snap.priceDate, value: snap.value, valueEUR: snap.valueEUR, sourceUrl: snap.sources[0]?.url ?? null,
-      flagged: snap.flagged, message: snap.flagged ? snap.comments : slot.replace ? "Replaced today's earlier snapshot" : null, finishedAt: new Date().toISOString(),
+      flagged: snap.flagged, stale: snap.stale, latestPriceDate: snap.latestPriceDate, finishedAt: new Date().toISOString(),
+      message: [snap.flagged ? snap.comments : check.message, slot.replace ? "Replaced today's earlier snapshot" : null].filter(Boolean).join(" · ") || null,
     });
   } catch (e) {
     console.error(`[portfolioV2] item ${index} of run ${runId} failed:`, e);

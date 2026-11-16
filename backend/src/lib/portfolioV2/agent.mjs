@@ -13,7 +13,12 @@ Acceptable sources:
 - "secondary": established financial data providers with a dated price page: Financial Times markets data, Morningstar, Reuters, Bloomberg, justETF, Boerse Frankfurt, Investing.com, Yahoo Finance, CoinMarketCap / CoinGecko for crypto.
 - Never blogs, forums, social media, or numbers without a date.
 
-How to search:
+How to search (your budget of searches and page fetches is limited, so spend it well):
+- If the request lists pages where the price was found before, fetch those first: they usually show the newest price and cost no search.
+- Prefer fetching a page you can predict (see the URL patterns below) over a search. Fetches are cheaper and more plentiful than searches.
+- Make each search precise (ISIN plus "NAV" or "price"); never repeat a search with similar words.
+- Stop as soon as you have a dated price from an acceptable source that is from the last few business days. Keep looking only while a newer price is likely to exist.
+- Keep the best price found so far. If the budget runs out, report it; an older confirmed price is far better than none.
 - Identify the instrument by ISIN first, then symbol and name. Search the ISIN on its own as well as with words like "NAV", "price", "quote".
 - Monthly factsheets and KIDs are usually weeks old. Do not stop at a factsheet: look for the daily NAV or the price history.
 - Fetch pages directly when you can guess them, e.g. the Financial Times tearsheet https://markets.ft.com/data/funds/tearsheet/summary?s=<ISIN>:<CURRENCY> (funds) or https://markets.ft.com/data/etfs/tearsheet/summary?s=<SYMBOL>:<EXCHANGE>:<CURRENCY>, Morningstar or justETF pages found by ISIN, or the issuer's product page.
@@ -27,7 +32,7 @@ Rules:
 - Report the most recent published price (closing price, NAV, or spot price for crypto) and the date it is valid for, exactly as the source states them. Prefer the newest date across all sources you found.
 - For every source, include the exact text from the page where the price appears.
 - Do not calculate, convert, estimate or round anything. Report numbers exactly as published, as plain decimals with "." as the decimal separator.
-- If after trying several sources you still cannot confirm a price, report found=false with a short reason listing what you tried.
+- An older price is still a confirmed price: if the newest price you can confirm is weeks old, report it with found=true and its real date. Use found=false only when no acceptable source shows any price at all, with a short reason listing what you tried.
 
 When you are done, call the report_price tool exactly once. Do not write any other final answer.`;
 
@@ -69,7 +74,7 @@ export const REPORT_TOOL = {
 
 const TYPE_LABEL = { MutualFund: "mutual fund", ETF: "ETF", Stock: "stock", Crypto: "cryptocurrency", Bond: "bond", Other: "instrument" };
 
-export function buildUserPrompt(asset, last, today, hint = null) {
+export function buildUserPrompt(asset, last, today, hint = null, budget = searchBudget(DEFAULT_MAX_SEARCHES)) {
   const lines = [
     `Instrument: ${asset.name}`,
     `Type: ${TYPE_LABEL[asset.type] ?? asset.type}`,
@@ -79,6 +84,8 @@ export function buildUserPrompt(asset, last, today, hint = null) {
     `Requested price currency: ${asset.currency}`,
     asset.preferredSources?.length ? `Preferred sources to try first: ${asset.preferredSources.join(", ")}` : null,
     last ? `Last recorded price: ${last.unitPrice} ${last.currency} for ${last.priceDate}. Only a later price, or the same date confirmed again, is useful.` : "No price has been recorded before.",
+    last?.sources?.length ? `Pages where the price was found before (fetch these first): ${last.sources.map(s => s.url).filter(Boolean).slice(0, 3).join(" , ")}` : null,
+    `Budget: up to ${budget.searches} web searches and ${budget.fetches} page fetches.`,
     `Today is ${today}.`,
     hint ? `\nA previous search was not good enough: ${hint}\nSearch more thoroughly this time: use different sources (see the list in your instructions), fetch the daily NAV / price-history pages directly, and prefer the most recent date.` : null,
   ];
@@ -89,12 +96,16 @@ export function buildUserPrompt(asset, last, today, hint = null) {
  * Runs the lookup. `client` is an Anthropic SDK client (injected for tests).
  * Returns { result, usage } or throws on API errors / refusals.
  */
+/** Page fetches are cheap and save searches, so they get twice the budget. */
+export const searchBudget = (maxSearches) => ({ searches: maxSearches, fetches: Math.min(2 * maxSearches, 2 * MAX_SEARCHES_LIMIT) });
+
 export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, effort = "medium", hint = null, now = new Date() }) {
-  const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint) }];
+  const budget = searchBudget(maxSearches);
+  const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint, budget) }];
   const usage = { inputTokens: 0, outputTokens: 0, webSearches: 0 };
   const tools = [
-    { type: "web_search_20260209", name: "web_search", max_uses: maxSearches },
-    { type: "web_fetch_20260209", name: "web_fetch", max_uses: maxSearches },
+    { type: "web_search_20260209", name: "web_search", max_uses: budget.searches },
+    { type: "web_fetch_20260209", name: "web_fetch", max_uses: budget.fetches },
     REPORT_TOOL,
   ];
 

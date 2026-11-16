@@ -159,6 +159,10 @@ export interface Pv2Snapshot {
   runId: string;
   generatedAt: string;
   priceDate: string;
+  /** Date of the newest price found (older snapshots may lack it). */
+  latestPriceDate?: string | null;
+  /** The price was older than 10 days (crypto: 1 day) when recorded. */
+  stale?: boolean;
   asset: Pick<Pv2Asset, "platform" | "type" | "symbol" | "name" | "units" | "isin" | "currency">;
   currency: string;
   unitPrice: number | null;
@@ -190,6 +194,8 @@ export interface Pv2RunItem {
   unitPrice?: number | null;
   currency?: string | null;
   priceDate?: string | null;
+  latestPriceDate?: string | null;
+  stale?: boolean;
   value?: number | null;
   valueEUR?: number | null;
   sourceUrl?: string | null;

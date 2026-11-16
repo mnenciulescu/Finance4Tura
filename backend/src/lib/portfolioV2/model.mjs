@@ -4,7 +4,7 @@ import { isSupportedCurrency, rateToEUR, SUPPORTED_CURRENCIES } from "../currenc
 
 export const ASSET_TYPES = ["Total", "MutualFund", "Stock", "ETF", "Crypto", "Bond", "Other"];
 
-/** Prices older than this (days) do not count as found; crypto uses hours. */
+/** Prices older than this (days) are kept but marked stale; crypto uses hours. */
 export const MAX_PRICE_AGE_DAYS = 10;
 export const MAX_CRYPTO_AGE_HOURS = 24;
 /** A crypto price is new data again once the last snapshot is this old. */
@@ -176,7 +176,9 @@ const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.pa
 
 /**
  * Checks what the agent reported before anything is computed or written.
- * Returns { ok: true } or { ok: false, status: "not_found" | "failed", message }.
+ * Returns { ok: true, stale, ageDays, message } or { ok: false, status:
+ * "not_found" | "failed", message }. An old but confirmed price is accepted
+ * and marked stale; it is still a confirmed price.
  */
 export function checkAgentResult(r, asset, now = new Date()) {
   if (!r || typeof r !== "object") return { ok: false, status: "failed", message: "The agent returned no result" };
@@ -186,15 +188,20 @@ export function checkAgentResult(r, asset, now = new Date()) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.priceDate ?? ""))) return { ok: false, status: "failed", message: "The reported price date is not a date" };
   const today = isoDay(now);
   if (r.priceDate > today) return { ok: false, status: "failed", message: `The price date ${r.priceDate} is in the future` };
-  const age = daysBetween(r.priceDate, today);
-  const maxDays = asset.type === "Crypto" ? Math.ceil(MAX_CRYPTO_AGE_HOURS / 24) : MAX_PRICE_AGE_DAYS;
-  if (age > maxDays) return { ok: false, status: "not_found", message: `Latest confirmed price is from ${r.priceDate}, older than ${maxDays} day${maxDays === 1 ? "" : "s"}` };
   const currency = String(r.currency ?? "").trim().toUpperCase();
   if (currency !== asset.currency) return { ok: false, status: "failed", message: `Currency mismatch: the source quotes ${currency || "?"}, the asset is ${asset.currency}` };
   const sources = (Array.isArray(r.sources) ? r.sources : []).filter(s => /^https:\/\//i.test(String(s?.url ?? "")));
   if (sources.length === 0) return { ok: false, status: "failed", message: "No https source given for the price" };
   if (!["official", "secondary"].includes(r.confidence)) return { ok: false, status: "failed", message: "Unknown source confidence" };
-  return { ok: true };
+  const { stale, ageDays } = priceAge(r.priceDate, asset, now);
+  return { ok: true, stale, ageDays, message: stale ? `Latest published price is from ${r.priceDate} (${ageDays} days old)` : null };
+}
+
+/** How old a price is on `now`'s day, and whether that counts as stale. */
+export function priceAge(priceDate, asset, now = new Date()) {
+  const ageDays = daysBetween(priceDate, isoDay(now));
+  const maxDays = asset.type === "Crypto" ? Math.ceil(MAX_CRYPTO_AGE_HOURS / 24) : MAX_PRICE_AGE_DAYS;
+  return { ageDays, stale: ageDays > maxDays };
 }
 
 /**
@@ -228,6 +235,8 @@ export const assetCopy = (a) => ({
 export function buildAssetSnapshot({ asset, result, values, last, runId, snapshotId, userId, now = new Date() }) {
   const notes = [];
   if (result.comments) notes.push(clean(result.comments, 1000));
+  const { stale, ageDays } = priceAge(result.priceDate, asset, now);
+  if (stale) notes.push(`Latest published price is ${ageDays} days old`);
   if (last?.unitPrice > 0) {
     const move = Number(result.unitPrice) / last.unitPrice - 1;
     if (Math.abs(move) > JUMP_THRESHOLD) notes.push(`Check price: ${(move * 100).toFixed(1)}% vs ${last.priceDate}`);
@@ -236,6 +245,8 @@ export function buildAssetSnapshot({ asset, result, values, last, runId, snapsho
     snapshotId, userId, assetId: asset.assetId, runId,
     generatedAt: now.toISOString(),
     priceDate: result.priceDate,
+    latestPriceDate: result.priceDate,
+    stale,
     asset: assetCopy(asset),
     currency: asset.currency,
     unitPrice: Number(result.unitPrice),
@@ -293,6 +304,7 @@ export function buildTotalSnapshot({ totalAsset, total, runId, snapshotId, userI
     snapshotId, userId, assetId: totalAsset.assetId, runId,
     generatedAt: now.toISOString(),
     priceDate: total.priceDate,
+    latestPriceDate: total.priceDate,
     asset: assetCopy(totalAsset),
     currency: "EUR",
     unitPrice: null, value: null, fxRate: null, fxDate: null,

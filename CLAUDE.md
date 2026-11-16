@@ -425,12 +425,18 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   with the quoted text, official/secondary. The prompt lists where to look per asset type
   (issuer daily NAV, exchange, distributor, Fundsquare, FT tearsheets by ISIN,
   Morningstar, justETF…) and warns that monthly factsheets are stale. Search
-  budget: 15 searches + 15 fetches per asset by default (Admin, 1–30). An
-  asset whose result fails the checks gets **one deeper pass** (effort high,
+  budget: 15 searches + 30 fetches per asset by default (Admin sets searches,
+  1–30; fetches are always twice that). The prompt states the budget, tells the
+  agent to fetch the pages from the last snapshot's sources first, prefer
+  predictable URLs over searches, stop once it has a recent dated price, and
+  report the best price found if the budget runs out. An asset whose result
+  fails the checks (an old price does not) gets **one deeper pass** (effort high,
   twice the searches, told what was wrong) if the first finished within 7 min;
   the worker times out at 15 min. **The model never calculates.**
-  Code checks the result (price > 0, date ≤ today and ≤ 10 days old — crypto 1
-  day, currency = the asset's, an https source), applies the **new-data rule**
+  Code checks the result (price > 0, date ≤ today, currency = the asset's, an
+  https source). A price older than 10 days (crypto 1 day) is still a
+  confirmed price: it is recorded with `stale: true` and a note, not rejected.
+  Code then applies the **new-data rule**
   (no previous snapshot, a later price date, changed units, or crypto older
   than 1 h) and computes `value = units × unitPrice` and `valueEUR` with the
   stored FX matrix (no rate → failed, never guessed). The last worker computes
@@ -538,7 +544,9 @@ All tables are pay-per-request with a single string hash key.
 `Total` per platform, created automatically.
 
 **PortfolioV2_Snapshots** (PK: `snapshotId`, GSI `userId-index`): `userId`,
-`assetId`, `runId`, `generatedAt`, `priceDate`, `asset` (copy of the asset
+`assetId`, `runId`, `generatedAt`, `priceDate`, `latestPriceDate` (date of
+the newest price found — the asset's price date, or for a Total the newest of
+its assets), `stale` (asset price older than 10 days / crypto 1 day), `asset` (copy of the asset
 fields incl. units), `currency`, `unitPrice`, `value` (= units × unitPrice),
 `fxRate`, `fxDate`, `valueEUR`, `sources[]` (`url`, `title`, `publisher`,
 `quote`, `retrievedAt`), `confidence` (`official`|`secondary`), `priceType`,
@@ -682,7 +690,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, deeper pass) | 26 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices | 26 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
