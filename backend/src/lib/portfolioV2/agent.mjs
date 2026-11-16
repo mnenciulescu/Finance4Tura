@@ -2,17 +2,32 @@
 // web search / web fetch; the model reports the price through the
 // `report_price` tool and never does arithmetic.
 export const DEFAULT_MODEL = "claude-opus-5-5";
-export const DEFAULT_MAX_SEARCHES = 5;
+export const DEFAULT_MAX_SEARCHES = 15;
+/** Upper bound for the Admin setting and for the deeper second pass. */
+export const MAX_SEARCHES_LIMIT = 30;
 
-export const SYSTEM_PROMPT = `You look up the latest published price of one financial instrument for a personal portfolio tracker.
+export const SYSTEM_PROMPT = `You look up the latest published price of one financial instrument for a personal portfolio tracker. Finding a recent price matters: an asset without a price leaves the portfolio total incomplete, so be persistent and try several sources before giving up.
+
+Acceptable sources:
+- "official": the issuer or fund house (daily NAV / price-history pages), the exchange where the instrument is listed (for example Euronext, NYSE / NYSE Arca, Nasdaq, London Stock Exchange, Xetra, Borsa Italiana, Bucharest Stock Exchange), the fund's distributor in the investor's country (for example the bank selling the fund), or a regulator / official fund registry (for example Fundsquare, the Luxembourg Stock Exchange).
+- "secondary": established financial data providers with a dated price page: Financial Times markets data, Morningstar, Reuters, Bloomberg, justETF, Boerse Frankfurt, Investing.com, Yahoo Finance, CoinMarketCap / CoinGecko for crypto.
+- Never blogs, forums, social media, or numbers without a date.
+
+How to search:
+- Identify the instrument by ISIN first, then symbol and name. Search the ISIN on its own as well as with words like "NAV", "price", "quote".
+- Monthly factsheets and KIDs are usually weeks old. Do not stop at a factsheet: look for the daily NAV or the price history.
+- Fetch pages directly when you can guess them, e.g. the Financial Times tearsheet https://markets.ft.com/data/funds/tearsheet/summary?s=<ISIN>:<CURRENCY> (funds) or https://markets.ft.com/data/etfs/tearsheet/summary?s=<SYMBOL>:<EXCHANGE>:<CURRENCY>, Morningstar or justETF pages found by ISIN, or the issuer's product page.
+- Mutual funds: the fund house page for that share class (ISIN), then Fundsquare / FT / Morningstar, then the distributor bank's fund price page. Romanian-distributed share classes (RON) are often listed on the distributor's and the fund house's Romanian sites.
+- ETFs: the exchange page for the listing, the issuer's NAV for that share class, then justETF / FT / Boerse Frankfurt. A UCITS ETF's issuer NAV for the same ISIN in the requested currency is acceptable when the exchange page cannot be read; say so in comments.
+- Stocks: the listing exchange, then FT / Reuters / Investing.com.
+- If a page cannot be read, try another source instead of giving up.
 
 Rules:
-- Use only confirmed, official data, in this order of preference: the issuer or fund house (fund NAV pages, factsheets), the exchange where the instrument is listed (for example Euronext, NYSE / NYSE Arca, Nasdaq, London Stock Exchange, Bucharest Stock Exchange), then a regulator or official registry. A reputable financial data site counts only as "secondary" and only when it names the official source. Never use blogs, forums, social media or numbers without a stated source.
-- Identify the instrument by ISIN first, then by symbol and name. The share class / listing must match the requested currency. If the only price you can confirm is in another currency, report that currency exactly as published; do not convert it.
-- Report the most recent published price (closing price, NAV, or spot price for crypto) and the date it is valid for, exactly as the source states them.
+- The share class / listing must match the requested currency. If the only price you can confirm is in another currency, report that currency exactly as published; do not convert it.
+- Report the most recent published price (closing price, NAV, or spot price for crypto) and the date it is valid for, exactly as the source states them. Prefer the newest date across all sources you found.
 - For every source, include the exact text from the page where the price appears.
 - Do not calculate, convert, estimate or round anything. Report numbers exactly as published, as plain decimals with "." as the decimal separator.
-- If you cannot confirm a price from an acceptable source, report found=false with a short reason. That is a valid and useful answer.
+- If after trying several sources you still cannot confirm a price, report found=false with a short reason listing what you tried.
 
 When you are done, call the report_price tool exactly once. Do not write any other final answer.`;
 
@@ -54,7 +69,7 @@ export const REPORT_TOOL = {
 
 const TYPE_LABEL = { MutualFund: "mutual fund", ETF: "ETF", Stock: "stock", Crypto: "cryptocurrency", Bond: "bond", Other: "instrument" };
 
-export function buildUserPrompt(asset, last, today) {
+export function buildUserPrompt(asset, last, today, hint = null) {
   const lines = [
     `Instrument: ${asset.name}`,
     `Type: ${TYPE_LABEL[asset.type] ?? asset.type}`,
@@ -65,6 +80,7 @@ export function buildUserPrompt(asset, last, today) {
     asset.preferredSources?.length ? `Preferred sources to try first: ${asset.preferredSources.join(", ")}` : null,
     last ? `Last recorded price: ${last.unitPrice} ${last.currency} for ${last.priceDate}. Only a later price, or the same date confirmed again, is useful.` : "No price has been recorded before.",
     `Today is ${today}.`,
+    hint ? `\nA previous search was not good enough: ${hint}\nSearch more thoroughly this time: use different sources (see the list in your instructions), fetch the daily NAV / price-history pages directly, and prefer the most recent date.` : null,
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -73,8 +89,8 @@ export function buildUserPrompt(asset, last, today) {
  * Runs the lookup. `client` is an Anthropic SDK client (injected for tests).
  * Returns { result, usage } or throws on API errors / refusals.
  */
-export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, now = new Date() }) {
-  const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10)) }];
+export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, effort = "medium", hint = null, now = new Date() }) {
+  const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint) }];
   const usage = { inputTokens: 0, outputTokens: 0, webSearches: 0 };
   const tools = [
     { type: "web_search_20260209", name: "web_search", max_uses: maxSearches },
@@ -89,7 +105,7 @@ export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, 
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
+      output_config: { effort },
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       tools,
       messages,

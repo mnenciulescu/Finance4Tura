@@ -834,7 +834,7 @@ Resources:
     Properties:
       Handler: src/handlers/portfolioV2Worker.handler
       CodeUri: .
-      Timeout: 600
+      Timeout: 900
       MemorySize: 512
       Policies:
         - DynamoDBCrudPolicy:

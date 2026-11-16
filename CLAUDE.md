@@ -422,7 +422,13 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   worker asks Claude (`claude-opus-5-5` by default, adaptive thinking, effort
   medium, server-side refusal fallbacks, `web_search` + `web_fetch`) to report
   through a strict `report_price` tool: price, currency, price date, sources
-  with the quoted text, official/secondary. **The model never calculates.**
+  with the quoted text, official/secondary. The prompt lists where to look per asset type
+  (issuer daily NAV, exchange, distributor, Fundsquare, FT tearsheets by ISIN,
+  Morningstar, justETF…) and warns that monthly factsheets are stale. Search
+  budget: 15 searches + 15 fetches per asset by default (Admin, 1–30). An
+  asset whose result fails the checks gets **one deeper pass** (effort high,
+  twice the searches, told what was wrong) if the first finished within 7 min;
+  the worker times out at 15 min. **The model never calculates.**
   Code checks the result (price > 0, date ≤ today and ≤ 10 days old — crypto 1
   day, currency = the asset's, an https source), applies the **new-data rule**
   (no previous snapshot, a later price date, changed units, or crypto older
@@ -676,7 +682,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK | 25 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, deeper pass) | 26 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the

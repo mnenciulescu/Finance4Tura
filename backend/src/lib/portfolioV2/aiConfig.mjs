@@ -4,7 +4,7 @@
 import { DeleteParameterCommand, GetParameterCommand, PutParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../dynamo.mjs";
-import { DEFAULT_MAX_SEARCHES, DEFAULT_MODEL } from "./agent.mjs";
+import { DEFAULT_MAX_SEARCHES, DEFAULT_MODEL, MAX_SEARCHES_LIMIT } from "./agent.mjs";
 
 export const KEY_PARAMETER = process.env.PV2_KEY_PARAMETER || "/finance4tura/anthropic-api-key";
 const SETTINGS_TABLE = process.env.APP_SETTINGS_TABLE || "AppSettings";
@@ -62,7 +62,7 @@ export function validateConfigUpdate(body = {}) {
   }
   if (body.maxSearches !== undefined) {
     const n = Number(body.maxSearches);
-    if (!Number.isInteger(n) || n < 1 || n > 10) errors.maxSearches = "Between 1 and 10";
+    if (!Number.isInteger(n) || n < 1 || n > MAX_SEARCHES_LIMIT) errors.maxSearches = `Between 1 and ${MAX_SEARCHES_LIMIT}`;
     else changes.maxSearches = n;
   }
   if (body.enabled !== undefined) changes.enabled = Boolean(body.enabled);

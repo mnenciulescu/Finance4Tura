@@ -7,8 +7,11 @@ import {
   buildAssetSnapshot, buildTotalSnapshot, checkAgentResult, computePlatformTotal, computeValues,
   finalStatus, isNewData, latestByAsset, sameDaySlot, summarize,
 } from "./model.mjs";
-import { describeError, lookupPrice } from "./agent.mjs";
+import { describeError, lookupPrice, MAX_SEARCHES_LIMIT } from "./agent.mjs";
 import * as store from "./store.mjs";
+
+/** The deeper second pass only starts if the first one finished within this. */
+const SECOND_PASS_BEFORE_MS = 7 * 60 * 1000;
 
 const FX_TABLE = process.env.FX_RATES_TABLE || "FxRates";
 
@@ -50,10 +53,29 @@ export async function processItem({ runId, userId, index, deps }) {
     const snapshots = (await store.listSnapshots(userId)).filter(s => s.assetId === asset.assetId);
     const last = latestByAsset(snapshots)[asset.assetId] ?? null;
 
-    const found = await lookupPrice({ client: deps.client, asset, last, model: deps.config.model, maxSearches: deps.config.maxSearches });
-    usage = found.usage;
-    const r = found.result;
-    const check = checkAgentResult(r, asset, deps.now?.() ?? new Date());
+    const t0 = Date.now();
+    const addUsage = (u) => { for (const k of Object.keys(u)) usage[k] = (usage[k] ?? 0) + u[k]; };
+    const searches = deps.config.maxSearches;
+    let found = await lookupPrice({ client: deps.client, asset, last, model: deps.config.model, maxSearches: searches });
+    addUsage(found.usage);
+    let r = found.result;
+    let check = checkAgentResult(r, asset, deps.now?.() ?? new Date());
+
+    // Not good enough (nothing found, too old, wrong currency…): one deeper
+    // pass with twice the searches, more effort and what went wrong.
+    if (!check.ok && Date.now() - t0 < SECOND_PASS_BEFORE_MS) {
+      await store.updateRunItem(runId, index, { status: "searching", message: `Searching deeper: ${check.message}`.slice(0, 300) });
+      const hint = r?.found && r.unitPrice != null
+        ? `it found ${r.unitPrice} ${r.currency ?? ""} for ${r.priceDate ?? "an unknown date"}, which was rejected: ${check.message}.`
+        : `it found nothing usable: ${check.message}.`;
+      found = await lookupPrice({
+        client: deps.client, asset, last, model: deps.config.model, effort: "high", hint,
+        maxSearches: Math.min(MAX_SEARCHES_LIMIT, searches * 2),
+      });
+      addUsage(found.usage);
+      r = found.result;
+      check = checkAgentResult(r, asset, deps.now?.() ?? new Date());
+    }
     if (!check.ok) {
       await store.updateRunItem(runId, index, {
         status: check.status, message: check.message, finishedAt: new Date().toISOString(),

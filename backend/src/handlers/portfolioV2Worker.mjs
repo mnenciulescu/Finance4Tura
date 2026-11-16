@@ -15,7 +15,7 @@ export async function handler(event) {
   }
   const [config, key, fx] = await Promise.all([readConfig(), readApiKey(), readFx()]);
   if (key && key !== clientKey) {
-    client = new Anthropic({ apiKey: key, maxRetries: 2, timeout: 180_000 });
+    client = new Anthropic({ apiKey: key, maxRetries: 1, timeout: 240_000 });
     clientKey = key;
   }
   await processItem({

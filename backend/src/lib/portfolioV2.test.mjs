@@ -246,6 +246,23 @@ test("lookupPrice returns the report_price input and totals usage, resuming paus
   assert.equal(client.calls[1].messages.length, 2);
 });
 
+test("lookupPrice: default search budget, and the deeper pass's effort, budget and hint", async () => {
+  const one = () => mockClient([{ stop_reason: "tool_use", content: [{ type: "tool_use", name: "report_price", id: "t", input: good() }], usage }]);
+  const first = one();
+  await lookupPrice({ client: first, asset: fund, last: null, now: NOW });
+  assert.equal(first.calls[0].output_config.effort, "medium");
+  assert.equal(first.calls[0].tools.find(t => t.name === "web_search").max_uses, 15);
+  assert.doesNotMatch(first.calls[0].messages[0].content, /previous search/);
+
+  const deeper = one();
+  await lookupPrice({ client: deeper, asset: fund, last: null, now: NOW, effort: "high", maxSearches: 30, hint: "it found 9 RON for 2026-10-01, which was rejected: too old." });
+  const req = deeper.calls[0];
+  assert.equal(req.output_config.effort, "high");
+  assert.equal(req.tools.find(t => t.name === "web_search").max_uses, 30);
+  assert.equal(req.tools.find(t => t.name === "web_fetch").max_uses, 30);
+  assert.match(req.messages[0].content, /previous search was not good enough: it found 9 RON for 2026-10-01/);
+});
+
 test("lookupPrice asks again when the model ends without reporting, then gives up", async () => {
   const end = { stop_reason: "end_turn", content: [{ type: "text", text: "done" }], usage };
   const out = await lookupPrice({
