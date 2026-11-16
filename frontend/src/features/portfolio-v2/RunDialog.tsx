@@ -159,9 +159,7 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
               </tbody>
             </table>
             <div className={s.footer}>
-              <span className={s.meta}>
-                {data.model} · {data.usage?.webSearches ?? 0} searches · {Math.round(((data.usage?.inputTokens ?? 0) + (data.usage?.outputTokens ?? 0)) / 1000)}k tokens
-              </span>
+              <UsageLine run={data} running={running} />
               {running ? (
                 <Button variant="destructiveTinted" size="small" icon="xmark" disabled={!!data.cancelRequested || cancel.isPending} onClick={() => cancel.mutate(data.runId)}>
                   {data.cancelRequested ? "Cancelling…" : "Cancel Run"}
@@ -185,6 +183,22 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
       onError: (e: any) => toast.show({ message: e?.response?.data?.message || "Could not retry.", tone: "negative" }),
     });
   }
+}
+
+/** Tokens spent on this run (all its attempts and retries), live while it runs. */
+function UsageLine({ run, running }: { run: Pv2Run; running: boolean }) {
+  const u = run.usage ?? { inputTokens: 0, outputTokens: 0, webSearches: 0 };
+  const input = (u.inputTokens ?? 0) + (u.cacheWriteTokens ?? 0);
+  const cached = u.cacheReadTokens ?? 0;
+  const output = u.outputTokens ?? 0;
+  const n = (v: number) => v.toLocaleString("en-US");
+  return (
+    <span className={s.usage} aria-label="Tokens used">
+      <span>Tokens{running ? " so far" : ""}: <strong>{n(input + cached + output)}</strong></span>
+      <span>{n(input)} input{cached > 0 && <> · {n(cached)} cached</>} · {n(output)} output</span>
+      <span>{n(u.webSearches ?? 0)} web search{u.webSearches === 1 ? "" : "es"} · {run.model}</span>
+    </span>
+  );
 }
 
 const STATUS_LABEL: Record<Pv2Run["status"], string> = {

@@ -350,6 +350,15 @@
   gap: var(--space-2);
 }
 .footer > :first-child { flex: 1; }
+.usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-secondary);
+}
+.usage strong { color: var(--label); }
 
 /* ── Run history ────────────────────────────────────────────────────────── */
 .history {

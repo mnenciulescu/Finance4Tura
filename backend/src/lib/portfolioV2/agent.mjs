@@ -102,7 +102,8 @@ export const searchBudget = (maxSearches) => ({ searches: maxSearches, fetches: 
 export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, effort = "medium", hint = null, now = new Date() }) {
   const budget = searchBudget(maxSearches);
   const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint, budget) }];
-  const usage = { inputTokens: 0, outputTokens: 0, webSearches: 0 };
+  // input_tokens excludes prompt-cache reads and writes, so those are counted separately.
+  const usage = { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 };
   const tools = [
     { type: "web_search_20260209", name: "web_search", max_uses: budget.searches },
     { type: "web_fetch_20260209", name: "web_fetch", max_uses: budget.fetches },
@@ -122,6 +123,8 @@ export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, 
       messages,
     });
     usage.inputTokens += response.usage?.input_tokens ?? 0;
+    usage.cacheReadTokens += response.usage?.cache_read_input_tokens ?? 0;
+    usage.cacheWriteTokens += response.usage?.cache_creation_input_tokens ?? 0;
     usage.outputTokens += response.usage?.output_tokens ?? 0;
     usage.webSearches += response.usage?.server_tool_use?.web_search_requests ?? 0;
 

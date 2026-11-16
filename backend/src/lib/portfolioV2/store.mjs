@@ -90,11 +90,13 @@ export async function completeRunItem(runId, usage = {}) {
   const res = await docClient.send(new UpdateCommand({
     TableName: TABLES.runs,
     Key: { runId },
-    UpdateExpression: "ADD remaining :minus, #u.inputTokens :i, #u.outputTokens :o, #u.webSearches :w",
+    UpdateExpression: "ADD remaining :minus, #u.inputTokens :i, #u.cacheReadTokens :cr, #u.cacheWriteTokens :cw, #u.outputTokens :o, #u.webSearches :w",
     ExpressionAttributeNames: { "#u": "usage" },
     ExpressionAttributeValues: {
       ":minus": -1,
       ":i": usage.inputTokens ?? 0,
+      ":cr": usage.cacheReadTokens ?? 0,
+      ":cw": usage.cacheWriteTokens ?? 0,
       ":o": usage.outputTokens ?? 0,
       ":w": usage.webSearches ?? 0,
     },

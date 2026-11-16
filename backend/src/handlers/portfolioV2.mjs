@@ -127,7 +127,7 @@ async function startRun(userId) {
     runId: randomUUID(), userId, trigger: "manual", status: "running", attempt: 1,
     startedAt: now.toISOString(), finishedAt: null, items, remaining: priced.length,
     summary: null, model: ready.config.model,
-    usage: { inputTokens: 0, outputTokens: 0, webSearches: 0 },
+    usage: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 },
     expiresAt: Math.floor(now.getTime() / 1000) + 90 * 86400,
   };
   await store.putRun(run);

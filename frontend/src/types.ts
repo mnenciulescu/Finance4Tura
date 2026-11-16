@@ -210,7 +210,8 @@ export interface Pv2Run {
   items: Pv2RunItem[];
   summary: { updated: number; noNewData: number; notFound: number; failed: number; skipped: number } | null;
   model: string;
-  usage: { inputTokens: number; outputTokens: number; webSearches: number };
+  /** cacheReadTokens / cacheWriteTokens are missing on runs made before they were counted. */
+  usage: { inputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; outputTokens: number; webSearches: number };
   cancelRequested?: boolean;
 }
 

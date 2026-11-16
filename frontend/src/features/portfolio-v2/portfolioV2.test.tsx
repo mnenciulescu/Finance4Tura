@@ -110,7 +110,7 @@ describe("Portfolio v2 math", () => {
 
 const RUN: Pv2Run = {
   runId: "run1", trigger: "manual", status: "completed_with_errors", startedAt: "2026-11-15T09:00:00Z", finishedAt: "2026-11-15T09:02:00Z",
-  model: "claude-opus-5-5", usage: { inputTokens: 12000, outputTokens: 800, webSearches: 6 },
+  model: "claude-opus-5-5", usage: { inputTokens: 12000, cacheReadTokens: 30000, cacheWriteTokens: 4000, outputTokens: 800, webSearches: 6 },
   summary: { updated: 1, noNewData: 0, notFound: 1, failed: 1, skipped: 0 },
   items: [
     { assetId: "a1", name: "World ETF", platform: "Alpha", type: "ETF", status: "updated", unitPrice: 11, currency: "USD", latestPriceDate: "2026-11-13", valueEUR: 110, sourceUrl: "https://example.com/p" },
@@ -175,6 +175,10 @@ describe("Portfolio v2 block", () => {
     expect(failed).toHaveTextContent("AI rate limit reached");
     expect(dialog.querySelector('[data-status="not_found"]')).toHaveTextContent("No confirmed price found");
     expect(within(dialog).getByRole("button", { name: "Retry 2 Failed" })).toBeInTheDocument();
+    const used = within(dialog).getByLabelText("Tokens used");
+    expect(used).toHaveTextContent("Tokens: 46,800");
+    expect(used).toHaveTextContent("16,000 input · 30,000 cached · 800 output");
+    expect(used).toHaveTextContent("6 web searches · claude-opus-5-5");
     api.retry.mockResolvedValue({ ...RUN, status: "running" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Retry 2 Failed" }));
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith("run1", ["a2", "b1"]));

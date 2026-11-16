@@ -467,7 +467,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
 - **Block**: holdings eye (shared with Investments), **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
-  Retry, Cancel, "Run in Background"; polled every 2 s), total EUR with the
+  Retry, Cancel, "Run in Background", and at the end the tokens spent — total, input · cached · output, web searches, model — live while running; polled every 2 s), total EUR with the
   change over the range, curved line chart (`monotone`) of the platform Totals and their sum, with a point on each day a line has a snapshot (Total: any platform's; `SeriesPoint.snapped`)
   (1W · 1M · 3M · 1Y · All, line chips), then two columns (one below 560 px of block width):
   **Last snapshot** per platform (expand: one compact wrapping line per asset —
@@ -580,7 +580,7 @@ Totals also `originalAmount`, `originalCurrency`, `legacySnapshotId`.
 `startedAt`, `finishedAt`, `items[]` (one per asset, then per platform Total:
 `status` `queued`|`searching`|`computing`|`updated`|`no_new_data`|`not_found`|`failed`|`skipped`,
 `message`, price, source), `remaining`, `attempt`, `summary`, `model`,
-`usage` (`inputTokens`, `outputTokens`, `webSearches`), `cancelRequested`.
+`usage` (`inputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `outputTokens`, `webSearches`; cache counts missing on older runs), `cancelRequested`.
 
 **FxRates** table (PK: `rateId`):
 - Single global item `rateId = "global"` with `rates` and `updatedAt`

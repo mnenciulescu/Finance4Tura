@@ -216,7 +216,7 @@ function mockClient(responses) {
     beta: { messages: { create: async (req) => { calls.push(req); const r = responses.shift(); if (r instanceof Error) throw r; return r; } } },
   };
 }
-const usage = { input_tokens: 100, output_tokens: 20, server_tool_use: { web_search_requests: 2 } };
+const usage = { input_tokens: 100, cache_read_input_tokens: 50, cache_creation_input_tokens: 10, output_tokens: 20, server_tool_use: { web_search_requests: 2 } };
 
 test("lookupPrice returns the report_price input and totals usage, resuming paused turns", async () => {
   const client = mockClient([
@@ -225,7 +225,7 @@ test("lookupPrice returns the report_price input and totals usage, resuming paus
   ]);
   const out = await lookupPrice({ client, asset: fund, last: null, now: NOW });
   assert.equal(out.result.unitPrice, 12.5);
-  assert.deepEqual(out.usage, { inputTokens: 200, outputTokens: 40, webSearches: 4 });
+  assert.deepEqual(out.usage, { inputTokens: 200, cacheReadTokens: 100, cacheWriteTokens: 20, outputTokens: 40, webSearches: 4 });
   const req = client.calls[0];
   assert.equal(req.model, "claude-opus-5-5");
   assert.equal(req.fallbacks, "default");
