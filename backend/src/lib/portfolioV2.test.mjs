@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { buildMatrix, rateToEUR, SUPPORTED_CURRENCIES } from "./currencies.mjs";
 import {
   buildAssetSnapshot, checkAgentResult, computePlatformTotal, computeValues, finalStatus, isNewData,
-  isValidIsin, latestByAsset, buildLegacyClose, buildLegacyTotal, buildLegacyTotalAsset, legacyFxRate, planLegacyTotals, normalizeType, planImport, runItems, sameDaySlot, snapshotDay, summarize, validateAsset,
+  isValidIsin, latestByAsset, buildLegacyClose, buildLegacyTotal, buildLegacyTotalAsset, legacyFxRate, planLegacyTotals, normalizeType, runItems, sameDaySlot, snapshotDay, summarize, validateAsset,
 } from "./portfolioV2/model.mjs";
 import { describeError, lookupPrice, REPORT_TOOL } from "./portfolioV2/agent.mjs";
 
@@ -74,29 +74,6 @@ test("validateAsset: Total has no units and only one per platform", () => {
   assert.equal(t.value.units, null);
   assert.equal(t.value.currency, "EUR");
   assert.ok(validateAsset({ platform: "broker", type: "Total" }, { others: [total] }).errors.type);
-});
-
-test("planImport creates, updates by platform + ISIN/symbol/name, and adds missing Totals", () => {
-  const existing = [{ ...etf, units: 3 }];
-  const plan = planImport([
-    { platform: "Broker", type: "ETF", symbol: "EXA", name: "Example ETF", units: 4, currency: "USD" },
-    { platform: "Bank Funds", type: "Mutual fond", name: "Fund A", units: 1.5, isin: "US0378331005", currency: "RON" },
-  ], existing);
-  assert.equal(plan.errors.length, 0);
-  assert.equal(plan.update.length, 1);
-  assert.equal(plan.update[0].value.units, 4);
-  const totals = plan.create.filter(a => a.type === "Total").map(a => a.platform).sort();
-  assert.deepEqual(totals, ["Bank Funds", "Broker"]);
-  assert.equal(plan.create.filter(a => a.type === "MutualFund").length, 1);
-});
-
-test("planImport reports invalid and duplicate rows", () => {
-  const plan = planImport([
-    { platform: "P", type: "ETF", name: "A", units: 1, currency: "USD", symbol: "A" },
-    { platform: "P", type: "ETF", name: "A", units: 2, currency: "USD", symbol: "A" },
-    { platform: "P", type: "ETF", name: "B", units: -1, currency: "USD" },
-  ], []);
-  assert.equal(plan.errors.length, 2);
 });
 
 /* ── Agent results ────────────────────────────────────────────────────────── */

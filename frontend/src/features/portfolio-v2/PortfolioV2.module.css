@@ -343,11 +343,6 @@
   border-radius: 50%;
   background: var(--label-tertiary);
 }
-.num {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
 .footer {
   display: flex;
   flex-wrap: wrap;

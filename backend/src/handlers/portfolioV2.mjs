@@ -3,7 +3,7 @@
 // invocation per asset (API Gateway's 29 s limit rules out doing it inline).
 import { randomUUID } from "crypto";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
-import { assetMatchKey, latestByAsset, planImport, RUN_STALE_MS, runItems, validateAsset } from "../lib/portfolioV2/model.mjs";
+import { assetMatchKey, latestByAsset, RUN_STALE_MS, runItems, validateAsset } from "../lib/portfolioV2/model.mjs";
 import { publicConfig, readApiKey, readConfig, updateConfig, validateConfigUpdate } from "../lib/portfolioV2/aiConfig.mjs";
 import { finalizeRun, readFx } from "../lib/portfolioV2/runner.mjs";
 import * as store from "../lib/portfolioV2/store.mjs";
@@ -87,24 +87,6 @@ async function removeAsset(userId, assetId, mode) {
   await store.deleteSnapshots(snaps.map(s => s.snapshotId));
   await store.deleteAsset(assetId);
   return ok({ deleted: true, snapshots: snaps.length });
-}
-
-async function importAssets(userId, body, dryRun) {
-  const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 500) : null;
-  if (!rows) return err(400, "rows must be an array");
-  const existing = await store.listAssets(userId);
-  const plan = planImport(rows, existing);
-  const summary = { create: plan.create.length, update: plan.update.length, errors: plan.errors };
-  if (dryRun || plan.errors.length) return ok({ dryRun: true, ...summary, plan });
-  const now = new Date().toISOString();
-  for (const value of plan.create) {
-    await store.putAsset({ ...value, assetId: randomUUID(), userId, createdAt: now, updatedAt: now });
-  }
-  for (const u of plan.update) {
-    const current = existing.find(a => a.assetId === u.assetId);
-    await store.putAsset({ ...current, ...u.value, updatedAt: now });
-  }
-  return ok({ dryRun: false, ...summary });
 }
 
 /* ── Runs ─────────────────────────────────────────────────────────────────── */
@@ -225,7 +207,6 @@ export async function handler(event) {
     switch (`${method} ${resource}`) {
       case "GET /portfolio-v2/assets": return ok(await store.listAssets(userId));
       case "POST /portfolio-v2/assets": return await createAsset(userId, body);
-      case "POST /portfolio-v2/assets/import": return await importAssets(userId, body, qs.dryRun === "true");
       case "PUT /portfolio-v2/assets/{assetId}": return await updateAsset(userId, p.assetId, body);
       case "DELETE /portfolio-v2/assets/{assetId}": return await removeAsset(userId, p.assetId, qs.mode === "delete" ? "delete" : "archive");
 

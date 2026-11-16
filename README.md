@@ -298,7 +298,7 @@ Protected routes need `Authorization: <Cognito ID token>` (no `Bearer` prefix). 
 | Books & Dev | `GET/POST /books-and-dev` · `PUT/DELETE /books-and-dev/{id}` | Cognito |
 | Headquarters | `GET/POST /headquarters` · `PUT/DELETE /headquarters/{hqId}` · same under `/headquarters/templates` and `/headquarters/entries` | Cognito |
 | App Settings | `GET /app-settings` (public) · `PUT /app-settings` | admin for PUT |
-| Portfolio v2 | `GET/POST /portfolio-v2/assets` · `PUT/DELETE /portfolio-v2/assets/{id}` · `POST /portfolio-v2/assets/import` · `GET /portfolio-v2/snapshots[/latest]` · `GET/POST /portfolio-v2/runs` · `GET /portfolio-v2/runs/{id}` · `POST /portfolio-v2/runs/{id}/cancel|retry` · `GET/PUT /portfolio-v2/ai-config` | Cognito; admin for PUT ai-config |
+| Portfolio v2 | `GET/POST /portfolio-v2/assets` · `PUT/DELETE /portfolio-v2/assets/{id}` · `GET /portfolio-v2/snapshots[/latest]` · `GET/POST /portfolio-v2/runs` · `GET /portfolio-v2/runs/{id}` · `POST /portfolio-v2/runs/{id}/cancel|retry` · `GET/PUT /portfolio-v2/ai-config` | Cognito; admin for PUT ai-config |
 | FX Rates | `GET /fx-rates` (public) · `POST /fx-rates` (refresh EUR, RON, USD, GBP, CHF from frankfurter.app) | admin for POST |
 | Admin users | `GET /admin/users` · `PUT /admin/users/{username}/role` · `DELETE /admin/users/{username}` | admin |
 | Backups | `GET /admin/backup/preview` · `POST /admin/backup/prepare` · `POST /admin/backup/run-table` | admin |

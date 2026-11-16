@@ -176,10 +176,7 @@ export interface Pv2Snapshot {
   incomplete?: boolean;
   comments: string | null;
   /** legacy = imported from the old Investments module (platform Totals only). */
-  source: "agent" | "manual" | "computed" | "legacy";
-  originalAmount?: number;
-  originalCurrency?: string | null;
-  legacySnapshotId?: string | null;
+  source: "agent" | "computed" | "legacy";
 }
 
 export type Pv2ItemStatus = "queued" | "searching" | "computing" | "updated" | "no_new_data" | "not_found" | "failed" | "skipped";
@@ -206,7 +203,7 @@ export interface Pv2RunItem {
 
 export interface Pv2Run {
   runId: string;
-  trigger: "manual" | "scheduled";
+  trigger: "manual";
   status: "running" | "completed" | "completed_with_errors" | "failed" | "cancelled";
   startedAt: string;
   finishedAt: string | null;

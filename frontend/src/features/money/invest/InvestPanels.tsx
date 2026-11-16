@@ -11,27 +11,24 @@ import { buildChart, groupSnapshots, PAGE_STEP } from "./investMath";
 import s from "./Invest.module.css";
 
 /*
- * The Invest screen's content, shared by Money → Invest and One-Page.
- * `masked` hides every amount behind hold-to-reveal (group "holdings");
- * the phone screen shows them openly, as before.
+ * The Invest screen's content (Money → Invest). `OperationList` is also used
+ * by One-Page's Portfolio v2 block, where `masked` hides every amount behind
+ * the holdings eye; the phone screen shows them openly.
  */
 
-const Amount = ({ masked, chars = 6, children }: { masked?: boolean; chars?: number; children: ReactNode }) =>
-  masked ? <PrivateValue mode="hold" group="holdings" chars={chars}>{children}</PrivateValue> : <>{children}</>;
+const Amount = ({ masked, children }: { masked?: boolean; children: ReactNode }) =>
+  masked ? <PrivateValue mode="hold" group="holdings" chars={6}>{children}</PrivateValue> : <>{children}</>;
 
 /* ── Total portfolio ──────────────────────────────────────────────────────── */
 
 export function PortfolioCard({
-  snapshots, fx, open, onToggle, masked, action,
+  snapshots, fx, open, onToggle,
 }: {
   snapshots: Snapshot[];
   fx: FxRates | null | undefined;
-  /** Holdings shown; with no `onToggle` they always are. */
+  /** Holdings shown. */
   open: boolean;
-  onToggle?: () => void;
-  masked?: boolean;
-  /** Trailing control in the head (One-Page: the reveal button). */
-  action?: ReactNode;
+  onToggle: () => void;
 }) {
   const rates = fx?.rates ?? null;
   const latest = useMemo(() => latestByPlatform(snapshots), [snapshots]);
@@ -43,7 +40,7 @@ export function PortfolioCard({
   const text = (
     <span className={s.totalText}>
       <span className={s.overline}>Total portfolio</span>
-      <span className={s.totalValue}><Amount masked={masked} chars={7}>{fmtNum(total)}</Amount> <span className={s.unit}>EUR</span></span>
+      <span className={s.totalValue}>{fmtNum(total)} <span className={s.unit}>EUR</span></span>
       <span className={s.meta}>
         {held.length} platform{held.length === 1 ? "" : "s"} · {fx?.updatedAt ? `FX ${fmtDate(fx.updatedAt.slice(0, 10))}` : "no FX rates set"}
       </span>
@@ -52,14 +49,10 @@ export function PortfolioCard({
 
   return (
     <section className={s.card} aria-label="Total portfolio">
-      {onToggle ? (
-        <button type="button" className={s.totalHead} onClick={onToggle} aria-expanded={open}>
-          {text}
-          <Icon name="chevronDown" size={18} weight="semibold" className={s.chevron} style={{ transform: open ? "rotate(180deg)" : "none" }} />
-        </button>
-      ) : (
-        <div className={s.totalHead}>{text}{action}</div>
-      )}
+      <button type="button" className={s.totalHead} onClick={onToggle} aria-expanded={open}>
+        {text}
+        <Icon name="chevronDown" size={18} weight="semibold" className={s.chevron} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
       {open && (
         <ul className={s.holdings} aria-label="Holdings">
           {held.length === 0 ? <li className={s.emptyLine}>No holdings.</li> : held.map(p => {
@@ -71,12 +64,12 @@ export function PortfolioCard({
                 <div className={s.holdingTop}>
                   <Dot color={PLATFORM_COLOR[p]} />
                   <span className={s.holdingName}>{p}</span>
-                  <span className={s.holdingAmount}><Amount masked={masked}>{fmtNum(eur)}</Amount></span>
+                  <span className={s.holdingAmount}>{fmtNum(eur)}</span>
                 </div>
                 <ProgressBar segments={[{ value: share, color: PLATFORM_COLOR[p] }, { value: 100 - share, color: "transparent" }]} height={4} />
                 <div className={s.holdingMeta}>
                   <span>{share.toFixed(1)}%</span>
-                  {raw && raw.currency !== "EUR" && <span><Amount masked={masked}>{fmtNum(raw.amount)} {raw.currency}</Amount></span>}
+                  {raw && raw.currency !== "EUR" && <span>{fmtNum(raw.amount)} {raw.currency}</span>}
                   <span>{raw ? fmtDate(raw.date) : "—"}</span>
                 </div>
               </li>
@@ -91,19 +84,15 @@ export function PortfolioCard({
 /* ── Snapshots ────────────────────────────────────────────────────────────── */
 
 export function SnapshotList({
-  snapshots, rates, onEdit, onDelete, onAddToDate, initial = PAGE_STEP, step = PAGE_STEP, allowAll, masked,
+  snapshots, rates, onEdit, onDelete, onAddToDate,
 }: {
   snapshots: Snapshot[];
   rates: FxMatrix | null;
   onEdit: (snap: Snapshot) => void;
   onDelete: (snap: Snapshot) => void;
   onAddToDate: (date: string) => void;
-  initial?: number;
-  step?: number;
-  allowAll?: boolean;
-  masked?: boolean;
 }) {
-  const [limit, setLimit] = useState(initial);
+  const [limit, setLimit] = useState(PAGE_STEP);
   const [openDates, setOpenDates] = useState<Record<string, boolean>>({});
   const dates = useMemo(() => groupSnapshots(snapshots, rates), [snapshots, rates]);
 
@@ -123,7 +112,7 @@ export function SnapshotList({
               <span className={s.rowTitle}>{fmtDate(group.date)}</span>
               <Badge color="var(--label-secondary)">{group.rows.length}</Badge>
               <span className={s.dots}>{group.rows.map(r => <Dot key={r.snapshotId} color={PLATFORM_COLOR[r.platform]} size={8} />)}</span>
-              <span className={s.rowValue}><Amount masked={masked}>{fmtNum(group.totalEUR)}</Amount> EUR</span>
+              <span className={s.rowValue}>{fmtNum(group.totalEUR)} EUR</span>
               <Icon name="chevronDown" size={16} weight="semibold" className={s.chevron} style={{ transform: open ? "rotate(180deg)" : "none" }} />
             </button>
             {open && (
@@ -140,9 +129,9 @@ export function SnapshotList({
                         <Dot color={PLATFORM_COLOR[snap.platform]} />
                         <span className={s.subName}>{snap.platform}</span>
                         <span className={s.subAmounts}>
-                          <span><Amount masked={masked}>{fmtNum(snap.amount)} {snap.currency}</Amount></span>
+                          <span>{fmtNum(snap.amount)} {snap.currency}</span>
                           {snap.currency !== "EUR" && (
-                            <span className={s.subEur}>≈ <Amount masked={masked}>{fmtNum(toEUR(snap.amount, snap.currency, rates))}</Amount> EUR</span>
+                            <span className={s.subEur}>≈ {fmtNum(toEUR(snap.amount, snap.currency, rates))} EUR</span>
                           )}
                         </span>
                         <button type="button" className={s.inlineEdit} aria-label={`Edit ${snap.platform} snapshot`} onClick={() => onEdit(snap)}>
@@ -162,7 +151,7 @@ export function SnapshotList({
           </article>
         );
       })}
-      <ShowMore shown={limit} total={dates.length} initial={initial} step={step} onChange={setLimit} allowAll={allowAll} />
+      <ShowMore shown={limit} total={dates.length} initial={PAGE_STEP} step={PAGE_STEP} onChange={setLimit} />
     </div>
   );
 }
@@ -242,11 +231,9 @@ const EvolutionChart = lazy(() => import("./EvolutionChart"));
 
 /** Range control, line chips and the evolution chart (Total on, platforms off). */
 export function EvolutionPanel({
-  snapshots, operations, rates, masked, height, compact,
+  snapshots, operations, rates,
 }: {
-  snapshots: Snapshot[]; operations: Operation[]; rates: FxMatrix | null; masked?: boolean; height?: number;
-  /** Smaller range switch and wrapping platform chips (One-Page). */
-  compact?: boolean;
+  snapshots: Snapshot[]; operations: Operation[]; rates: FxMatrix | null;
 }) {
   const [range, setRange] = useState<Range>("all");
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(PLATFORMS));
@@ -263,7 +250,7 @@ export function EvolutionPanel({
   if (chart.data.length < 2) return <p className={s.emptyLine}>Not enough data to chart yet.</p>;
   return (
     <>
-      <div className={compact ? s.controlsCompact : s.controls}>
+      <div className={s.controls}>
         <SegmentedControl
           label="Chart range"
           value={range}
@@ -286,8 +273,8 @@ export function EvolutionPanel({
           ))}
         </div>
       </div>
-      <Suspense fallback={<Skeleton height={height ?? 210} />}>
-        <EvolutionChart data={data} platforms={active} hidden={hidden} masked={masked} height={height} />
+      <Suspense fallback={<Skeleton height={210} />}>
+        <EvolutionChart data={data} platforms={active} hidden={hidden} />
       </Suspense>
     </>
   );
@@ -295,7 +282,7 @@ export function EvolutionPanel({
 
 /* ── Deletes ──────────────────────────────────────────────────────────────── */
 
-/** Snapshot and operation deletes with their toasts (shared with One-Page). */
+/** Snapshot and operation deletes with their toasts (operations: shared with One-Page). */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useInvestDeletes() {
   const delOp = useDeleteOperation();

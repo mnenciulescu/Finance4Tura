@@ -100,41 +100,10 @@ export function validateAsset(body = {}, { others = [], current = null } = {}) {
 
 const sameText = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
 
-/** Identity used to match imported rows to existing assets. */
+/** Identity of an asset on its platform (one per platform + ISIN / symbol / name). */
 export function assetMatchKey(a) {
   const id = a.type === "Total" ? "__total__" : (a.isin || a.symbol || a.name || "");
   return `${String(a.platform ?? "").trim().toLowerCase()}|${String(id).trim().toLowerCase()}`;
-}
-
-/**
- * Import plan: which rows create assets, which update existing ones, and
- * which platforms still need their Total. Rows are already-mapped asset bodies.
- */
-export function planImport(rows, existing) {
-  const byKey = new Map(existing.map(a => [assetMatchKey(a), a]));
-  const create = [];
-  const update = [];
-  const errors = [];
-  const seen = new Set();
-  rows.forEach((row, i) => {
-    const current = byKey.get(assetMatchKey({ ...row, type: normalizeType(row.type) ?? row.type }));
-    const { value, errors: errs } = validateAsset({ ...row, order: row.order ?? i }, {
-      others: [...existing, ...create].filter(a => a !== current),
-      current: current ?? null,
-    });
-    if (Object.keys(errs).length) { errors.push({ row: i, errors: errs }); return; }
-    const key = assetMatchKey(value);
-    if (seen.has(key)) { errors.push({ row: i, errors: { row: "Duplicate of an earlier row" } }); return; }
-    seen.add(key);
-    if (current) update.push({ assetId: current.assetId, value });
-    else create.push(value);
-  });
-  const platforms = new Set([...existing, ...create].filter(a => a.type !== "Total").map(a => a.platform.toLowerCase()));
-  const withTotal = new Set([...existing, ...create].filter(a => a.type === "Total").map(a => a.platform.toLowerCase()));
-  const totals = [...platforms].filter(p => !withTotal.has(p))
-    .map(p => [...existing, ...create].find(a => a.platform.toLowerCase() === p).platform)
-    .map(platform => validateAsset({ platform, type: "Total" }).value);
-  return { create: [...create, ...totals], update, errors };
 }
 
 /* ── Snapshots ────────────────────────────────────────────────────────────── */

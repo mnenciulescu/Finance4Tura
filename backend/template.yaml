@@ -897,12 +897,6 @@ Resources:
             RestApiId: !Ref Api
             Path: /portfolio-v2/assets
             Method: POST
-        Pv2AssetsImport:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /portfolio-v2/assets/import
-            Method: POST
         Pv2AssetPut:
           Type: Api
           Properties:
