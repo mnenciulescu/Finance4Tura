@@ -64,6 +64,36 @@ describe("Portfolio v2 math", () => {
     expect(s.platforms[1].stale).toBe(1);
     expect(s.platforms[0].share).toBeCloseTo(68.75);
   });
+
+  it("imported history: archived platforms end their line and leave the last snapshot", () => {
+    const assets = [
+      ...ASSETS,
+      asset({ assetId: "t3", platform: "Gamma", type: "Total", name: "Gamma total", units: null, order: -1, active: false }),
+    ];
+    const legacy = { unitPrice: null, source: "legacy" as const };
+    const snaps = [
+      snap("t1", "2026-06-01", 70, legacy), snap("t3", "2026-06-01", 30, legacy), snap("t3", "2026-09-01", 0, legacy),
+      ...SNAPS,
+    ];
+    const all = buildSeries(assets, snaps, "all", "2026-11-15");
+    expect(all.data.map(d => [d.date, d.Alpha, d.Gamma, d.Total, d.imported])).toEqual([
+      ["2026-06-01", 70, 30, 100, "Alpha,Gamma"],
+      ["2026-08-01", 90, 30, 120, "Gamma"],
+      ["2026-09-01", 90, 0, 90, "Gamma"],
+      ["2026-10-01", 90, null, 140, ""],
+      ["2026-11-13", 110, null, 160, ""],
+      ["2026-11-15", 110, null, 160, ""],
+    ]);
+    const s = summarize(assets, snaps, "2026-11-15");
+    expect(s.platforms.map(p => p.platform)).toEqual(["Alpha", "Beta"]);
+    expect(s.totalEUR).toBe(160);
+
+    // An active platform whose latest Total is imported (no assets yet).
+    const delta = [...ASSETS, asset({ assetId: "t4", platform: "Delta", type: "Total", name: "Delta total", units: null, order: -1 })];
+    const d = summarize(delta, [...SNAPS, snap("t4", "2026-10-09", 40, legacy)], "2026-11-15");
+    expect(d.platforms.find(p => p.platform === "Delta")).toMatchObject({ valueEUR: 40, imported: true, rows: [] });
+    expect(d.totalEUR).toBe(200);
+  });
 });
 
 /* ── Block ────────────────────────────────────────────────────────────────── */

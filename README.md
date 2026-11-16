@@ -387,6 +387,7 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │       └── lib/                      # dynamo.mjs, expandDates.mjs (+ tests)
 │
 ├── scripts/
+│   ├── import-legacy-portfolio-totals.mjs # Old platform history → Portfolio v2 Totals (dry run by default)
 │   └── remap-expenses.mjs            # Re-map every expense to its income (cloud)
 │
 ├── Documentation/                    # Deploy guides and module requirements

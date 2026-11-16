@@ -15,6 +15,7 @@ function ChartTooltip({ active, payload, lines, first }: {
   return (
     <div className={s.tooltip}>
       <div className={s.tooltipHead}>{fmtDayYear(p.t)}</div>
+      {p.imported && <div className={s.tooltipNote}>Imported history: {p.imported.split(",").join(", ")}</div>}
       {lines.map(k => {
         const v = p[k];
         if (typeof v !== "number") return null;

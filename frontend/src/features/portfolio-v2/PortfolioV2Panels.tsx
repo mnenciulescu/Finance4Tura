@@ -31,7 +31,9 @@ export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSumma
                 <span className={s.rowMain}>
                   <span className={s.rowTitle}>{p.platform}</span>
                   <span className={s.rowSub}>
-                    {p.rows.length} asset{p.rows.length === 1 ? "" : "s"} · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : "no prices yet"}
+                    {p.imported && p.rows.length === 0
+                      ? <>Imported history · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : ""}</>
+                      : <>{p.rows.length} asset{p.rows.length === 1 ? "" : "s"} · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : "no prices yet"}{p.imported ? " · imported" : ""}</>}
                   </span>
                 </span>
                 <span className={s.badges}>

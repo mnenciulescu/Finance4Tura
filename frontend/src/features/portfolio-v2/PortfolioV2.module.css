@@ -97,6 +97,11 @@
   font-weight: 600;
   margin-bottom: 2px;
 }
+.tooltipNote {
+  font-size: var(--fs-caption2);
+  color: var(--label-secondary);
+  margin-bottom: 2px;
+}
 .tooltipRow {
   display: flex;
   justify-content: space-between;

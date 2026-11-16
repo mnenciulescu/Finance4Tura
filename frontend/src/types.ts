@@ -175,7 +175,11 @@ export interface Pv2Snapshot {
   flagged?: boolean;
   incomplete?: boolean;
   comments: string | null;
-  source: "agent" | "manual" | "computed";
+  /** legacy = imported from the old Investments module (platform Totals only). */
+  source: "agent" | "manual" | "computed" | "legacy";
+  originalAmount?: number;
+  originalCurrency?: string | null;
+  legacySnapshotId?: string | null;
 }
 
 export type Pv2ItemStatus = "queued" | "searching" | "computing" | "updated" | "no_new_data" | "not_found" | "failed" | "skipped";

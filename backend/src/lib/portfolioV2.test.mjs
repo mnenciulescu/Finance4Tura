@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { buildMatrix, rateToEUR, SUPPORTED_CURRENCIES } from "./currencies.mjs";
 import {
   buildAssetSnapshot, checkAgentResult, computePlatformTotal, computeValues, finalStatus, isNewData,
-  isValidIsin, latestByAsset, normalizeType, planImport, runItems, sameDaySlot, snapshotDay, summarize, validateAsset,
+  isValidIsin, latestByAsset, buildLegacyClose, buildLegacyTotal, buildLegacyTotalAsset, legacyFxRate, planLegacyTotals, normalizeType, planImport, runItems, sameDaySlot, snapshotDay, summarize, validateAsset,
 } from "./portfolioV2/model.mjs";
 import { describeError, lookupPrice, REPORT_TOOL } from "./portfolioV2/agent.mjs";
 
@@ -305,4 +305,72 @@ test("lookupPrice turns refusals into errors; describeError explains API failure
 test("the report tool schema is strict and requires every field", () => {
   assert.equal(REPORT_TOOL.input_schema.additionalProperties, false);
   assert.deepEqual([...REPORT_TOOL.input_schema.required].sort(), Object.keys(REPORT_TOOL.input_schema.properties).sort());
+});
+
+/* ── Imported history ─────────────────────────────────────────────────────── */
+
+const old = (id, platform, date, amount, currency = "USD") => ({ snapshotId: id, userId: "u", platform, date, amount, currency });
+
+test("legacyFxRate: that day's ECB rate, the closest earlier business day, EUR = 1, missing → error", () => {
+  const series = { "2026-11-13": { USD: 1.25, RON: 5 }, "2026-11-10": { USD: 1.1 } };
+  assert.deepEqual(legacyFxRate(series, "USD", "2026-11-13"), { rate: 0.8, fxDate: "2026-11-13" });
+  assert.deepEqual(legacyFxRate(series, "USD", "2026-11-15"), { rate: 0.8, fxDate: "2026-11-13" }); // Sunday → Friday
+  assert.deepEqual(legacyFxRate(series, "RON", "2026-11-12"), { error: "No RON → EUR rate on or before 2026-11-12" });
+  assert.deepEqual(legacyFxRate(series, "EUR", "2020-01-01"), { rate: 1, fxDate: "2020-01-01" });
+});
+
+test("planLegacyTotals: matching, cut-over, duplicates, invalid rows, new Totals, closing", () => {
+  const assets = [{ ...total, assetId: "t1", platform: "Broker" }, etf];
+  const snapshots = [
+    { assetId: "t1", source: "computed", latestPriceDate: "2026-11-01" },
+    { assetId: "t1", source: "legacy", latestPriceDate: "2025-01-01" },
+  ];
+  const rows = [
+    old("o1", " broker ", "2025-01-01", 100),
+    old("o2", "Broker", "2025-02-01", 110), old("o3", "Broker", "2025-02-01", 110), // equal → keep one
+    old("o4", "Broker", "2025-03-01", 120), old("o5", "Broker", "2025-03-01", 125), // different → ask
+    old("o6", "Broker", "2026-11-01", 130), // on the cut-over
+    old("o7", "Old Exchange", "2023-01-01", 50), old("o8", "Old Exchange", "2024-01-01", 20),
+    old("o9", "Broker", "2025-13-01", 1), old("o10", "Broker", "2025-04-01", -1), old("o11", "Broker", "2025-04-01", 1, "JPY"),
+  ];
+  const p = planLegacyTotals(rows, { assets, snapshots, archive: ["old exchange"], close: ["Old Exchange"], today: "2026-11-16" });
+  assert.deepEqual(p.duplicates, [{ platform: "Broker", date: "2025-03-01", records: [{ id: "o4", amount: 120, currency: "USD" }, { id: "o5", amount: 125, currency: "USD" }] }]);
+  assert.deepEqual(p.records.map(r => [r.platform, r.old.snapshotId]), [["Broker", "o1"], ["Broker", "o2"], ["Old Exchange", "o7"], ["Old Exchange", "o8"]]);
+  assert.deepEqual(p.totalsToCreate, [{ platform: "Old Exchange", active: false }]);
+  assert.deepEqual(p.closing, [{ platform: "Old Exchange", date: "2024-01-02" }]);
+  const reasons = Object.fromEntries(p.skipped.map(s => [s.id, s.reason]));
+  assert.match(reasons.o3, /duplicate/);
+  assert.match(reasons.o6, /first Portfolio v2 Total \(2026-11-01\)/);
+  assert.equal(reasons.o9, "Not a date");
+  assert.match(reasons.o10, /Amount/);
+  assert.match(reasons.o11, /Unsupported currency JPY/);
+
+  const kept = planLegacyTotals(rows, { assets, snapshots, keep: ["o5"], today: "2026-11-16" });
+  assert.deepEqual(kept.duplicates, []);
+  assert.ok(kept.records.some(r => r.old.snapshotId === "o5"));
+  assert.equal(kept.totalsToCreate[0].active, true);
+  // A last record of 0 already closes the platform.
+  assert.deepEqual(planLegacyTotals([old("z", "Gone", "2024-01-01", 0)], { close: ["Gone"], today: "2026-11-16" }).closing, []);
+});
+
+test("buildLegacyTotal / buildLegacyClose / buildLegacyTotalAsset", () => {
+  const t = buildLegacyTotalAsset({ platform: "Old Exchange", active: false, assetId: "tx", userId: "u", now: NOW });
+  assert.equal(t.type, "Total");
+  assert.equal(t.active, false);
+  assert.equal(t.notes, "Created for the imported history");
+  const s = buildLegacyTotal({ old: old("o7", "Old Exchange", "2023-01-01", 50), totalAsset: t, fx: { rate: 0.8, fxDate: "2022-12-30" }, userId: "u" });
+  assert.equal(s.snapshotId, "legacy-o7");
+  assert.equal(s.source, "legacy");
+  assert.equal(s.valueEUR, 40);
+  assert.equal(s.latestPriceDate, "2023-01-01");
+  assert.equal(s.generatedAt, "2023-01-01T12:00:00.000Z");
+  assert.equal(snapshotDay(s.generatedAt), "2023-01-01");
+  assert.deepEqual([s.originalAmount, s.originalCurrency, s.fxRate, s.fxDate, s.legacySnapshotId, s.runId], [50, "USD", 0.8, "2022-12-30", "o7", null]);
+  const c = buildLegacyClose({ totalAsset: t, date: "2024-01-02", userId: "u" });
+  assert.deepEqual([c.snapshotId, c.valueEUR, c.latestPriceDate, c.source], ["legacy-close-tx", 0, "2024-01-02", "legacy"]);
+});
+
+test("sameDaySlot never replaces imported history", () => {
+  const legacy = { snapshotId: "legacy-1", assetId: "a1", source: "legacy", generatedAt: "2026-11-15T12:00:00.000Z", latestPriceDate: "2026-11-15" };
+  assert.equal(sameDaySlot([legacy], NOW).replace, null);
 });

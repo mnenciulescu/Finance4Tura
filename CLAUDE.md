@@ -68,6 +68,8 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 ```
 
 ### Scripts
+- `scripts/import-legacy-portfolio-totals.mjs` — copies a user's old platform
+  history into Portfolio v2 as Total snapshots (dry run unless `--apply`).
 - `scripts/remap-expenses.mjs` — re-resolves the mapped income on every expense
   in the cloud tables, for all users. Live; run after bulk income changes.
   (The DynamoDB Local seed / table scripts were deleted; see git history.)
@@ -446,6 +448,19 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   `sameDaySlot`): a later run on the same day overwrites that day's snapshot
   (same `snapshotId`, extra same-day copies deleted) instead of adding one;
   the > 30 % check compares with the previous day. Price moves > 30 % are flagged.
+- **Imported history**: the old Investments module's platform values
+  (`PortfolioSnapshots`, no per-asset breakdown) were copied once as platform
+  **Total snapshots only** with `source: "legacy"` by
+  `scripts/import-legacy-portfolio-totals.mjs` (dry run by default, `--apply`,
+  idempotent `legacy-<old id>` ids, `--rollback`; rules in `model.mjs`
+  `planLegacyTotals` / `buildLegacyTotal`). EUR = amount × the ECB rate of that
+  date (frankfurter.app, closest earlier business day), keeping
+  `originalAmount`, `originalCurrency`, `fxRate`, `fxDate`. Only dates before a
+  platform's first Portfolio v2 Total are imported. Closed platforms (Binance,
+  Fidelity) got **archived** Totals: the chart ends their line at the last
+  record, and they are out of the last snapshot and runs. Runs never replace
+  imported snapshots (`sameDaySlot` skips them); the tooltip and Last snapshot
+  mark imported values.
 - **Block**: holdings eye (shared with Investments), **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
@@ -551,7 +566,8 @@ fields incl. units), `currency`, `unitPrice`, `value` (= units × unitPrice),
 `fxRate`, `fxDate`, `valueEUR`, `sources[]` (`url`, `title`, `publisher`,
 `quote`, `retrievedAt`), `confidence` (`official`|`secondary`), `priceType`,
 `flagged` (> 30 % move), `incomplete` (Total with unpriced assets), `comments`,
-`source` (`agent`|`computed`). Totals have only `valueEUR`.
+`source` (`agent`|`computed`|`legacy`). Totals have only `valueEUR`; imported
+Totals also `originalAmount`, `originalCurrency`, `legacySnapshotId`.
 
 **PortfolioV2_Runs** (PK: `runId`, GSI `userId-index`, TTL `expiresAt` 90 days):
 `userId`, `trigger`, `status` (`running`|`completed`|`completed_with_errors`|`failed`|`cancelled`),
@@ -685,12 +701,12 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
-| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, masked block, platform expand, run dialog statuses and Retry | 6 |
+| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry | 7 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices | 26 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 30 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the

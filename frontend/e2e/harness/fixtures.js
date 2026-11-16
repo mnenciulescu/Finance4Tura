@@ -96,6 +96,17 @@ const pv2Snapshots = [];
     mk("pa-t2", pv2Assets[3], null, null, a3, "EUR"),
   );
 });
+// Imported history (old module): platform Totals only, before the AI-era ones.
+[[400, 900, 2400], [250, 1100, 2300]].forEach(([ago, alpha, beta], n) => {
+  const date = daysAgo(ago);
+  const mk = (assetId, asset, valueEUR) => ({
+    snapshotId: `legacy-${assetId}-${n}`, assetId, runId: null, generatedAt: `${date}T12:00:00.000Z`, latestPriceDate: date,
+    asset, currency: "EUR", unitPrice: null, value: null, fxRate: 0.92, fxDate: date, valueEUR, originalAmount: valueEUR / 0.92,
+    originalCurrency: "USD", legacySnapshotId: `old-${n}`, sources: [], confidence: null, incomplete: false, stale: false,
+    comments: "Imported from the old Investments module", source: "legacy",
+  });
+  pv2Snapshots.unshift(mk("pa-t1", pv2Assets[0], alpha), mk("pa-t2", pv2Assets[3], beta));
+});
 const pv2Ai = { configured: true, keyUpdatedAt: `${y}-11-01T10:00:00Z`, model: "claude-opus-5-5", maxSearches: 5, enabled: true };
 
 export const db = { incomes, expenses, splits, books, snapshots, operations, fx, locations, templates, entries, users, pv2Assets, pv2Snapshots, pv2Ai };

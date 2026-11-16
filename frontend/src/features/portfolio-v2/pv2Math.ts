@@ -57,6 +57,8 @@ export interface PlatformSummary {
   missing: number;
   stale: number;
   rows: AssetRow[];
+  /** The latest Total was imported from the old Investments module. */
+  imported: boolean;
 }
 
 /**
@@ -67,8 +69,11 @@ export interface PlatformSummary {
 export function summarize(assets: Pv2Asset[], snapshots: Pv2Snapshot[], today: string) {
   const latest = latestByAsset(snapshots);
   const out: PlatformSummary[] = [];
+  // Only platforms still held: an archived platform (every asset archived)
+  // keeps its history in the chart but is out of the last snapshot.
   for (const platform of platformsOf(assets)) {
     const onPlatform = assets.filter(a => a.platform === platform);
+    if (!onPlatform.some(a => a.active !== false)) continue;
     const total = onPlatform.find(a => a.type === "Total");
     const parts = onPlatform.filter(a => a.type !== "Total" && a.active !== false)
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
@@ -89,6 +94,7 @@ export function summarize(assets: Pv2Asset[], snapshots: Pv2Snapshot[], today: s
       missing: rows.length - priced.length,
       stale: rows.filter(r => r.stale).length,
       rows,
+      imported: totalSnap?.source === "legacy",
     });
   }
   const grand = out.reduce((s, p) => s + p.valueEUR, 0);
@@ -98,7 +104,12 @@ export function summarize(assets: Pv2Asset[], snapshots: Pv2Snapshot[], today: s
   return { platforms: out, totalEUR: grand, lastGeneratedAt: lastDate };
 }
 
-export interface SeriesPoint { date: string; t: number; Total: number | null; [platform: string]: number | null | string; }
+export interface SeriesPoint {
+  date: string; t: number; Total: number | null;
+  /** Platforms whose value here comes from imported history, comma-separated. */
+  imported: string;
+  [platform: string]: number | null | string;
+}
 
 /**
  * Portfolio value in EUR over time from the platform Totals, carried forward
@@ -108,19 +119,24 @@ export interface SeriesPoint { date: string; t: number; Total: number | null; [p
  */
 export function buildSeries(assets: Pv2Asset[], snapshots: Pv2Snapshot[], range: Range, today: string) {
   const totalOf = new Map(assets.filter(a => a.type === "Total").map(a => [a.assetId, a.platform]));
-  const byPlatform: Record<string, { date: string; value: number; gen: string }[]> = {};
+  const archived = new Set(assets.filter(a => a.type === "Total" && a.active === false).map(a => a.platform));
+  const byPlatform: Record<string, { date: string; value: number; gen: string; legacy: boolean }[]> = {};
   for (const s of snapshots) {
     const platform = totalOf.get(s.assetId);
     if (!platform) continue;
-    (byPlatform[platform] ??= []).push({ date: s.latestPriceDate, value: s.valueEUR, gen: s.generatedAt });
+    (byPlatform[platform] ??= []).push({ date: s.latestPriceDate, value: s.valueEUR, gen: s.generatedAt, legacy: s.source === "legacy" });
   }
   Object.values(byPlatform).forEach(list => list.sort((a, b) => a.date.localeCompare(b.date) || a.gen.localeCompare(b.gen)));
   const platforms = platformsOf(assets).filter(p => byPlatform[p]?.length);
 
+  // The entry in force on `date`. An archived platform's line ends at its
+  // last snapshot instead of carrying that value forward to today.
   const at = (platform: string, date: string) => {
-    let v: number | null = null;
-    for (const e of byPlatform[platform] ?? []) { if (e.date <= date) v = e.value; else break; }
-    return v;
+    const list = byPlatform[platform] ?? [];
+    if (archived.has(platform) && date > (list.at(-1)?.date ?? "")) return null;
+    let e: (typeof list)[number] | null = null;
+    for (const x of list) { if (x.date <= date) e = x; else break; }
+    return e;
   };
 
   const start = rangeStart(range, today);
@@ -134,14 +150,16 @@ export function buildSeries(assets: Pv2Asset[], snapshots: Pv2Snapshot[], range:
   if (dates.length && dates.at(-1)! < today) dates.push(today);
 
   const data: SeriesPoint[] = dates.map(date => {
-    const point: SeriesPoint = { date, t: toTime(date), Total: null };
+    const point: SeriesPoint = { date, t: toTime(date), Total: null, imported: "" };
     let sum = 0;
     let any = false;
+    const imported: string[] = [];
     for (const p of platforms) {
-      const v = at(p, date);
-      point[p] = v;
-      if (v != null) { sum += v; any = true; }
+      const e = at(p, date);
+      point[p] = e ? e.value : null;
+      if (e) { sum += e.value; any = true; if (e.legacy) imported.push(p); }
     }
+    point.imported = imported.join(",");
     point.Total = any ? sum : null;
     return point;
   });
