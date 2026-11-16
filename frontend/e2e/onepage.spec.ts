@@ -189,3 +189,21 @@ test("Portfolio v2: generate a snapshot and follow each asset's status", async (
   await expect(dialog.locator('[data-status="updated"]').first()).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Retry 1 Failed/ })).toBeVisible({ timeout: 15000 });
 });
+
+test("account menu items open their screens (the menu's history entry does not undo them)", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(/\/settings$/);
+
+  await open(page);
+  await page.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("menuitem", { name: "Open Mobile Layout" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("main[data-cols]")).toHaveCount(0);
+});

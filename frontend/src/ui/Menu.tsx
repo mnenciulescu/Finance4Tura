@@ -18,11 +18,17 @@ export type MenuEntry =
       disabled?: boolean;
       /** Shows a checkmark (e.g. the selected year). */
       selected?: boolean;
+      /**
+       * The action navigates to another screen (with `replace: true`). The
+       * menu's history entry then becomes that screen instead of being popped
+       * on close — popping it would undo the navigation.
+       */
+      navigates?: boolean;
       onAction: () => void;
     }
   | { separator: true; id: string };
 
-function MenuItems({ items, label, onClose }: { items: MenuEntry[]; label: string; onClose: () => void }) {
+function MenuItems({ items, label, onClose, consume }: { items: MenuEntry[]; label: string; onClose: () => void; consume: () => void }) {
   return (
     <AriaMenu
       aria-label={label}
@@ -30,6 +36,7 @@ function MenuItems({ items, label, onClose }: { items: MenuEntry[]; label: strin
       onAction={key => {
         const item = items.find(i => i.id === key);
         if (item && !("separator" in item)) {
+          if (item.navigates) consume();
           onClose();
           item.onAction();
         }
@@ -73,7 +80,7 @@ export interface PullDownMenuProps {
 /** A pull-down menu anchored to a button (nav-bar +, year picker, ··· menus). */
 export function PullDownMenu({ label, icon = "ellipsisCircle", text, items, appearance = "icon", placement = "bottom end" }: PullDownMenuProps) {
   const [open, setOpen] = useState(false);
-  useOverlayHistory(open, () => setOpen(false));
+  const { consume } = useOverlayHistory(open, () => setOpen(false));
   return (
     <MenuTrigger isOpen={open} onOpenChange={setOpen}>
       <AriaButton
@@ -94,7 +101,7 @@ export function PullDownMenu({ label, icon = "ellipsisCircle", text, items, appe
         )}
       </AriaButton>
       <Popover placement={placement} offset={4} className={s.popover}>
-        <MenuItems items={items} label={label} onClose={() => setOpen(false)} />
+        <MenuItems items={items} label={label} onClose={() => setOpen(false)} consume={consume} />
       </Popover>
     </MenuTrigger>
   );
@@ -117,7 +124,7 @@ export interface ContextMenuProps {
 export function ContextMenu({ label, items, children, className, disabled }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  useOverlayHistory(open, () => setOpen(false));
+  const { consume } = useOverlayHistory(open, () => setOpen(false));
 
   const { longPressProps } = useLongPress({
     isDisabled: disabled,
@@ -149,7 +156,7 @@ export function ContextMenu({ label, items, children, className, disabled }: Con
         offset={6}
         className={s.popover}
       >
-        <MenuItems items={items} label={label} onClose={() => setOpen(false)} />
+        <MenuItems items={items} label={label} onClose={() => setOpen(false)} consume={consume} />
       </Popover>
     </>
   );

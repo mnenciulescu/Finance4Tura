@@ -153,7 +153,7 @@ section describes what is implemented.
   button / gesture closes the top overlay first; leaving Today pushes once and
   other tab switches replace, so back from another tab's root returns to Today
   and back at Today leaves the app. A dirty form vetoes back with "Discard
-  changes?". Navigating from inside an overlay calls `consume()` and replaces.
+  changes?". Navigating from inside an overlay calls `consume()` and replaces (menu items that navigate set `navigates: true`, which does it for them).
 - **iPhone-only edge swipe** back on pushed screens (`/settings`, `/backstage`,
   `/admin`, `/hq/settings`); off on Android, whose system gesture uses the edge.
 - **Routes**: `/`, `/money[/split|/stats|/invest]`, `/library`, `/hq`,
@@ -709,7 +709,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry | 7 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
-| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
+| One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
 | Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 30 |

@@ -29,10 +29,10 @@ export function Header({ onShortcuts }: { onShortcuts: () => void }) {
     { id: "sep1", separator: true },
     ...visibleItems(ACCOUNT_ITEMS, { backstageEnabled: settings.backstageEnabled, username: user?.username })
       .filter(item => item.requires !== "desktop")
-      .map(item => ({ id: item.to, label: item.label, icon: item.icon, onAction: () => navigate(item.to) })),
+      .map(item => ({ id: item.to, label: item.label, icon: item.icon, navigates: true, onAction: () => navigate(item.to, { replace: true }) })),
     { id: "keys", label: "Keyboard Shortcuts", icon: "key", onAction: onShortcuts },
     ...(setting !== "auto" ? [{ id: "auto", label: "Use System Appearance", icon: "sparkle" as const, onAction: () => setSetting("auto") }] : []),
-    { id: "mobile", label: "Open Mobile Layout", icon: "phone", onAction: () => navigate("/") },
+    { id: "mobile", label: "Open Mobile Layout", icon: "phone", navigates: true, onAction: () => navigate("/", { replace: true }) },
     { id: "sep2", separator: true },
     { id: "out", label: "Sign Out", icon: "signOut", destructive: true, onAction: signOut },
   ];
