@@ -168,6 +168,13 @@ test("Portfolio v2: masked values, range switch, platform expand", async ({ page
   await expect(page).toHaveURL(/pv2lines=Total%2CAlpha(\+|%20)Broker/);
   await pv2.getByRole("region", { name: "Last snapshot" }).getByRole("button", { name: /^Alpha Broker/ }).click();
   await expect(pv2.getByRole("list", { name: "Alpha Broker assets" })).toContainText("Example World ETF");
+  // Operations sit beside the last snapshot, on the same row.
+  const last = await pv2.getByRole("region", { name: "Last snapshot" }).boundingBox();
+  const ops = pv2.getByRole("region", { name: "Operations" });
+  await expect(ops.locator("[data-operation]").first()).toBeVisible();
+  const opsBox = await ops.boundingBox();
+  expect(opsBox!.x).toBeGreaterThan(last!.x + last!.width - 1);
+  expect(Math.abs(opsBox!.y - last!.y)).toBeLessThan(4);
 });
 
 test("Portfolio v2: generate a snapshot and follow each asset's status", async ({ page }) => {

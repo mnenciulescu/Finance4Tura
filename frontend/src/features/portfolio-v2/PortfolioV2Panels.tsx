@@ -54,26 +54,20 @@ export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSumma
                         <span className={s.rowValue}>{snap ? <><H>{fmtNum(snap.valueEUR)}</H> EUR</> : "—"}</span>
                       </div>
                       {snap ? (
-                        <>
+                        <span className={s.assetDetail}>
                           <span className={s.calc}>
-                            {fmtUnits(snap.asset.units)} × <H chars={5}>{fmtNum(snap.unitPrice ?? 0)}</H> {snap.currency} = <H>{fmtNum(snap.value ?? 0)}</H> {snap.currency}
+                            {fmtUnits(snap.asset.units)} × <H chars={5}>{fmtNum(snap.unitPrice ?? 0)}</H> {snap.currency}
                           </span>
-                          <span className={stale ? s.warnText : s.meta}>
-                            Price of {fmtDate(snap.latestPriceDate)}{stale ? " · stale" : ""} · searched {fmtDate(new Date(snap.generatedAt).toLocaleDateString("en-CA"))}
-                            {snap.confidence === "secondary" ? " · secondary source" : ""}
-                            {snap.flagged ? " · check price" : ""}
-                          </span>
-                          {snap.sources.length > 0 && (
-                            <span className={s.sources}>
-                              {snap.sources.map((src, i) => (
-                                <a key={i} className={s.sourceLink} href={src.url} target="_blank" rel="noreferrer noopener" title={src.quote ?? src.url}>
-                                  {src.publisher || hostOf(src.url)}
-                                </a>
-                              ))}
-                            </span>
-                          )}
-                          {snap.comments && <span className={s.meta}>{snap.comments}</span>}
-                        </>
+                          <span className={stale ? s.warnText : undefined}>Price {fmtDate(snap.latestPriceDate)}{stale ? " · stale" : ""}</span>
+                          <span>Searched {fmtDate(new Date(snap.generatedAt).toLocaleDateString("en-CA"))}</span>
+                          {snap.confidence === "secondary" && <span>Secondary source</span>}
+                          {snap.flagged && <span className={s.warnText}>Check price</span>}
+                          {snap.sources.map((src, i) => (
+                            <a key={i} className={s.sourceLink} href={src.url} target="_blank" rel="noreferrer noopener" title={src.url}>
+                              {src.publisher || hostOf(src.url)}
+                            </a>
+                          ))}
+                        </span>
                       ) : <span className={s.warnText}>No price yet — generate a snapshot.</span>}
                     </li>
                   ))}

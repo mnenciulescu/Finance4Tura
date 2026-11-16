@@ -3,17 +3,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ActionSheet, Button, Dot, Notice, PrivateValue, PullDownMenu, RevealButton, SegmentedControl, Skeleton, useRevealed, useToast,
 } from "../../../ui";
-import { useFxRates } from "../../../data/queries";
+import { useFxRates, useOperations } from "../../../data/queries";
+import { ConfirmOperationDelete, OperationList, useInvestDeletes } from "../../money/invest/InvestPanels";
 import { useOnline } from "../../../app/useOnline";
 import { fmtDate, fmtNum, todayIso } from "../../../utils/format";
-import type { Pv2Asset } from "../../../types";
+import type { Operation, Pv2Asset } from "../../../types";
 import { pv2Keys, usePv2AiConfig, usePv2Assets, usePv2Runs, usePv2Snapshots, useStartPv2Run } from "../../portfolio-v2/data";
 import { buildSeries, change, DEFAULT_RANGE, platformColor, platformsOf, RANGE_LABEL, RANGES, summarize } from "../../portfolio-v2/pv2Math";
 import { AssetsArea, LatestSnapshot, RunHistory } from "../../portfolio-v2/PortfolioV2Panels";
 import { AssetSheet } from "../../portfolio-v2/AssetSheet";
 import { RunDialog } from "../../portfolio-v2/RunDialog";
 import { Block } from "../Block";
-import { useEnumParam, useParam } from "../state";
+import { useEnumParam, useOnePage, useParam } from "../state";
 import s from "../../portfolio-v2/PortfolioV2.module.css";
 
 const PortfolioChart = lazy(() => import("../../portfolio-v2/PortfolioChart"));
@@ -177,7 +178,10 @@ export function PortfolioV2Block() {
             )}
           </div>
 
-          <LatestSnapshot platforms={summary.platforms} colors={colors} />
+          <div className={s.twoCol}>
+            <LatestSnapshot platforms={summary.platforms} colors={colors} />
+            <OperationsPanel />
+          </div>
           <AssetsArea assets={assetList} onAdd={platform => setAssetTarget({ platform })} onEdit={asset => setAssetTarget({ asset })} />
         </>
       )}
@@ -193,5 +197,38 @@ export function PortfolioV2Block() {
       <RunHistory isOpen={history} runs={runs.data ?? []} onOpenRun={id => { setHistory(false); setRunId(id); }} onClose={() => setHistory(false)} />
       <AssetSheet target={assetTarget} platforms={allPlatforms} onClose={() => setAssetTarget(null)} />
     </Block>
+  );
+}
+
+/**
+ * The old Investments module's operations (deposits / withdrawals), the same
+ * list as Investments → Operations, beside the last snapshot. Amounts are
+ * masked behind the holdings eye.
+ */
+function OperationsPanel() {
+  const ops = useOperations();
+  const { openOperation } = useOnePage();
+  const { deleteOp } = useInvestDeletes();
+  const [confirmOp, setConfirmOp] = useState<Operation | null>(null);
+  return (
+    <section aria-label="Operations">
+      <div className={s.sectionHead}>
+        <span>Operations</span>
+        <Button variant="tinted" size="small" icon="plus" onClick={() => openOperation({})}>New</Button>
+      </div>
+      {ops.isError ? <Notice>Could not load the operations.</Notice> : ops.isPending ? <Skeleton height={120} /> : (
+        <OperationList
+          operations={ops.data ?? []}
+          onEdit={op => openOperation({ op })}
+          onDelete={deleteOp}
+          onRequestDelete={setConfirmOp}
+          initial={3}
+          step={5}
+          allowAll
+          masked
+        />
+      )}
+      <ConfirmOperationDelete op={confirmOp} onClose={() => setConfirmOp(null)} onDelete={deleteOp} />
+    </section>
   );
 }
