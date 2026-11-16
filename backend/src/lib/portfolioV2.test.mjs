@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { buildMatrix, rateToEUR, SUPPORTED_CURRENCIES } from "./currencies.mjs";
 import {
   buildAssetSnapshot, checkAgentResult, computePlatformTotal, computeValues, finalStatus, isNewData,
-  isValidIsin, latestByAsset, normalizeType, planImport, runItems, summarize, validateAsset,
+  isValidIsin, latestByAsset, normalizeType, planImport, runItems, sameDaySlot, snapshotDay, summarize, validateAsset,
 } from "./portfolioV2/model.mjs";
 import { describeError, lookupPrice, REPORT_TOOL } from "./portfolioV2/agent.mjs";
 
@@ -155,6 +155,36 @@ test("buildAssetSnapshot copies the asset and flags big price moves", () => {
 });
 
 /* ── Totals ───────────────────────────────────────────────────────────────── */
+
+test("snapshotDay follows Romanian time, not UTC", () => {
+  assert.equal(snapshotDay("2026-11-15T21:59:00Z"), "2026-11-15");
+  assert.equal(snapshotDay("2026-11-15T22:01:00Z"), "2026-11-16"); // 00:01 in Bucharest (UTC+2)
+  assert.equal(snapshotDay("2026-07-15T21:30:00Z"), "2026-07-16"); // summer time, UTC+3
+});
+
+test("sameDaySlot: a same-day run replaces that day's snapshot and compares with the day before", () => {
+  const s = (id, generatedAt, priceDate, unitPrice) => ({ snapshotId: id, assetId: "a1", generatedAt, priceDate, unitPrice });
+  const yesterday = s("y", "2026-11-14T09:00:00Z", "2026-11-13", 10);
+  const morning = s("m", "2026-11-15T07:00:00Z", "2026-11-14", 11);
+  const older = s("o", "2026-11-15T06:00:00Z", "2026-11-14", 11);
+
+  assert.deepEqual(sameDaySlot([], NOW), { replace: null, extra: [], previous: null });
+  assert.deepEqual(sameDaySlot([yesterday], NOW), { replace: null, extra: [], previous: yesterday });
+  const slot = sameDaySlot([yesterday, older, morning], NOW);
+  assert.equal(slot.replace, morning);
+  assert.deepEqual(slot.extra, [older]);
+  assert.equal(slot.previous, yesterday);
+
+  // The jump check runs against the earlier day, not the snapshot being replaced.
+  const snap = buildAssetSnapshot({
+    asset: fund, last: slot.previous, runId: "r2", snapshotId: slot.replace.snapshotId, userId: "u", now: NOW,
+    result: { unitPrice: 20, priceDate: "2026-11-14", sources: [{ url: "https://example.com" }], confidence: "official" },
+    values: { value: 200, fxRate: 0.2, fxDate: "2026-11-14", valueEUR: 40 },
+  });
+  assert.equal(snap.snapshotId, "m");
+  assert.equal(snap.flagged, true);
+  assert.match(snap.comments, /vs 2026-11-13/);
+});
 
 test("platform Total sums latest snapshots, carries forward, flags missing assets", () => {
   const snaps = [

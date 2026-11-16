@@ -149,6 +149,28 @@ export function latestByAsset(snapshots) {
   return out;
 }
 
+/** Snapshot days follow the user's clock (Romania), not UTC. */
+export const SNAPSHOT_TIME_ZONE = "Europe/Bucharest";
+const DAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: SNAPSHOT_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+/** The local calendar day (YYYY-MM-DD) a snapshot was generated on. */
+export const snapshotDay = (when) => DAY_FMT.format(new Date(when));
+
+/**
+ * One generated snapshot per asset per day: a later run on the same day
+ * replaces that day's snapshot instead of adding one. Returns the snapshot
+ * to overwrite (`replace`, null when none), any extra same-day copies to
+ * delete, and the latest snapshot from an earlier day (`previous`) that the
+ * new one is compared with.
+ */
+export function sameDaySlot(assetSnapshots, now = new Date()) {
+  const day = snapshotDay(now);
+  const today = assetSnapshots.filter(s => s.generatedAt && snapshotDay(s.generatedAt) === day)
+    .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
+  const earlier = assetSnapshots.filter(s => !today.includes(s));
+  const previous = Object.values(latestByAsset(earlier))[0] ?? null;
+  return { replace: today[0] ?? null, extra: today.slice(1), previous };
+}
+
 const isoDay = (d) => d.toISOString().slice(0, 10);
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 

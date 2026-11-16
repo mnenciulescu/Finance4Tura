@@ -5,7 +5,7 @@ import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../dynamo.mjs";
 import {
   buildAssetSnapshot, buildTotalSnapshot, checkAgentResult, computePlatformTotal, computeValues,
-  finalStatus, isNewData, latestByAsset, summarize,
+  finalStatus, isNewData, latestByAsset, sameDaySlot, summarize,
 } from "./model.mjs";
 import { describeError, lookupPrice } from "./agent.mjs";
 import * as store from "./store.mjs";
@@ -79,12 +79,18 @@ export async function processItem({ runId, userId, index, deps }) {
       await store.updateRunItem(runId, index, { status: "failed", message: values.error, finishedAt: new Date().toISOString() });
       return;
     }
-    const snap = buildAssetSnapshot({ asset, result: r, values, last, runId, snapshotId: randomUUID(), userId, now });
+    // A second run on the same day overwrites that day's snapshot.
+    const slot = sameDaySlot(snapshots, now);
+    const snap = buildAssetSnapshot({
+      asset, result: r, values, last: slot.previous, runId, userId, now,
+      snapshotId: slot.replace?.snapshotId ?? randomUUID(),
+    });
     await store.putSnapshot(snap);
+    if (slot.extra.length) await store.deleteSnapshots(slot.extra.map(s => s.snapshotId));
     await store.updateRunItem(runId, index, {
       status: "updated", snapshotId: snap.snapshotId, unitPrice: snap.unitPrice, currency: snap.currency,
       priceDate: snap.priceDate, value: snap.value, valueEUR: snap.valueEUR, sourceUrl: snap.sources[0]?.url ?? null,
-      flagged: snap.flagged, message: snap.flagged ? snap.comments : null, finishedAt: new Date().toISOString(),
+      flagged: snap.flagged, message: snap.flagged ? snap.comments : slot.replace ? "Replaced today's earlier snapshot" : null, finishedAt: new Date().toISOString(),
     });
   } catch (e) {
     console.error(`[portfolioV2] item ${index} of run ${runId} failed:`, e);
@@ -128,11 +134,13 @@ export async function finalizeRun({ runId, userId, attempt, fx, timedOut = false
         items[i] = { ...it, status: "no_new_data", message: total.counted ? `${total.comments}; nothing new` : "No asset prices yet", finishedAt: now.toISOString() };
         continue;
       }
-      const snap = buildTotalSnapshot({ totalAsset, total, runId, snapshotId: randomUUID(), userId, now });
+      const slot = sameDaySlot(snapshots.filter(s => s.assetId === totalAsset.assetId), now);
+      const snap = buildTotalSnapshot({ totalAsset, total, runId, snapshotId: slot.replace?.snapshotId ?? randomUUID(), userId, now });
       await store.putSnapshot(snap);
+      if (slot.extra.length) await store.deleteSnapshots(slot.extra.map(s => s.snapshotId));
       items[i] = {
         ...it, status: "updated", snapshotId: snap.snapshotId, valueEUR: snap.valueEUR, priceDate: snap.priceDate,
-        currency: "EUR", message: total.comments, flagged: total.missing > 0, finishedAt: now.toISOString(),
+        currency: "EUR", message: slot.replace ? `${total.comments} · replaced today's earlier total` : total.comments, flagged: total.missing > 0, finishedAt: now.toISOString(),
       };
     } catch (e) {
       console.error("[portfolioV2] total failed:", e);

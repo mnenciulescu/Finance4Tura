@@ -430,7 +430,10 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   stored FX matrix (no rate → failed, never guessed). The last worker computes
   each platform **Total** = Σ the latest `valueEUR` of the platform's active
   assets (carried forward; unpriced → flagged incomplete), written only when
-  something on the platform is new. Price moves > 30 % are flagged.
+  something on the platform is new. **One snapshot per asset per day** (Romanian time,
+  `sameDaySlot`): a later run on the same day overwrites that day's snapshot
+  (same `snapshotId`, extra same-day copies deleted) instead of adding one;
+  the > 30 % check compares with the previous day. Price moves > 30 % are flagged.
 - **Block**: holdings eye (shared with Investments), **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
@@ -673,7 +676,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns and block order, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 40 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, values, Totals, run summary, agent loop with a mocked SDK | 23 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — FX matrix, asset validation, ISIN, import plan, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK | 25 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
