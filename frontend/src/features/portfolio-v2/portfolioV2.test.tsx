@@ -119,7 +119,7 @@ const RUN: Pv2Run = {
     { assetId: "t1", name: "Alpha total", platform: "Alpha", type: "Total", status: "updated", valueEUR: 110, message: "Sum of 1 asset" },
   ],
 };
-const api = vi.hoisted(() => ({ start: vi.fn(), retry: vi.fn() }));
+const api = vi.hoisted(() => ({ start: vi.fn(), retry: vi.fn(), getRun: vi.fn() }));
 vi.mock("../../api/portfolioV2", async orig => ({
   ...(await orig<object>()),
   listPv2Assets: () => Promise.resolve(ASSETS),
@@ -127,7 +127,7 @@ vi.mock("../../api/portfolioV2", async orig => ({
   listPv2Runs: () => Promise.resolve([]),
   getPv2AiConfig: () => Promise.resolve({ configured: true, keyUpdatedAt: "2026-11-01T00:00:00Z", model: "claude-opus-5-5", maxSearches: 5, enabled: true }),
   startPv2Run: api.start,
-  getPv2Run: () => Promise.resolve(RUN),
+  getPv2Run: (...a: unknown[]) => api.getRun(...a),
   retryPv2Run: api.retry,
 }));
 vi.mock("../../api/fxRates", async orig => ({ ...(await orig<object>()), getFxRates: () => Promise.resolve({ rates: null, updatedAt: null }) }));
@@ -159,8 +159,26 @@ describe("Portfolio v2 block", () => {
     expect(within(list).getByText("No price yet — generate a snapshot.")).toBeInTheDocument();
   });
 
+  it("a failed poll (e.g. throttled) keeps the run on screen and says it is reconnecting", async () => {
+    const running = { ...RUN, status: "running" as const, items: RUN.items.map(i => ({ ...i, status: "queued" as const })) };
+    api.start.mockResolvedValue(running);
+    api.getRun.mockRejectedValue(Object.assign(new Error("Too Many Requests"), { response: { status: 429 } }));
+    renderBlock();
+    const generate = await screen.findByRole("button", { name: "Generate Snapshot" });
+    await waitFor(() => expect(generate).toBeEnabled());
+    fireEvent.click(generate);
+    const confirm = await screen.findByRole("alertdialog", { name: /Look up prices/ });
+    fireEvent.click(within(confirm).getByRole("button", { name: "Generate Snapshot" }));
+    const dialog = await screen.findByRole("dialog", { name: "Generating snapshot" });
+    await waitFor(() => expect(api.getRun).toHaveBeenCalled(), { timeout: 4000 });
+    expect(await within(dialog).findByText("Reconnecting…", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(within(dialog).queryByText("Could not load the run.")).not.toBeInTheDocument();
+    expect(dialog.querySelectorAll('[data-status="queued"]').length).toBe(4);
+  });
+
   it("generates a snapshot after confirming and shows each asset's status, failures highlighted", async () => {
     api.start.mockResolvedValue({ ...RUN, status: "running" });
+    api.getRun.mockResolvedValue(RUN);
     renderBlock();
     const generate = await screen.findByRole("button", { name: "Generate Snapshot" });
     await waitFor(() => expect(generate).toBeEnabled());

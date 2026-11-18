@@ -109,7 +109,9 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
   return (
     <Sheet isOpen={!!runId} onClose={onClose} title={running ? "Generating snapshot" : "Snapshot run"} detent="large">
       <div className={s.runBody}>
-        {run.isError && <Notice>Could not load the run.</Notice>}
+        {/* A failed poll keeps the last state on screen and polling goes on;
+            only a run that never loaded is an error. */}
+        {run.isError && !data && <Notice>Could not load the run.</Notice>}
         {!data ? <Skeleton height={200} /> : (
           <>
             <div aria-live="polite">
@@ -124,6 +126,7 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
                 <span><strong>{counts.none}</strong> no new data</span>
                 <span className={counts.notFound ? s.warnText : undefined}><strong>{counts.notFound}</strong> not found</span>
                 <span className={counts.failed ? s.badText : undefined}><strong>{counts.failed}</strong> failed</span>
+                {running && run.isRefetchError && <span className={s.warnText}>Reconnecting…</span>}
                 <span>{STATUS_LABEL[data.status]} · started {new Date(data.startedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
               </div>
             </div>

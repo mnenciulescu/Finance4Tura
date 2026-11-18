@@ -85,6 +85,29 @@ export async function updateRunItem(runId, index, fields) {
   }));
 }
 
+/**
+ * Claims the next not-yet-started asset of the run's queue for `attempt`;
+ * returns its item index, or null when the queue is used up (or a retry has
+ * started a newer attempt).
+ */
+export async function claimNextQueued(runId, attempt) {
+  try {
+    const res = await docClient.send(new UpdateCommand({
+      TableName: TABLES.runs,
+      Key: { runId },
+      UpdateExpression: "ADD dispatched :one",
+      ConditionExpression: "attribute_exists(queueLength) AND dispatched < queueLength" + (attempt != null ? " AND attempt = :a" : ""),
+      ExpressionAttributeValues: { ":one": 1, ...(attempt != null && { ":a": attempt }) },
+      ReturnValues: "ALL_NEW",
+    }));
+    const run = res.Attributes;
+    return run?.queue?.[run.dispatched - 1] ?? null;
+  } catch (e) {
+    if (e?.name === "ConditionalCheckFailedException") return null;
+    throw e;
+  }
+}
+
 /** Adds token / search usage and counts one asset as done; returns what is left. */
 export async function completeRunItem(runId, usage = {}) {
   const res = await docClient.send(new UpdateCommand({

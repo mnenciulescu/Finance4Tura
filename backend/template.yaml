@@ -851,6 +851,12 @@ Resources:
             - Effect: Allow
               Action: ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/finance4tura/anthropic-api-key"
+        # Each finished worker starts the next queued asset (lib/portfolioV2/dispatch.mjs).
+        # Name pattern instead of !GetAtt: a function cannot reference itself.
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-PortfolioV2WorkerFunction-*"
       EventInvokeConfig:
         MaximumRetryAttempts: 0
 

@@ -2,14 +2,13 @@
 // Runs are started here and priced by PortfolioV2WorkerFunction, one async
 // invocation per asset (API Gateway's 29 s limit rules out doing it inline).
 import { randomUUID } from "crypto";
-import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { assetMatchKey, latestByAsset, RUN_STALE_MS, runItems, validateAsset } from "../lib/portfolioV2/model.mjs";
 import { publicConfig, readApiKey, readConfig, updateConfig, validateConfigUpdate } from "../lib/portfolioV2/aiConfig.mjs";
 import { finalizeRun, readFx } from "../lib/portfolioV2/runner.mjs";
 import * as store from "../lib/portfolioV2/store.mjs";
+import { queueFields, startWorkers } from "../lib/portfolioV2/dispatch.mjs";
 
 const WORKER = process.env.PV2_WORKER_FUNCTION;
-const lambda = new LambdaClient({ region: process.env.AWS_REGION || "eu-central-1" });
 
 const CORS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" };
 const ok = (body, status = 200) => ({ statusCode: status, headers: CORS, body: JSON.stringify(body) });
@@ -93,14 +92,9 @@ async function removeAsset(userId, assetId, mode) {
 
 const isStale = (run) => run.status === "running" && Date.now() - Date.parse(run.startedAt) > RUN_STALE_MS;
 
-async function invokeWorkers(runId, userId, indexes) {
-  if (!WORKER) throw new Error("PV2_WORKER_FUNCTION is not set");
-  await Promise.all(indexes.map(index => lambda.send(new InvokeCommand({
-    FunctionName: WORKER,
-    InvocationType: "Event",
-    Payload: Buffer.from(JSON.stringify({ runId, userId, index })),
-  }))));
-}
+/** Starts the first workers; each finished worker starts the next (dispatch.mjs). */
+const invokeWorkers = (runId, userId, attempt, indexes) =>
+  startWorkers({ functionName: WORKER, runId, userId, attempt, indexes });
 
 async function aiReady() {
   const [config, key] = await Promise.all([readConfig(), readApiKey()]);
@@ -125,14 +119,14 @@ async function startRun(userId) {
   const now = new Date();
   const run = {
     runId: randomUUID(), userId, trigger: "manual", status: "running", attempt: 1,
-    startedAt: now.toISOString(), finishedAt: null, items, remaining: priced.length,
+    startedAt: now.toISOString(), finishedAt: null, items, remaining: priced.length, ...queueFields(priced),
     summary: null, model: ready.config.model,
     usage: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 },
     expiresAt: Math.floor(now.getTime() / 1000) + 90 * 86400,
   };
   await store.putRun(run);
   try {
-    await invokeWorkers(run.runId, userId, priced);
+    await invokeWorkers(run.runId, userId, run.attempt, priced);
   } catch (e) {
     console.error("[portfolioV2] could not start workers:", e);
     await store.setRunFields(run.runId, { status: "failed", finishedAt: new Date().toISOString(), error: "Could not start the AI workers" });
@@ -183,11 +177,12 @@ async function retryRun(userId, runId, body) {
   if (indexes.length === 0) return err(400, "Nothing to retry");
   const platforms = new Set(indexes.map(i => items[i].platform));
   items.forEach((it, i) => { if (it.type === "Total" && platforms.has(it.platform)) items[i] = { ...it, status: "queued", message: null }; });
+  const attempt = (run.attempt ?? 1) + 1;
   await store.setRunFields(runId, {
-    items, status: "running", remaining: indexes.length, attempt: (run.attempt ?? 1) + 1,
+    items, status: "running", remaining: indexes.length, attempt, ...queueFields(indexes),
     finishedAt: null, model: ready.config.model,
   }, ["cancelRequested", "finalizeToken"]);
-  await invokeWorkers(runId, userId, indexes);
+  await invokeWorkers(runId, userId, attempt, indexes);
   return ok(await store.getRun(runId, userId));
 }
 

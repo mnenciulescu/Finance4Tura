@@ -364,3 +364,10 @@ test("lookupPrice on Haiku: no fallbacks, earlier web tool versions", async () =
   assert.equal(req.betas, undefined);
   assert.deepEqual(req.tools.slice(0, 2).map(t => t.type), ["web_search_20250305", "web_fetch_20250910"]);
 });
+
+test("a run starts at most MAX_PARALLEL workers; the rest wait in its queue", async () => {
+  const { queueFields, MAX_PARALLEL } = await import("./portfolioV2/dispatch.mjs");
+  assert.equal(MAX_PARALLEL, 5);
+  assert.deepEqual(queueFields([0, 1, 2, 4, 5, 6, 7]), { queue: [0, 1, 2, 4, 5, 6, 7], queueLength: 7, dispatched: 5 });
+  assert.deepEqual(queueFields([3, 8]), { queue: [3, 8], queueLength: 2, dispatched: 2 });
+});

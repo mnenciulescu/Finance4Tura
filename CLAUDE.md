@@ -425,7 +425,10 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
 - **Model**: chosen in Admin (default Opus 5.5). Haiku gets no server-side `fallbacks` (it has none) and the
   earlier web tools `web_search_20250305` / `web_fetch_20250910` (`modelCaps` in `agent.mjs`).
 - **Snapshot run** (manual): `POST /portfolio-v2/runs` creates the run and
-  invokes `PortfolioV2WorkerFunction` once per asset (async, no retries); each
+  starts `PortfolioV2WorkerFunction` (async, no retries) for **at most 5 assets at once**;
+  each finished worker claims the next asset of the run's `queue` (`dispatched` counter,
+  per `attempt`) and starts it (`lib/portfolioV2/dispatch.mjs`). The account allows only
+  10 concurrent Lambdas; one worker per asset at once throttled the whole API. Then each
   worker asks Claude (`claude-opus-5-5` by default, adaptive thinking, effort
   medium, server-side refusal fallbacks, `web_search` + `web_fetch`) to report
   through a strict `report_price` tool: price, currency, price date, sources
@@ -469,7 +472,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
 - **Block**: holdings eye (shared with Investments), **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
-  Retry, Cancel, "Run in Background", and at the end the tokens spent — total, input · cached · output, web searches, model — live while running; polled every 2 s), total EUR with the
+  Retry, Cancel, "Run in Background", a failed poll keeps the last state and shows "Reconnecting…", and at the end the tokens spent — total, input · cached · output, web searches, model — live while running; polled every 2 s), total EUR with the
   change over the range, curved line chart (`monotone`) of the platform Totals and their sum, with a point on each day a line has a snapshot (Total: any platform's; `SeriesPoint.snapped`)
   (1W · 1M · 3M · 1Y · All, line chips), then two columns (one below 560 px of block width):
   **Last snapshot** per platform (expand: one compact wrapping line per asset —
@@ -709,12 +712,12 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
-| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry | 7 |
+| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry, failed poll | 9 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history | 29 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history, run queue | 30 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
