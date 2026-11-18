@@ -7,7 +7,7 @@ import {
   buildAssetSnapshot, buildTotalSnapshot, checkAgentResult, computePlatformTotal, computeValues,
   finalStatus, isNewData, latestByAsset, sameDaySlot, summarize,
 } from "./model.mjs";
-import { describeError, lookupPrice, MAX_SEARCHES_LIMIT } from "./agent.mjs";
+import { describeError, lookupPrice, MAX_SEARCHES_LIMIT, PAGE_TOKENS } from "./agent.mjs";
 import * as store from "./store.mjs";
 
 /** The deeper second pass only starts if the first one finished within this. */
@@ -70,7 +70,7 @@ export async function processItem({ runId, userId, index, deps }) {
         ? `it found ${r.unitPrice} ${r.currency ?? ""} for ${r.priceDate ?? "an unknown date"}, which was rejected: ${check.message}.`
         : `it found nothing usable: ${check.message}.`;
       found = await lookupPrice({
-        client: deps.client, asset, last, model: deps.config.model, effort: "high", hint,
+        client: deps.client, asset, last, model: deps.config.model, effort: "high", pageTokens: PAGE_TOKENS.deep, hint,
         maxSearches: Math.min(MAX_SEARCHES_LIMIT, searches * 2),
       });
       addUsage(found.usage);
@@ -122,6 +122,10 @@ export async function processItem({ runId, userId, index, deps }) {
       await store.updateRunItem(runId, index, { status: "failed", message: describeError(e), finishedAt: new Date().toISOString() });
     } catch (e2) { console.error("[portfolioV2] could not record the failure:", e2); }
   } finally {
+    // Per-asset usage, shown on the asset's row in the run dialog.
+    if (Object.keys(usage).length) {
+      try { await store.updateRunItem(runId, index, { usage }); } catch (e) { console.error("[portfolioV2] could not record usage:", e); }
+    }
     const remaining = await store.completeRunItem(runId, usage);
     if (remaining <= 0) await finalizeRun({ runId, userId, attempt, fx: deps.fx });
   }

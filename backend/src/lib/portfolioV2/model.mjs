@@ -187,6 +187,72 @@ export function isNewData(last, asset, priceDate, now = new Date()) {
   return false;
 }
 
+/* ── Pre-check: skip lookups that cannot find a newer price ──────────────── */
+
+/** A lookup checked less than this long ago is not repeated. */
+export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
+/** From this hour (Romania), a weekday's own close counts as published (US markets close 22:00/23:00). */
+const SAME_DAY_CLOSE_HOUR = 23;
+
+const LOCAL_PARTS = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SNAPSHOT_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
+});
+function localNow(now) {
+  const p = Object.fromEntries(LOCAL_PARTS.formatToParts(now).map(x => [x.type, x.value]));
+  return { day: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) };
+}
+const weekday = (day) => new Date(`${day}T12:00:00Z`).getUTCDay(); // 0 = Sunday
+function previousBusinessDay(day) {
+  const d = new Date(`${day}T12:00:00Z`);
+  do d.setUTCDate(d.getUTCDate() - 1); while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The newest price date that can already be published for this asset type:
+ * the previous business day (fund NAVs and closes appear the next morning),
+ * or today for stocks / ETFs late on a weekday. Holidays are not known, so
+ * this never skips too much: on a holiday it only searches once more.
+ */
+export function latestPublishableDate(type, now = new Date()) {
+  const { day, hour } = localNow(now);
+  const wd = weekday(day);
+  if ((type === "Stock" || type === "ETF") && wd >= 1 && wd <= 5 && hour >= SAME_DAY_CLOSE_HOUR) return day;
+  return previousBusinessDay(day);
+}
+
+/**
+ * Why a lookup for this asset can be skipped, or null when it is needed.
+ * Never skips crypto, an asset without a snapshot, or one whose units changed
+ * (that needs a new snapshot whatever the price).
+ */
+export function precheckSkip(asset, last, now = new Date(), checkedAt = null) {
+  if (!last || asset.type === "Crypto") return null;
+  if (Number(last.asset?.units) !== Number(asset.units)) return null;
+  // The last lookup: a snapshot, or a run item that found no newer price.
+  const lastCheck = [last.generatedAt, checkedAt].filter(Boolean).sort().at(-1);
+  const ago = now.getTime() - Date.parse(lastCheck);
+  if (ago >= 0 && ago < RECHECK_AFTER_MS) {
+    const h = Math.max(1, Math.round(ago / 3_600_000));
+    return `Checked ${h} h ago · price for ${last.latestPriceDate} already recorded`;
+  }
+  if (last.latestPriceDate >= latestPublishableDate(asset.type, now)) {
+    return `Up to date · price for ${last.latestPriceDate} already recorded`;
+  }
+  return null;
+}
+
+/** When each asset was last looked up with a result (updated / no new data), from recent runs. */
+export function lastCheckedByAsset(runs) {
+  const out = {};
+  for (const run of runs) for (const it of run.items ?? []) {
+    if (it.type === "Total" || it.precheck || !it.finishedAt) continue;
+    if (it.status !== "updated" && it.status !== "no_new_data") continue;
+    if (!out[it.assetId] || it.finishedAt > out[it.assetId]) out[it.assetId] = it.finishedAt;
+  }
+  return out;
+}
+
 /** value = units × unitPrice; valueEUR = value × FX. Unrounded. */
 export function computeValues(asset, unitPrice, fx) {
   const rate = rateToEUR(fx?.rates, asset.currency);

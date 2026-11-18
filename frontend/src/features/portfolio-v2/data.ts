@@ -74,7 +74,7 @@ export function useDeletePv2Asset() {
 export function useStartPv2Run() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => startPv2Run() as Promise<Pv2Run>,
+    mutationFn: (opts: { force?: boolean } = {}) => startPv2Run(opts.force ? { force: true } : {}) as Promise<Pv2Run>,
     onSuccess: run => {
       qc.setQueryData(pv2Keys.run(run.runId), run);
       qc.invalidateQueries({ queryKey: pv2Keys.runs });

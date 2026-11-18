@@ -216,7 +216,7 @@ function mockClient(responses) {
     beta: { messages: { create: async (req) => { calls.push(req); const r = responses.shift(); if (r instanceof Error) throw r; return r; } } },
   };
 }
-const usage = { input_tokens: 100, cache_read_input_tokens: 50, cache_creation_input_tokens: 10, output_tokens: 20, server_tool_use: { web_search_requests: 2 } };
+const usage = { input_tokens: 100, cache_read_input_tokens: 50, cache_creation_input_tokens: 10, output_tokens: 20, server_tool_use: { web_search_requests: 2, web_fetch_requests: 3 } };
 
 test("lookupPrice returns the report_price input and totals usage, resuming paused turns", async () => {
   const client = mockClient([
@@ -225,7 +225,7 @@ test("lookupPrice returns the report_price input and totals usage, resuming paus
   ]);
   const out = await lookupPrice({ client, asset: fund, last: null, now: NOW });
   assert.equal(out.result.unitPrice, 12.5);
-  assert.deepEqual(out.usage, { inputTokens: 200, cacheReadTokens: 100, cacheWriteTokens: 20, outputTokens: 40, webSearches: 4 });
+  assert.deepEqual(out.usage, { inputTokens: 200, cacheReadTokens: 100, cacheWriteTokens: 20, outputTokens: 40, webSearches: 4, webFetches: 6, requests: 2 });
   const req = client.calls[0];
   assert.equal(req.model, "claude-opus-5-5");
   assert.equal(req.fallbacks, "default");
@@ -237,22 +237,24 @@ test("lookupPrice returns the report_price input and totals usage, resuming paus
   assert.equal(client.calls[1].messages.length, 2);
 });
 
-test("lookupPrice: default search budget, and the deeper pass's effort, budget and hint", async () => {
+test("lookupPrice: default search budget, low effort and page cap; the deeper pass's effort, budget, page cap and hint", async () => {
   const one = () => mockClient([{ stop_reason: "tool_use", content: [{ type: "tool_use", name: "report_price", id: "t", input: good() }], usage }]);
   const first = one();
   await lookupPrice({ client: first, asset: fund, last: null, now: NOW });
-  assert.equal(first.calls[0].output_config.effort, "medium");
-  assert.equal(first.calls[0].tools.find(t => t.name === "web_search").max_uses, 15);
-  assert.equal(first.calls[0].tools.find(t => t.name === "web_fetch").max_uses, 30);
-  assert.match(first.calls[0].messages[0].content, /Budget: up to 15 web searches and 30 page fetches/);
+  assert.equal(first.calls[0].output_config.effort, "low");
+  assert.equal(first.calls[0].tools.find(t => t.name === "web_search").max_uses, 5);
+  assert.equal(first.calls[0].tools.find(t => t.name === "web_fetch").max_uses, 10);
+  assert.equal(first.calls[0].tools.find(t => t.name === "web_fetch").max_content_tokens, 10000);
+  assert.match(first.calls[0].messages[0].content, /Budget: up to 5 web searches and 10 page fetches/);
   assert.doesNotMatch(first.calls[0].messages[0].content, /previous search/);
 
   const deeper = one();
-  await lookupPrice({ client: deeper, asset: fund, last: null, now: NOW, effort: "high", maxSearches: 30, hint: "it found 9 RON for 2026-10-01, which was rejected: too old." });
+  await lookupPrice({ client: deeper, asset: fund, last: null, now: NOW, effort: "high", pageTokens: 25000, maxSearches: 30, hint: "it found 9 RON for 2026-10-01, which was rejected: too old." });
   const req = deeper.calls[0];
   assert.equal(req.output_config.effort, "high");
   assert.equal(req.tools.find(t => t.name === "web_search").max_uses, 30);
   assert.equal(req.tools.find(t => t.name === "web_fetch").max_uses, 60);
+  assert.equal(req.tools.find(t => t.name === "web_fetch").max_content_tokens, 25000);
   assert.match(req.messages[0].content, /previous search was not good enough: it found 9 RON for 2026-10-01/);
 
   const again = one();
@@ -370,4 +372,45 @@ test("a run starts at most MAX_PARALLEL workers; the rest wait in its queue", as
   assert.equal(MAX_PARALLEL, 5);
   assert.deepEqual(queueFields([0, 1, 2, 4, 5, 6, 7]), { queue: [0, 1, 2, 4, 5, 6, 7], queueLength: 7, dispatched: 5 });
   assert.deepEqual(queueFields([3, 8]), { queue: [3, 8], queueLength: 2, dispatched: 2 });
+});
+
+/* ── Pre-check (skip lookups that cannot find a newer price) ─────────────── */
+
+test("latestPublishableDate: previous business day; a weekday's own close late in the evening for stocks/ETFs", async () => {
+  const { latestPublishableDate } = await import("./portfolioV2/model.mjs");
+  // Wed 18 Nov 2026, 14:00 Romania (12:00 UTC)
+  const wed = new Date("2026-11-18T12:00:00Z");
+  assert.equal(latestPublishableDate("MutualFund", wed), "2026-11-17");
+  assert.equal(latestPublishableDate("ETF", wed), "2026-11-17");
+  // Wed 23:30 Romania: today's close is out for stocks / ETFs, not for funds.
+  const late = new Date("2026-11-18T21:30:00Z");
+  assert.equal(latestPublishableDate("Stock", late), "2026-11-18");
+  assert.equal(latestPublishableDate("MutualFund", late), "2026-11-17");
+  // Monday and Sunday look back to Friday.
+  assert.equal(latestPublishableDate("ETF", new Date("2026-11-16T09:00:00Z")), "2026-11-13");
+  assert.equal(latestPublishableDate("MutualFund", new Date("2026-11-15T09:00:00Z")), "2026-11-13");
+});
+
+test("precheckSkip: skips up-to-date or recently checked assets, never crypto, new assets or changed units", async () => {
+  const { precheckSkip, lastCheckedByAsset } = await import("./portfolioV2/model.mjs");
+  const now = new Date("2026-11-18T12:00:00Z"); // Wed, latest publishable 2026-11-17
+  const asset = { assetId: "a", type: "MutualFund", units: 10 };
+  const snap = (latestPriceDate, generatedAt, units = 10) => ({ latestPriceDate, generatedAt, asset: { units } });
+
+  assert.equal(precheckSkip(asset, null, now), null, "no snapshot yet");
+  assert.match(precheckSkip(asset, snap("2026-11-17", "2026-11-17T08:00:00Z"), now), /^Up to date · price for 2026-11-17/);
+  assert.equal(precheckSkip(asset, snap("2026-11-14", "2026-11-17T08:00:00Z"), now), null, "a newer price can exist");
+  assert.match(precheckSkip(asset, snap("2026-11-14", "2026-11-18T09:00:00Z"), now), /^Checked 3 h ago/);
+  assert.equal(precheckSkip(asset, snap("2026-11-17", "2026-11-18T09:00:00Z", 12), now), null, "units changed");
+  assert.equal(precheckSkip({ ...asset, type: "Crypto" }, snap("2026-11-18", "2026-11-18T11:30:00Z"), now), null);
+
+  // A recent run that found no newer price counts as a check.
+  const runs = [{ items: [
+    { assetId: "a", type: "MutualFund", status: "no_new_data", finishedAt: "2026-11-18T10:00:00Z" },
+    { assetId: "a", type: "MutualFund", status: "failed", finishedAt: "2026-11-18T11:00:00Z" },
+    { assetId: "a", type: "MutualFund", status: "no_new_data", precheck: true, finishedAt: "2026-11-18T11:30:00Z" },
+  ] }];
+  const checked = lastCheckedByAsset(runs);
+  assert.equal(checked.a, "2026-11-18T10:00:00Z", "failed and pre-checked items do not count");
+  assert.match(precheckSkip(asset, snap("2026-11-14", "2026-11-16T09:00:00Z"), now, checked.a), /^Checked 2 h ago/);
 });

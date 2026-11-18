@@ -9,7 +9,7 @@ export const deletePv2Asset  = (id, mode) => client.delete(`/portfolio-v2/assets
 export const listPv2Snapshots = () => client.get("/portfolio-v2/snapshots").then(r => r.data);
 
 export const listPv2Runs  = (limit = 10) => client.get("/portfolio-v2/runs", { params: { limit } }).then(r => r.data);
-export const startPv2Run  = ()           => client.post("/portfolio-v2/runs").then(r => r.data);
+export const startPv2Run  = (body = {})  => client.post("/portfolio-v2/runs", body).then(r => r.data);
 export const getPv2Run    = (id)         => client.get(`/portfolio-v2/runs/${id}`).then(r => r.data);
 export const cancelPv2Run = (id)         => client.post(`/portfolio-v2/runs/${id}/cancel`).then(r => r.data);
 export const retryPv2Run  = (id, assetIds) => client.post(`/portfolio-v2/runs/${id}/retry`, { assetIds }).then(r => r.data);

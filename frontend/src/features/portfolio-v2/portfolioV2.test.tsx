@@ -110,10 +110,11 @@ describe("Portfolio v2 math", () => {
 
 const RUN: Pv2Run = {
   runId: "run1", trigger: "manual", status: "completed_with_errors", startedAt: "2026-11-15T09:00:00Z", finishedAt: "2026-11-15T09:02:00Z",
-  model: "claude-opus-5-5", usage: { inputTokens: 12000, cacheReadTokens: 30000, cacheWriteTokens: 4000, outputTokens: 800, webSearches: 6 },
+  model: "claude-opus-5-5", usage: { inputTokens: 12000, cacheReadTokens: 30000, cacheWriteTokens: 4000, outputTokens: 800, webSearches: 6, webFetches: 9 },
   summary: { updated: 1, noNewData: 0, notFound: 1, failed: 1, skipped: 0 },
   items: [
-    { assetId: "a1", name: "World ETF", platform: "Alpha", type: "ETF", status: "updated", unitPrice: 11, currency: "USD", latestPriceDate: "2026-11-13", valueEUR: 110, sourceUrl: "https://example.com/p" },
+    { assetId: "a1", name: "World ETF", platform: "Alpha", type: "ETF", status: "updated", unitPrice: 11, currency: "USD", latestPriceDate: "2026-11-13", valueEUR: 110, sourceUrl: "https://example.com/p",
+      usage: { inputTokens: 300, cacheReadTokens: 20000, cacheWriteTokens: 8000, outputTokens: 500, webSearches: 1, webFetches: 2, requests: 1 } },
     { assetId: "a2", name: "Unpriced Co", platform: "Alpha", type: "Stock", status: "failed", message: "AI rate limit reached — retry in a minute" },
     { assetId: "b1", name: "Balanced Fund", platform: "Beta", type: "MutualFund", status: "not_found", message: "No confirmed price found" },
     { assetId: "t1", name: "Alpha total", platform: "Alpha", type: "Total", status: "updated", valueEUR: 110, message: "Sum of 1 asset" },
@@ -159,6 +160,19 @@ describe("Portfolio v2 block", () => {
     expect(within(list).getByText("No price yet — generate a snapshot.")).toBeInTheDocument();
   });
 
+  it("Look Up All Assets starts the run without the pre-check", async () => {
+    api.start.mockResolvedValue({ ...RUN, status: "running" });
+    api.getRun.mockResolvedValue(RUN);
+    renderBlock();
+    const generate = await screen.findByRole("button", { name: "Generate Snapshot" });
+    await waitFor(() => expect(generate).toBeEnabled());
+    fireEvent.click(generate);
+    const confirm = await screen.findByRole("alertdialog", { name: /Look up prices/ });
+    expect(confirm).toHaveTextContent("checked in the last 6 hours, are skipped");
+    fireEvent.click(within(confirm).getByRole("button", { name: "Look Up All Assets" }));
+    await waitFor(() => expect(api.start).toHaveBeenCalledWith({ force: true }));
+  });
+
   it("a failed poll (e.g. throttled) keeps the run on screen and says it is reconnecting", async () => {
     const running = { ...RUN, status: "running" as const, items: RUN.items.map(i => ({ ...i, status: "queued" as const })) };
     api.start.mockResolvedValue(running);
@@ -194,9 +208,12 @@ describe("Portfolio v2 block", () => {
     expect(dialog.querySelector('[data-status="not_found"]')).toHaveTextContent("No confirmed price found");
     expect(within(dialog).getByRole("button", { name: "Retry 2 Failed" })).toBeInTheDocument();
     const used = within(dialog).getByLabelText("Tokens used");
-    expect(used).toHaveTextContent("Tokens: 46,800");
+    expect(api.start).toHaveBeenLastCalledWith({});
+    // Opus 5.5 list prices: 0.09 USD of tokens + 6 searches × 0.01.
+    expect(used).toHaveTextContent("Tokens: 46,800 · ≈ $0.15");
     expect(used).toHaveTextContent("16,000 input · 30,000 cached · 800 output");
-    expect(used).toHaveTextContent("6 web searches · claude-opus-5-5");
+    expect(used).toHaveTextContent("6 web searches · 9 page fetches · claude-opus-5-5");
+    expect(dialog.querySelector('[data-status="updated"] [data-usage]')).toHaveTextContent("29k tokens · 1 search · 2 fetches · ≈ $0.065");
     api.retry.mockResolvedValue({ ...RUN, status: "running" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Retry 2 Failed" }));
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith("run1", ["a2", "b1"]));

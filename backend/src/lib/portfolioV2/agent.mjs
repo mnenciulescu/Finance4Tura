@@ -2,7 +2,14 @@
 // web search / web fetch; the model reports the price through the
 // `report_price` tool and never does arithmetic.
 export const DEFAULT_MODEL = "claude-opus-5-5";
-export const DEFAULT_MAX_SEARCHES = 15;
+/** Runs use about one search per asset; the budget only stops a runaway lookup. */
+export const DEFAULT_MAX_SEARCHES = 5;
+/**
+ * Most of a lookup's tokens are fetched pages, re-read at every step. A price
+ * table sits near the top of a page, so the first pass reads at most this
+ * much of each page; the deeper second pass reads more.
+ */
+export const PAGE_TOKENS = { first: 10_000, deep: 25_000 };
 /** Upper bound for the Admin setting and for the deeper second pass. */
 export const MAX_SEARCHES_LIMIT = 30;
 
@@ -113,15 +120,16 @@ export function modelCaps(model) {
 /** Page fetches are cheap and save searches, so they get twice the budget. */
 export const searchBudget = (maxSearches) => ({ searches: maxSearches, fetches: Math.min(2 * maxSearches, 2 * MAX_SEARCHES_LIMIT) });
 
-export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, effort = "medium", hint = null, now = new Date() }) {
+/** First pass at low effort (open a known page, read a number); the deeper pass passes "high". */
+export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, maxSearches = DEFAULT_MAX_SEARCHES, effort = "low", pageTokens = PAGE_TOKENS.first, hint = null, now = new Date() }) {
   const budget = searchBudget(maxSearches);
   const messages = [{ role: "user", content: buildUserPrompt(asset, last, now.toISOString().slice(0, 10), hint, budget) }];
   // input_tokens excludes prompt-cache reads and writes, so those are counted separately.
-  const usage = { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 };
+  const usage = { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0, webFetches: 0, requests: 0 };
   const caps = modelCaps(model);
   const tools = [
     { type: caps.webSearch, name: "web_search", max_uses: budget.searches },
-    { type: caps.webFetch, name: "web_fetch", max_uses: budget.fetches },
+    { type: caps.webFetch, name: "web_fetch", max_uses: budget.fetches, max_content_tokens: pageTokens },
     REPORT_TOOL,
   ];
 
@@ -141,6 +149,8 @@ export async function lookupPrice({ client, asset, last, model = DEFAULT_MODEL, 
     usage.cacheWriteTokens += response.usage?.cache_creation_input_tokens ?? 0;
     usage.outputTokens += response.usage?.output_tokens ?? 0;
     usage.webSearches += response.usage?.server_tool_use?.web_search_requests ?? 0;
+    usage.webFetches += response.usage?.server_tool_use?.web_fetch_requests ?? 0;
+    usage.requests += 1;
 
     if (response.stop_reason === "refusal") {
       const why = response.stop_details?.explanation || response.stop_details?.category || "declined";

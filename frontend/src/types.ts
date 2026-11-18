@@ -179,6 +179,12 @@ export interface Pv2Snapshot {
   source: "agent" | "computed" | "legacy";
 }
 
+/** Tokens and tool calls of a run, or of one asset's lookup. Fields added later are optional. */
+export interface Pv2Usage {
+  inputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; outputTokens: number;
+  webSearches: number; webFetches?: number; requests?: number;
+}
+
 export type Pv2ItemStatus = "queued" | "searching" | "computing" | "updated" | "no_new_data" | "not_found" | "failed" | "skipped";
 
 export interface Pv2RunItem {
@@ -199,6 +205,9 @@ export interface Pv2RunItem {
   valueEUR?: number | null;
   sourceUrl?: string | null;
   flagged?: boolean;
+  /** Marked "no new data" before any lookup (up to date or checked recently). */
+  precheck?: boolean;
+  usage?: Pv2Usage;
 }
 
 export interface Pv2Run {
@@ -210,8 +219,7 @@ export interface Pv2Run {
   items: Pv2RunItem[];
   summary: { updated: number; noNewData: number; notFound: number; failed: number; skipped: number } | null;
   model: string;
-  /** cacheReadTokens / cacheWriteTokens are missing on runs made before they were counted. */
-  usage: { inputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; outputTokens: number; webSearches: number };
+  usage: Pv2Usage;
   cancelRequested?: boolean;
 }
 

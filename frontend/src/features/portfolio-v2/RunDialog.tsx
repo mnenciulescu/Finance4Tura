@@ -4,6 +4,7 @@ import { Button, Icon, Notice, PrivateValue, ProgressBar, Sheet, Skeleton, useTo
 import { fmtDate, fmtNum } from "../../utils/format";
 import type { Pv2ItemStatus, Pv2Run, Pv2RunItem } from "../../types";
 import { pv2Keys, useCancelPv2Run, usePv2Run, useRetryPv2Run } from "./data";
+import { estimateCost, fmtUsd, totalTokens } from "./pv2Cost";
 import s from "./PortfolioV2.module.css";
 
 const STATUS: Record<Pv2ItemStatus, { label: string; tone?: "good" | "warn" | "bad" }> = {
@@ -150,6 +151,7 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
                         {item.sourceUrl && item.status !== "failed" && (
                           <div><a className={s.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer noopener">{hostOf(item.sourceUrl)}</a></div>
                         )}
+                        {item.usage && <ItemUsage item={item} model={data.model} />}
                       </td>
                       <td>
                         {!running && item.type !== "Total" && RETRYABLE.includes(item.status) && (
@@ -188,19 +190,37 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
   }
 }
 
+const n = (v: number) => v.toLocaleString("en-US");
+const plural = (count: number, one: string, many: string) => `${n(count)} ${count === 1 ? one : many}`;
+
 /** Tokens spent on this run (all its attempts and retries), live while it runs. */
 function UsageLine({ run, running }: { run: Pv2Run; running: boolean }) {
   const u = run.usage ?? { inputTokens: 0, outputTokens: 0, webSearches: 0 };
   const input = (u.inputTokens ?? 0) + (u.cacheWriteTokens ?? 0);
   const cached = u.cacheReadTokens ?? 0;
   const output = u.outputTokens ?? 0;
-  const n = (v: number) => v.toLocaleString("en-US");
+  const cost = estimateCost(run.model, u);
   return (
     <span className={s.usage} aria-label="Tokens used">
-      <span>Tokens{running ? " so far" : ""}: <strong>{n(input + cached + output)}</strong></span>
+      <span>Tokens{running ? " so far" : ""}: <strong>{n(input + cached + output)}</strong>{cost != null && <> · ≈ <strong>{fmtUsd(cost)}</strong></>}</span>
       <span>{n(input)} input{cached > 0 && <> · {n(cached)} cached</>} · {n(output)} output</span>
-      <span>{n(u.webSearches ?? 0)} web search{u.webSearches === 1 ? "" : "es"} · {run.model}</span>
+      <span>
+        {plural(u.webSearches ?? 0, "web search", "web searches")}
+        {u.webFetches != null && <> · {plural(u.webFetches, "page fetch", "page fetches")}</>} · {run.model}
+      </span>
     </span>
+  );
+}
+
+/** One asset's lookup cost: tokens, searches, page fetches, estimated USD. */
+function ItemUsage({ item, model }: { item: Pv2RunItem; model: string }) {
+  const u = item.usage!;
+  const cost = estimateCost(model, u);
+  return (
+    <div className={s.meta} data-usage>
+      {n(Math.round(totalTokens(u) / 1000))}k tokens · {plural(u.webSearches ?? 0, "search", "searches")} · {plural(u.webFetches ?? 0, "fetch", "fetches")}
+      {cost != null && <> · ≈ {fmtUsd(cost)}</>}
+    </div>
   );
 }
 

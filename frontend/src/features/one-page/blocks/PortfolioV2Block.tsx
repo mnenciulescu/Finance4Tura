@@ -76,9 +76,9 @@ export function PortfolioV2Block() {
     setLines([...next].join(",") || "none");
   };
 
-  const generate = () => {
+  const generate = (force = false) => {
     setConfirm(false);
-    start.mutate(undefined, {
+    start.mutate({ force }, {
       onSuccess: run => setRunId(run.runId),
       onError: (e: any) => {
         const existing = e?.response?.data?.runId;
@@ -190,8 +190,11 @@ export function PortfolioV2Block() {
         isOpen={confirm}
         onClose={() => setConfirm(false)}
         title={`Look up prices for ${priced} asset${priced === 1 ? "" : "s"}?`}
-        message="The AI agent searches official sources for each asset; a snapshot is added only where there is new data. This uses the AI API (paid per use)."
-        actions={[{ label: "Generate Snapshot", onAction: generate }]}
+        message="The AI agent searches official sources for each asset; a snapshot is added only where there is new data. Assets that already have the latest possible price, or were checked in the last 6 hours, are skipped. This uses the AI API (paid per use)."
+        actions={[
+          { label: "Generate Snapshot", onAction: () => generate() },
+          { label: "Look Up All Assets", onAction: () => generate(true) },
+        ]}
       />
       <RunDialog runId={runId} onClose={() => setRunId(null)} />
       <RunHistory isOpen={history} runs={runs.data ?? []} onOpenRun={id => { setHistory(false); setRunId(id); }} onClose={() => setHistory(false)} />

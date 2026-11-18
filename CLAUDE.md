@@ -422,6 +422,12 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   The initial list was loaded once from the local Excel file (not in the repo);
   there is no import route or screen. An asset is unique per platform + ISIN /
   symbol / name (`assetMatchKey`).
+- **Pre-check** (`precheckSkip` in `model.mjs`): before any lookup, an asset is marked
+  "no new data" (`precheck: true`, no AI call) when its last price is already the newest
+  publishable one (previous business day; for stocks/ETFs today's close from 23:00
+  Romania) or it was looked up in the last 6 h (snapshot or a run item that found no
+  newer price). Never crypto, a new asset or changed units. If nothing is left the run
+  closes at once. The confirmation's **Look Up All Assets** sends `{ force: true }`.
 - **Model**: chosen in Admin (default Opus 5.5). Haiku gets no server-side `fallbacks` (it has none) and the
   earlier web tools `web_search_20250305` / `web_fetch_20250910` (`modelCaps` in `agent.mjs`).
 - **Snapshot run** (manual): `POST /portfolio-v2/runs` creates the run and
@@ -435,8 +441,10 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   with the quoted text, official/secondary. The prompt lists where to look per asset type
   (issuer daily NAV, exchange, distributor, Fundsquare, FT tearsheets by ISIN,
   Morningstar, justETF…) and warns that monthly factsheets are stale. Search
-  budget: 15 searches + 30 fetches per asset by default (Admin sets searches,
-  1–30; fetches are always twice that). The prompt states the budget, tells the
+  budget: 5 searches + 10 fetches per asset by default (Admin sets searches,
+  1–30; fetches are always twice that). Each fetched page is capped at 10k tokens
+  (`max_content_tokens`; 25k in the deeper pass), and the first pass runs at effort
+  low (`PAGE_TOKENS`, `lookupPrice` in `agent.mjs`). The prompt states the budget, tells the
   agent to fetch the pages from the last snapshot's sources first, prefer
   predictable URLs over searches, stop once it has a recent dated price, and
   report the best price found if the budget runs out. An asset whose result
@@ -472,7 +480,8 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
 - **Block**: holdings eye (shared with Investments), **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
-  Retry, Cancel, "Run in Background", a failed poll keeps the last state and shows "Reconnecting…", and at the end the tokens spent — total, input · cached · output, web searches, model — live while running; polled every 2 s), total EUR with the
+  Retry, Cancel, "Run in Background", each asset's tokens · searches · fetches · ≈ USD
+  (`item.usage`; list prices in `pv2Cost.ts`), a failed poll keeps the last state and shows "Reconnecting…", and at the end the tokens spent — total with ≈ USD, input · cached · output, web searches, page fetches, model — live while running; polled every 2 s), total EUR with the
   change over the range, curved line chart (`monotone`) of the platform Totals and their sum, with a point on each day a line has a snapshot (Total: any platform's; `SeriesPoint.snapped`)
   (1W · 1M · 3M · 1Y · All, line chips), then two columns (one below 560 px of block width):
   **Last snapshot** per platform (expand: one compact wrapping line per asset —
@@ -586,7 +595,7 @@ Totals also `originalAmount`, `originalCurrency`, `legacySnapshotId`.
 `startedAt`, `finishedAt`, `items[]` (one per asset, then per platform Total:
 `status` `queued`|`searching`|`computing`|`updated`|`no_new_data`|`not_found`|`failed`|`skipped`,
 `message`, price, source), `remaining`, `attempt`, `summary`, `model`,
-`usage` (`inputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `outputTokens`, `webSearches`; cache counts missing on older runs), `cancelRequested`.
+`usage` (`inputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `outputTokens`, `webSearches`, `webFetches`; later fields missing on older runs; each item also has its own `usage`), `queue`, `queueLength`, `dispatched`, `cancelRequested`.
 
 **FxRates** table (PK: `rateId`):
 - Single global item `rateId = "global"` with `rates` and `updatedAt`
@@ -673,7 +682,7 @@ DELETE /portfolio-v2/assets/{assetId}       # ?mode=archive (default) | delete (
 GET    /portfolio-v2/snapshots              # ?assetId=&from=&to=
 GET    /portfolio-v2/snapshots/latest       # latest per asset
 GET    /portfolio-v2/runs                   # ?limit=
-POST   /portfolio-v2/runs                   # start a manual run (409 if one is running / no AI key)
+POST   /portfolio-v2/runs                   # start a manual run ({ force? } skips the pre-check; 409 if one is running / no AI key)
 GET    /portfolio-v2/runs/{runId}           # polled by the progress dialog
 POST   /portfolio-v2/runs/{runId}/cancel
 POST   /portfolio-v2/runs/{runId}/retry     # { assetIds? } — failed / not found / skipped items
@@ -712,12 +721,12 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
 | Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
-| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses and Retry, failed poll | 9 |
+| Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses, usage and ≈ cost, Retry, Look Up All, failed poll | 10 |
 | Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history, run queue | 30 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history, run queue, page cap and low effort, pre-check | 32 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
@@ -792,4 +801,4 @@ set nowhere. Do not reintroduce a derived-credential scheme.
 - No JWT refresh — when the ID token expires the next 401 signs the user out. The Account sheet shows the countdown.
 - No server-side pagination — all records returned per request.
 - Statistics "Survival / month" hardcodes RON 7,000 as a fixed living cost baseline (`SURVIVAL_BASELINE`).
-- Portfolio v2 runs are manual only; each asset costs one Claude request with web search (billed to the configured key). The run shows the tokens and searches used.
+- Portfolio v2 runs are manual only; each asset that passes the pre-check costs one Claude request with web search (billed to the configured key). The run shows tokens, searches, fetches and an estimated USD cost per asset and in total (list prices hard-coded in `pv2Cost.ts`; update them when prices change).

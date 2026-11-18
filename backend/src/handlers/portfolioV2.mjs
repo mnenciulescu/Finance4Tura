@@ -2,7 +2,7 @@
 // Runs are started here and priced by PortfolioV2WorkerFunction, one async
 // invocation per asset (API Gateway's 29 s limit rules out doing it inline).
 import { randomUUID } from "crypto";
-import { assetMatchKey, latestByAsset, RUN_STALE_MS, runItems, validateAsset } from "../lib/portfolioV2/model.mjs";
+import { assetMatchKey, lastCheckedByAsset, latestByAsset, precheckSkip, RUN_STALE_MS, runItems, validateAsset } from "../lib/portfolioV2/model.mjs";
 import { publicConfig, readApiKey, readConfig, updateConfig, validateConfigUpdate } from "../lib/portfolioV2/aiConfig.mjs";
 import { finalizeRun, readFx } from "../lib/portfolioV2/runner.mjs";
 import * as store from "../lib/portfolioV2/store.mjs";
@@ -104,29 +104,55 @@ async function aiReady() {
   return { config };
 }
 
-async function startRun(userId) {
+/**
+ * Starts a run. Unless `force`, assets that cannot have a newer price yet
+ * (precheckSkip) are marked "no new data" without an AI lookup.
+ */
+async function startRun(userId, { force = false } = {}) {
   const ready = await aiReady();
   if (ready.error) return err(409, ready.error);
   const runs = await store.listRuns(userId);
   const active = runs.find(r => r.status === "running" && !isStale(r));
   if (active) return err(409, "A snapshot run is already in progress", { runId: active.runId });
 
-  const assets = await store.listAssets(userId);
+  const [assets, snapshots] = await Promise.all([store.listAssets(userId), store.listSnapshots(userId)]);
   const items = runItems(assets);
   const priced = items.map((it, i) => (it.type === "Total" ? -1 : i)).filter(i => i >= 0);
   if (priced.length === 0) return err(400, "Add assets before generating a snapshot");
 
   const now = new Date();
+  const queue = [];
+  if (force) queue.push(...priced);
+  else {
+    const latest = latestByAsset(snapshots);
+    const checked = lastCheckedByAsset(runs);
+    const byId = Object.fromEntries(assets.map(a => [a.assetId, a]));
+    for (const i of priced) {
+      const why = precheckSkip(byId[items[i].assetId], latest[items[i].assetId], now, checked[items[i].assetId]);
+      if (!why) { queue.push(i); continue; }
+      const last = latest[items[i].assetId];
+      items[i] = {
+        ...items[i], status: "no_new_data", precheck: true, message: why, finishedAt: now.toISOString(),
+        unitPrice: last.unitPrice ?? null, currency: last.currency ?? null, latestPriceDate: last.latestPriceDate ?? null,
+      };
+    }
+  }
+
   const run = {
     runId: randomUUID(), userId, trigger: "manual", status: "running", attempt: 1,
-    startedAt: now.toISOString(), finishedAt: null, items, remaining: priced.length, ...queueFields(priced),
+    startedAt: now.toISOString(), finishedAt: null, items, remaining: queue.length, ...queueFields(queue),
     summary: null, model: ready.config.model,
-    usage: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0 },
+    usage: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0, webSearches: 0, webFetches: 0 },
     expiresAt: Math.floor(now.getTime() / 1000) + 90 * 86400,
   };
   await store.putRun(run);
+  if (queue.length === 0) {
+    // Nothing to look up: close the run now (Totals unchanged).
+    await finalizeRun({ runId: run.runId, userId, attempt: run.attempt, fx: await readFx() });
+    return ok(await store.getRun(run.runId, userId), 201);
+  }
   try {
-    await invokeWorkers(run.runId, userId, run.attempt, priced);
+    await invokeWorkers(run.runId, userId, run.attempt, queue);
   } catch (e) {
     console.error("[portfolioV2] could not start workers:", e);
     await store.setRunFields(run.runId, { status: "failed", finishedAt: new Date().toISOString(), error: "Could not start the AI workers" });
@@ -216,7 +242,7 @@ export async function handler(event) {
       case "GET /portfolio-v2/snapshots/latest": return ok(Object.values(latestByAsset(await store.listSnapshots(userId))));
 
       case "GET /portfolio-v2/runs": return await recentRuns(userId, qs.limit);
-      case "POST /portfolio-v2/runs": return await startRun(userId);
+      case "POST /portfolio-v2/runs": return await startRun(userId, { force: body?.force === true });
       case "GET /portfolio-v2/runs/{runId}": return await readRun(userId, p.runId);
       case "POST /portfolio-v2/runs/{runId}/cancel": return await cancelRun(userId, p.runId);
       case "POST /portfolio-v2/runs/{runId}/retry": return await retryRun(userId, p.runId, body);
