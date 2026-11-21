@@ -63,14 +63,6 @@ export interface Operation {
   notes?: string;
 }
 
-export interface Snapshot {
-  snapshotId: string;
-  date: string;
-  platform: string;
-  amount: number;
-  currency: Currency;
-}
-
 export type FxMatrix = Record<string, Record<string, number> | number>;
 export interface FxRates { rates: FxMatrix | null; updatedAt: string | null; }
 

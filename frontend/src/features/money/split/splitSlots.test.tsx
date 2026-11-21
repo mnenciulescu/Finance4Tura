@@ -35,7 +35,6 @@ vi.mock("../../../api/splitPayments", async orig => ({
   updateSplitPayment: (...a: any[]) => (updateSplitPayment as any)(...a),
 }));
 vi.mock("../../../api/booksAndDev", async orig => ({ ...(await orig<object>()), listBooks: () => Promise.resolve([]) }));
-vi.mock("../../../api/investments", async orig => ({ ...(await orig<object>()), listSnapshots: () => Promise.resolve([]) }));
 vi.mock("../../../api/fxRates", async orig => ({ ...(await orig<object>()), getFxRates: () => Promise.resolve({ rates: null, updatedAt: null }) }));
 
 const { default: Today } = await import("../../today/Today");

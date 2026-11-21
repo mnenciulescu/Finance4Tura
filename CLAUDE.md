@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **4TURA Home** (repo and stack still named Finance4Tura) is a personal
 dashboard PWA. Its core is budgeting: incomes are received periodically, and
 expenses are mapped to the most recent income before their date. Around that
-sit Split Payments, Investments, Statistics, Books & Development and
+sit Split Payments, Portfolio v2 (investments), Statistics, Books & Development and
 Headquarters (home-utility tracking), plus an admin area. **Portfolio v2**
 (One-Page block and the phone's Money → Invest) tracks asset prices looked up by an AI agent.
 
@@ -68,8 +68,6 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 ```
 
 ### Scripts
-- `scripts/import-legacy-portfolio-totals.mjs` — copies a user's old platform
-  history into Portfolio v2 as Total snapshots (dry run unless `--apply`).
 - `scripts/remap-expenses.mjs` — re-resolves the mapped income on every expense
   in the cloud tables, for all users. Live; run after bulk income changes.
   (The DynamoDB Local seed / table scripts were deleted; see git history.)
@@ -207,8 +205,8 @@ section describes what is implemented.
 ### Today
 
 Route `/` — `features/today/Today.tsx`. Large title "Today" with the date.
-Widgets, all loaded together (incomes, expenses, split payments, books,
-snapshots, FX):
+Widgets (incomes, expenses, split payments and books load together; Holdings
+is lazy and loads Portfolio v2 assets and snapshots itself):
 
 1. **This Period** — `PeriodHeader` (shared with Budget) for the current
    income (latest `date ≤ today`); the expenses mapped to it that were
@@ -219,8 +217,9 @@ snapshots, FX):
    "Nothing left to pay." Tapping the header opens Budget.
 2. **Split Payments** — the three newest open entries with their slot grids
    (same rules as Split); *See All* → Money → Split.
-3. **Holdings** — portfolio total in EUR and the platforms with a snapshot > 0
-   in the last 12 months, all masked behind hold-to-reveal; FX date.
+3. **Holdings** — Portfolio v2: the total in EUR and each held platform's
+   latest Total with its price date (`summarize`), all masked behind
+   hold-to-reveal; last snapshot date (`features/today/HoldingsWidget.tsx`).
 4. **Library** — persons (alphabetical) × types with entries, each cell the
    latest entry.
 
@@ -290,9 +289,7 @@ without data blank.
 
 Route `/money/invest` — `features/money/invest/InvestScreen.tsx`. **Portfolio v2
 on the phone**: the same data, rules and dialogs as One-Page's Portfolio v2
-block (shared `features/portfolio-v2/usePortfolioV2.ts`), in one column. The
-old manual snapshots (Total card, Evolution chart, Snapshots list) are gone
-from the phone; Today's Holdings widget still reads them.
+block (shared `features/portfolio-v2/usePortfolioV2.ts`), in one column.
 
 - Subtitle `N assets · M platforms`; nav bar: **eye** (toggle — tap shows,
   tap again or leaving the app masks; masks totals, chart axis/tooltip, run
@@ -394,8 +391,7 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   show/hide flag — click to show, click again to hide, re-masked when the page
   is hidden). The old **Investments** and **Investment Statistics** blocks were
   removed from One-Page (Money → Invest now shows Portfolio v2 too); their
-  operations list lives in Portfolio v2, and `N` then `P` / `O` still open the
-  old module's snapshot / operation forms.
+  operations list lives in Portfolio v2, and `N` then `O` opens the operation form.
 - **State in the URL** (`?period=&split=&stats=&lib=&hq=&hqchart=&pv2range=&pv2lines=`),
   written with replace, so browser Back only closes dialogs. Deep links
   `?expense=new|<id>&date=` and `?income=new|<id>` open the form and are
@@ -421,7 +417,7 @@ Block `portfolioV2` across One-Page columns 2–3, and the phone's Money → Inv
 `handlers/portfolioV2.mjs` (API), `handlers/portfolioV2Worker.mjs` (async
 worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
 `store.mjs`, `aiConfig.mjs`). Spec: `Documentation/Portfolio_v2_Requirements.md`
-(kept local, not in the repo). Independent of the manual Investments module.
+(kept local, not in the repo).
 
 - **Assets** = the current portfolio (platform, type, symbol, name, units,
   ISIN, quote currency). Each platform has one `Total` asset (created
@@ -472,20 +468,17 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   `sameDaySlot`): a later run on the same day overwrites that day's snapshot
   (same `snapshotId`, extra same-day copies deleted) instead of adding one;
   the > 30 % check compares with the previous day. Price moves > 30 % are flagged.
-- **Imported history**: the old Investments module's platform values
-  (`PortfolioSnapshots`, no per-asset breakdown) were copied once as platform
-  **Total snapshots only** with `source: "legacy"` by
-  `scripts/import-legacy-portfolio-totals.mjs` (dry run by default, `--apply`,
-  idempotent `legacy-<old id>` ids, `--rollback`; rules in `model.mjs`
-  `planLegacyTotals` / `buildLegacyTotal`). EUR = amount × the ECB rate of that
-  date (frankfurter.app, closest earlier business day), keeping
-  `originalAmount`, `originalCurrency`, `fxRate`, `fxDate`. Only dates before a
-  platform's first Portfolio v2 Total are imported. Closed platforms (Binance,
+- **Imported history**: the retired Investments module's platform values were
+  copied once as platform **Total snapshots only** with `source: "legacy"`
+  (ids `legacy-<old id>`; EUR = amount × the ECB rate of that date, keeping
+  `originalAmount`, `originalCurrency`, `fxRate`, `fxDate`), only for dates
+  before a platform's first Portfolio v2 Total. The source table
+  (`PortfolioSnapshots`), its API and the import script were then deleted. Closed platforms (Binance,
   Fidelity) got **archived** Totals: the chart ends their line at the last
   record, and they are out of the last snapshot and runs. Runs never replace
   imported snapshots (`sameDaySlot` skips them); the tooltip and Last snapshot
   mark imported values.
-- **Block**: holdings eye (shared with Investments), **Generate** (confirm →
+- **Block**: holdings eye, **Generate** (confirm →
   progress dialog: status per asset — queued, searching, computing, updated,
   no new data, no confirmed price, failed in red, skipped — per-row and bulk
   Retry, Cancel, "Run in Background", each asset's tokens · searches · fetches · ≈ USD
@@ -494,7 +487,7 @@ worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
   (1W · 1M · 3M · 1Y · All, line chips), then two columns (one below 560 px of block width):
   **Last snapshot** per platform (expand: one compact wrapping line per asset —
   units × price, price date, search date, stale, sources; the agent's comments are
-  not shown) | **Operations** (the old Investments operations list, same
+  not shown) | **Operations** (the `InvestmentOperations` list, same
   `OperationList`, New / Edit / Delete, masked by the holdings eye),
   collapsible **Assets** area, Snapshot Runs history.
 - **AI key**: Admin → **Portfolio v2 AI**; stored as a SecureString in SSM
@@ -509,7 +502,7 @@ Pushed from the Account sheet.
   (income amounts default, hide in app switcher), Feedback (Haptics, where
   supported), About (version, session, Install App). Changes apply at once.
 - **Backstage** (`backstageEnabled`): table chips (Incomes, Expenses,
-  Operations, Snapshots, Splits), search, 10 per page, swipe or two-step delete,
+  Operations, Splits), search, 10 per page, swipe or two-step delete,
   live **API log** of the last 50 calls (method, URL, status, ms; tap for time
   and params).
 - **Admin** (`nenciulescu` only): App Settings toggles; FX matrix (every
@@ -552,12 +545,9 @@ All tables are pay-per-request with a single string hash key.
 - `mappedIncomeId`, `mappedIncomeSummary`, `mappedIncomeDate` — denormalized from Incomes
 - GSI: `date-index` on `date`
 
-**InvestmentOperations** table (PK: `operationId`):
+**InvestmentOperations** table (PK: `operationId`) — deposits / withdrawals,
+listed by Portfolio v2 (the only part of the old Investments module kept):
 - `userId`, `date`, `type` (`Deposit`|`Withdrawal`), `platform`, `amount`, `currency`, `notes`
-
-**PortfolioSnapshots** table (PK: `snapshotId`):
-- `userId`, `date`, `platform`, `amount`, `currency`
-- One record per platform per snapshot date
 
 **SplitPayments** table (PK: `splitPaymentId`):
 - `userId`, `title`, `totalAmount`, `currency` (`RON`|`EUR`|`USD`),
@@ -651,12 +641,6 @@ POST   /investments/operations
 PUT    /investments/operations/{operationId}
 DELETE /investments/operations/{operationId}
 
-GET    /investments/snapshots/latest        # most recent snapshot per platform
-GET    /investments/snapshots
-POST   /investments/snapshots
-PUT    /investments/snapshots/{snapshotId}
-DELETE /investments/snapshots/{snapshotId}
-
 GET    /split-payments
 POST   /split-payments
 PUT    /split-payments/{splitPaymentId}
@@ -734,7 +718,7 @@ cd backend && node --test src/**/*.test.mjs
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
-| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history, run queue, page cap and low effort, pre-check | 32 |
+| Backend Portfolio v2 | `portfolioV2.test.mjs` — per-model request options (Haiku), FX matrix, asset validation, ISIN, agent-result checks, new-data rule, same-day replacement, values, Totals, run summary, agent loop with a mocked SDK (budget, past sources, deeper pass), stale prices, imported history kept by same-day replacement, run queue, page cap and low effort, pre-check | 29 |
 
 Vitest page tests render with Testing Library inside `test/utils.tsx`
 (providers, fresh query client) against mocked API modules. Playwright runs the
@@ -750,7 +734,7 @@ from invented fixtures, nothing reaches AWS. Time-dependent tests pin "today".
 | S3 bucket | `finance4tura-frontend` |
 | CloudFront | `E1O9C9K6CO439` (`d34ylrmixnmvem.cloudfront.net`) |
 | Cognito User Pool | `eu-central-1_CD7AdBFwQ` · Client: `2nh5dljhrg9mq7nsmdg7cef21v` · group `admin` |
-| DynamoDB tables | `Incomes`, `Expenses`, `InvestmentOperations`, `PortfolioSnapshots`, `SplitPayments`, `Books_and_Dev`, `HQ_Locations`, `HQ_Templates`, `HQ_Entries`, `AppSettings`, `FxRates`, `PortfolioV2_Assets`, `PortfolioV2_Snapshots`, `PortfolioV2_Runs` |
+| DynamoDB tables | `Incomes`, `Expenses`, `InvestmentOperations`, `SplitPayments`, `Books_and_Dev`, `HQ_Locations`, `HQ_Templates`, `HQ_Entries`, `AppSettings`, `FxRates`, `PortfolioV2_Assets`, `PortfolioV2_Snapshots`, `PortfolioV2_Runs` |
 | SSM parameters | `/finance4tura/gdrive-oauth2` — Google Drive OAuth2 client + refresh token for backups; `/finance4tura/anthropic-api-key` — SecureString, Portfolio v2 AI key (written from Admin only) |
 | Region | `eu-central-1` |
 
@@ -770,7 +754,7 @@ from invented fixtures, nothing reaches AWS. Time-dependent tests pin "today".
 | Navigation | Four tabs — Today · Money · Library · HQ. Money's sections are a visible segmented control, not a hidden menu. Settings/Backstage/Admin live in the Account sheet. Overlays and tabs are mirrored in browser history so Android back behaves natively |
 | Split Payments | Card list; open entries expanded, settled collapsed; slot count pinned to the series; app calendar instead of native date fields; settling asks first; debounced coverage auto-save shared by Today and Split |
 | Statistics | Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block |
-| Investments | The phone's Invest shows Portfolio v2 (AI-priced assets) plus the old operations; the old manual snapshots stay only behind Today's Holdings and One-Page's `N P` form |
+| Investments | Portfolio v2 (AI-priced assets) replaced the manual Investments module everywhere (Money → Invest, One-Page, Today's Holdings); its snapshots table and API were deleted after the history was imported. Operations stay in `InvestmentOperations` |
 | Library | Library tab; per-person sections with a 12-month completion chart, inline star ratings, search + filter sheet |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only |
 | Admin | Page restricted to username `nenciulescu` in the frontend; admin API routes require the Cognito `admin` group |

@@ -12,7 +12,6 @@ Globals:
         EXPENSES_TABLE: Expenses
         SPLIT_PAYMENTS_TABLE: SplitPayments
         INV_OPERATIONS_TABLE: InvestmentOperations
-        INV_SNAPSHOTS_TABLE: PortfolioSnapshots
         APP_SETTINGS_TABLE: AppSettings
         FX_RATES_TABLE: FxRates
         BOOKS_TABLE: Books_and_Dev
@@ -91,27 +90,6 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: operationId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: date-index
-          KeySchema:
-            - AttributeName: date
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-
-  PortfolioSnapshotsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: PortfolioSnapshots
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: snapshotId
-          AttributeType: S
-        - AttributeName: date
-          AttributeType: S
-      KeySchema:
-        - AttributeName: snapshotId
           KeyType: HASH
       GlobalSecondaryIndexes:
         - IndexName: date-index
@@ -530,7 +508,7 @@ Resources:
             Method: DELETE
 
   # ──────────────────────────────────────────
-  # Investments — Operations
+  # Investments — Operations (listed by Portfolio v2)
   # ──────────────────────────────────────────
   InvestmentOperationsFunction:
     Type: AWS::Serverless::Function
@@ -564,49 +542,6 @@ Resources:
           Properties:
             RestApiId: !Ref Api
             Path: /investments/operations/{operationId}
-            Method: DELETE
-
-  # ──────────────────────────────────────────
-  # Investments — Portfolio Snapshots
-  # ──────────────────────────────────────────
-  PortfolioSnapshotsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: src/handlers/portfolioSnapshots.handler
-      CodeUri: .
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PortfolioSnapshotsTable
-      Events:
-        InvSnapsLatest:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /investments/snapshots/latest
-            Method: GET
-        InvSnapsGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /investments/snapshots
-            Method: GET
-        InvSnapsPost:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /investments/snapshots
-            Method: POST
-        InvSnapPut:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /investments/snapshots/{snapshotId}
-            Method: PUT
-        InvSnapDelete:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /investments/snapshots/{snapshotId}
             Method: DELETE
 
   # ──────────────────────────────────────────
@@ -991,7 +926,6 @@ Resources:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Incomes"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Expenses"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/InvestmentOperations"
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/PortfolioSnapshots"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/SplitPayments"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/AppSettings"
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/FxRates"

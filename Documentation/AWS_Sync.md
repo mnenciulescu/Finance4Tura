@@ -180,7 +180,7 @@ sam logs -n IncomesFunction --stack-name finance4tura-backend --tail
 aws logs tail /aws/lambda/<log-group-name> --follow --region eu-central-1
 ```
 
-Function logical IDs: `GoogleAuthFunction`, `PreSignUpFunction`, `HealthFunction`, `IncomesFunction`, `ExpensesFunction`, `AdminFunction`, `InvestmentOperationsFunction`, `PortfolioSnapshotsFunction`, `SplitPaymentsFunction`, `BooksAndDevFunction`, `HQFunction`, `AppSettingsFunction`, `FxRatesFunction`, `AdminBackupFunction`, `AiNewsFunction`.
+Function logical IDs: `GoogleAuthFunction`, `PreSignUpFunction`, `HealthFunction`, `IncomesFunction`, `ExpensesFunction`, `AdminFunction`, `InvestmentOperationsFunction`, `SplitPaymentsFunction`, `BooksAndDevFunction`, `HQFunction`, `AppSettingsFunction`, `FxRatesFunction`, `AdminBackupFunction`, `AiNewsFunction`.
 
 The frontend also keeps a log of its last 50 API calls on the **Backstage** page (when enabled).
 

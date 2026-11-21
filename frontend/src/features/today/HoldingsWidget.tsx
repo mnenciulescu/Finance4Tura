@@ -1,62 +1,58 @@
 import { useMemo } from "react";
-import { Dot, PrivateValue, RevealButton, Widget } from "../../ui";
-import { PLATFORM_COLOR } from "../../theme/domainColors";
-import { activePlatforms, latestByPlatform, toEUR } from "../../utils/money";
-import { fmtDate, fmtNum } from "../../utils/format";
-import type { FxRates, Snapshot } from "../../types";
+import { Dot, PrivateValue, RevealButton, Skeleton, Widget } from "../../ui";
+import { fmtDate, fmtNum, todayIso } from "../../utils/format";
+import { usePv2Assets, usePv2Snapshots } from "../portfolio-v2/data";
+import { platformColor, platformsOf, summarize } from "../portfolio-v2/pv2Math";
 import s from "./Today.module.css";
 
 /**
- * Current holdings (proposal §8.2): every figure is masked until the eye
- * button is held down; releasing it — or the app going to the background —
- * masks them again. Nothing is persisted.
+ * Current holdings from Portfolio v2 (proposal §8.2): the portfolio total in
+ * EUR and each held platform's latest Total. Every figure is masked until the
+ * eye button is held down; releasing it — or the app going to the
+ * background — masks them again. Nothing is persisted. Lazy-loaded so the
+ * Portfolio v2 code stays out of the first download.
  */
-export function HoldingsWidget({ snapshots, fx }: { snapshots: Snapshot[]; fx: FxRates | null }) {
-  const rates = fx?.rates ?? null;
-  const latest = useMemo(() => latestByPlatform(snapshots), [snapshots]);
-  const platforms = useMemo(() => activePlatforms(snapshots), [snapshots]);
-  const total = useMemo(
-    () => Object.values(latest).reduce((sum, snap) => sum + toEUR(snap.amount, snap.currency, rates), 0),
-    [latest, rates],
-  );
+export default function HoldingsWidget() {
+  const assets = usePv2Assets();
+  const snaps = usePv2Snapshots();
+  const assetList = useMemo(() => assets.data ?? [], [assets.data]);
+  const today = todayIso();
+  const summary = useMemo(() => summarize(assetList, snaps.data ?? [], today), [assetList, snaps.data, today]);
+  const colors = useMemo(() => Object.fromEntries(platformsOf(assetList).map((p, i) => [p, platformColor(p, i)])), [assetList]);
+  const empty = summary.platforms.length === 0;
 
   return (
-    <Widget title="Holdings" icon="chartLine" action={snapshots.length > 0 ? <RevealButton group="holdings" /> : undefined}>
-      {snapshots.length === 0 ? (
-        <p className={s.muted}>No investment snapshots yet.</p>
+    <Widget title="Holdings" icon="chartLine" action={empty ? undefined : <RevealButton group="holdings" />}>
+      {assets.isPending || snaps.isPending ? <Skeleton height={120} /> : assets.isError || snaps.isError ? (
+        <p className={s.muted}>Could not load the portfolio.</p>
+      ) : empty ? (
+        <p className={s.muted}>No portfolio snapshots yet.</p>
       ) : (
         <>
           <div className={s.holdingTotal}>
             <span className={s.overline}>Total portfolio</span>
             <span className={s.holdingValue}>
-              <PrivateValue mode="hold" group="holdings" chars={7}>{fmtNum(total)}</PrivateValue>
+              <PrivateValue mode="hold" group="holdings" chars={7}>{fmtNum(summary.totalEUR)}</PrivateValue>
               <span className={s.holdingUnit}>EUR</span>
             </span>
           </div>
           <ul className={s.holdingList}>
-            {platforms.map(p => {
-              const snap = latest[p];
-              const eur = snap ? toEUR(snap.amount, snap.currency, rates) : null;
-              return (
-                <li key={p} className={s.holdingRow} data-platform={p}>
-                  <Dot color={PLATFORM_COLOR[p]} />
-                  <span className={s.holdingName}>{p}</span>
-                  <span className={s.holdingAmounts}>
-                    <span className={s.holdingEur}>
-                      {eur != null ? <PrivateValue mode="hold" group="holdings" chars={5}>{fmtNum(eur)}</PrivateValue> : "—"}
-                    </span>
-                    {snap && snap.currency !== "EUR" && (
-                      <span className={s.holdingRaw}>
-                        <PrivateValue mode="hold" group="holdings" chars={5}>{fmtNum(snap.amount)} {snap.currency}</PrivateValue>
-                      </span>
-                    )}
+            {summary.platforms.map(p => (
+              <li key={p.platform} className={s.holdingRow} data-platform={p.platform}>
+                <Dot color={colors[p.platform]} />
+                <span className={s.holdingName}>{p.platform}</span>
+                <span className={s.holdingAmounts}>
+                  <span className={s.holdingEur}>
+                    <PrivateValue mode="hold" group="holdings" chars={5}>{fmtNum(p.valueEUR)}</PrivateValue>
                   </span>
-                  <span className={s.holdingDate}>{snap ? fmtDate(snap.date) : "—"}</span>
-                </li>
-              );
-            })}
+                </span>
+                <span className={s.holdingDate}>{p.latestPriceDate ? fmtDate(p.latestPriceDate) : "—"}</span>
+              </li>
+            ))}
           </ul>
-          <p className={s.footnote}>{fx?.updatedAt ? `FX rates from ${fmtDate(fx.updatedAt.slice(0, 10))}` : "No FX rates set"}</p>
+          {summary.lastGeneratedAt && (
+            <p className={s.footnote}>Last snapshot {fmtDate(new Date(summary.lastGeneratedAt).toLocaleDateString("en-CA"))}</p>
+          )}
         </>
       )}
     </Widget>

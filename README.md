@@ -56,7 +56,7 @@ The core model is simple: **income defines a period, and every expense belongs t
 | Money → Budget | `/money` | One income period at a time (scroll-snap pager), budget bar, expenses; expense/income forms open as sheets |
 | Money → Split | `/money/split` | Payments split into instalments, tracked until settled |
 | Money → Stats | `/money/stats` | Monthly averages, free amount per month, special expenses |
-| Money → Invest | `/money/invest` | Portfolio across six platforms, in EUR, with history since 2023 |
+| Money → Invest | `/money/invest` | Portfolio v2: AI-priced assets per platform, value chart, last snapshot, deposits / withdrawals |
 | Library | `/library` | Reading and training log per person, with ratings |
 | HQ | `/hq` | Meter readings per location, with water-consumption charts |
 | Settings | `/settings` | Theme and income-amount privacy |
@@ -145,7 +145,7 @@ graph TB
 
     subgraph Lambdas["Lambda — one per module"]
         L1[incomes · expenses]
-        L2[investmentOperations · portfolioSnapshots]
+        L2[investmentOperations]
         L3[splitPayments · booksAndDev · headquarters]
         L4[appSettings · fxRates · health]
         L5[admin · adminBackup]
@@ -255,7 +255,6 @@ All tables use pay-per-request billing and a single string hash key. Per-user ta
 | `Expenses` | `expenseId` | as Incomes + priority, status, special, mapped-income fields. GSI `date-index` |
 | `SplitPayments` | `splitPaymentId` | title, totalAmount, currency, occurrenceCount, occurrenceType, createdDate, occurrences |
 | `InvestmentOperations` | `operationId` | date, type (Deposit/Withdrawal), platform, amount, currency, notes |
-| `PortfolioSnapshots` | `snapshotId` | date, platform, amount, currency — one row per platform per reading |
 | `Books_and_Dev` | `bookId` | name (person), type, source, author, title, dateCompleted (YYYY-MM), rating, comments |
 | `HQ_Locations` | `hqId` | name, address, order |
 | `HQ_Templates` | `templateId` | hqId, name, parameters (max 30) |
@@ -293,7 +292,7 @@ Protected routes need `Authorization: <Cognito ID token>` (no `Bearer` prefix). 
 | Health | `GET /health` | Cognito |
 | Incomes | `POST /incomes` · `GET /incomes?from=&to=` · `GET/PUT/DELETE /incomes/{id}` · `PUT /incomes/{id}/series` · `DELETE …?deleteSeries=true` | Cognito |
 | Expenses | as Incomes, plus `GET /expenses/resolve-income?date=` | Cognito |
-| Investments | `GET/POST /investments/operations` · `PUT/DELETE /investments/operations/{id}` · `GET /investments/snapshots` · `GET /investments/snapshots/latest` · `POST /investments/snapshots` · `PUT/DELETE /investments/snapshots/{id}` | Cognito |
+| Investment operations | `GET/POST /investments/operations` · `PUT/DELETE /investments/operations/{id}` (listed by Portfolio v2) | Cognito |
 | Split Payments | `GET/POST /split-payments` · `PUT/DELETE /split-payments/{id}` | Cognito |
 | Books & Dev | `GET/POST /books-and-dev` · `PUT/DELETE /books-and-dev/{id}` | Cognito |
 | Headquarters | `GET/POST /headquarters` · `PUT/DELETE /headquarters/{hqId}` · same under `/headquarters/templates` and `/headquarters/entries` | Cognito |
@@ -387,7 +386,6 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 │       └── lib/                      # dynamo.mjs, expandDates.mjs (+ tests)
 │
 ├── scripts/
-│   ├── import-legacy-portfolio-totals.mjs # Old platform history → Portfolio v2 Totals (dry run by default)
 │   └── remap-expenses.mjs            # Re-map every expense to its income (cloud)
 │
 ├── Documentation/                    # Deploy guides and module requirements
@@ -429,6 +427,5 @@ The Cognito user pool is shared with the sibling **TYG** app (`../TYG`), which h
 | [Documentation/OnePage_Desktop_Proposal.md](Documentation/OnePage_Desktop_Proposal.md) | One-Page, the desktop dashboard: design and implementation notes |
 | [Documentation/Requirements.md](Documentation/Requirements.md) | Requirements by phase, kept current with the app |
 | [Documentation/SplitPayment_Requirement.md](Documentation/SplitPayment_Requirement.md) | Split Payments |
-| [Documentation/Investments_Requirement.md](Documentation/Investments_Requirement.md) | Investments |
 | [Documentation/Headquarters_Requirements.md](Documentation/Headquarters_Requirements.md) | Headquarters |
 | [Documentation/Backup_Requirements.md](Documentation/Backup_Requirements.md) | Admin database backup to Google Drive |

@@ -6,7 +6,7 @@ const dynamo = new DynamoDBClient({});
 const ssm    = new SSMClient({ region: "eu-central-1" });
 
 const TABLES = [
-  "Incomes", "Expenses", "InvestmentOperations", "PortfolioSnapshots",
+  "Incomes", "Expenses", "InvestmentOperations",
   "SplitPayments", "AppSettings", "FxRates", "Books_and_Dev",
   "HQ_Locations", "HQ_Templates", "HQ_Entries",
   "PortfolioV2_Assets", "PortfolioV2_Snapshots", "PortfolioV2_Runs",

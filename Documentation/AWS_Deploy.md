@@ -38,7 +38,6 @@ Tables are defined in `backend/template.yaml` and created by SAM on the first `s
 | `Incomes` | `incomeId` | GSI `date-index` on `date` |
 | `Expenses` | `expenseId` | GSI `date-index` on `date` |
 | `InvestmentOperations` | `operationId` | |
-| `PortfolioSnapshots` | `snapshotId` | |
 | `SplitPayments` | `splitPaymentId` | |
 | `Books_and_Dev` | `bookId` | |
 | `HQ_Locations` | `hqId` | |
@@ -319,7 +318,7 @@ aws cloudfront create-invalidation --distribution-id E1O9C9K6CO439 --paths "/*" 
 ## 7. First-Run Data
 
 - **App Settings**: until an admin saves **Admin → App Settings**, `GET /app-settings` returns the defaults — all three toggles on. Saving creates the `global` item.
-- **FX rates**: press **Admin → FX Rates → Update FX rates** once. Until then, Investments shows "no FX rates set" and amounts are left unconverted.
+- **FX rates**: press **Admin → FX Rates → Update FX rates** once. Until then, Portfolio v2 cannot convert prices to EUR and those assets fail in a snapshot run.
 - **Admin user**: add your user to the Cognito `admin` group. The frontend shows Admin only to username `nenciulescu` (`ADMIN_USER` in `frontend/src/app/navigation.ts`, and the `/admin` route in `App.jsx`). Change both if the admin username changes.
 
 ---
@@ -395,7 +394,7 @@ Log groups follow `/aws/lambda/finance4tura-backend-<LogicalId>-<suffix>`. The f
 ```
 GoogleAuthFunction          PreSignUpFunction          HealthFunction
 IncomesFunction             ExpensesFunction           AdminFunction
-InvestmentOperationsFunction PortfolioSnapshotsFunction SplitPaymentsFunction
+InvestmentOperationsFunction SplitPaymentsFunction
 BooksAndDevFunction         HQFunction                 AppSettingsFunction
 FxRatesFunction             AdminBackupFunction        AiNewsFunction
 ```

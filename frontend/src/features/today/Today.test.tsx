@@ -27,13 +27,14 @@ const updateExpense = vi.fn((id: string, body: any) => {
   store = store.map(e => (e.expenseId === id ? { ...e, ...body } : e));
   return Promise.resolve({});
 });
-let snapshots: any[] = [];
+let pv2Assets: any[] = [];
+let pv2Snaps: any[] = [];
 
 vi.mock("../../api/incomes", () => ({ listIncomes: () => Promise.resolve(incomes) }));
 vi.mock("../../api/expenses", () => ({ listExpenses: () => Promise.resolve(store.map(e => ({ ...e }))), updateExpense: (...a: any[]) => (updateExpense as any)(...a) }));
 vi.mock("../../api/splitPayments", () => ({ listSplitPayments: () => Promise.resolve([]), updateSplitPayment: vi.fn() }));
 vi.mock("../../api/booksAndDev", () => ({ listBooks: () => Promise.resolve([]) }));
-vi.mock("../../api/investments", () => ({ listSnapshots: () => Promise.resolve(snapshots) }));
+vi.mock("../../api/portfolioV2", () => ({ listPv2Assets: () => Promise.resolve(pv2Assets), listPv2Snapshots: () => Promise.resolve(pv2Snaps) }));
 vi.mock("../../api/fxRates", () => ({ getFxRates: () => Promise.resolve({ rates: { USD: { EUR: 0.9 } }, updatedAt: "2026-09-10T00:00:00Z" }) }));
 
 const { default: Today } = await import("./Today");
@@ -46,7 +47,8 @@ const checkbox = (name: string) => within(row(name)).getByRole("checkbox");
 beforeEach(() => {
   updateExpense.mockClear();
   store = SEED.map(e => ({ ...e }));
-  snapshots = [];
+  pv2Assets = [];
+  pv2Snaps = [];
   vi.setSystemTime(new Date("2026-09-15T10:00:00Z"));
 });
 
@@ -131,18 +133,19 @@ describe("Today — ticking an expense", () => {
 });
 
 describe("Today — Holdings", () => {
-  it("masks every figure until the eye is held", async () => {
-    snapshots = [
-      { snapshotId: "a", date: "2026-09-01", platform: "eToro", amount: 1000, currency: "USD" },
-      { snapshotId: "b", date: "2026-09-01", platform: "ING Funds EUR", amount: 500, currency: "EUR" },
-    ];
+  it("shows the Portfolio v2 total and platforms, masked until the eye is held", async () => {
+    const total = (assetId: string, platform: string) => ({ assetId, platform, type: "Total", name: `${platform} total`, units: null, currency: "EUR", order: -1, active: true });
+    pv2Assets = [total("t1", "eToro"), total("t2", "ING Funds EUR")];
+    const snap = (assetId: string, valueEUR: number) => ({ snapshotId: assetId, assetId, generatedAt: "2026-09-01T09:00:00Z", latestPriceDate: "2026-09-01", valueEUR, source: "computed", sources: [] });
+    pv2Snaps = [snap("t1", 900), snap("t2", 500)];
     renderToday();
     const widget = await screen.findByRole("region", { name: "Holdings" });
+    expect((await within(widget).findAllByRole("img", { name: "Hidden amount" })).length).toBeGreaterThan(2);
     expect(within(widget).queryByText("1.400")).toBeNull();
-    expect(within(widget).getAllByRole("img", { name: "Hidden amount" }).length).toBeGreaterThan(2);
+    expect([...widget.querySelectorAll("[data-platform]")].map(r => r.getAttribute("data-platform"))).toEqual(["eToro", "ING Funds EUR"]);
     const eye = within(widget).getByRole("button", { name: "Hold to reveal amounts" });
     fireEvent.pointerDown(eye);
-    expect(within(widget).getByText("1.400")).toBeInTheDocument(); // 1000 USD × 0.9 + 500
+    expect(within(widget).getByText("1.400")).toBeInTheDocument(); // 900 + 500
     fireEvent.pointerUp(eye);
     expect(within(widget).queryByText("1.400")).toBeNull();
   });

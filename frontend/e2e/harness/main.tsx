@@ -21,7 +21,6 @@ function route(config: any) {
   if (url.startsWith("/expenses")) return json(db.expenses, config);
   if (url.startsWith("/split-payments")) return json(db.splits, config);
   if (url.startsWith("/books-and-dev")) return json(db.books, config);
-  if (url.startsWith("/investments/snapshots")) return json(db.snapshots, config);
   if (url.startsWith("/investments/operations")) return json(db.operations, config);
   if (url.startsWith("/fx-rates")) return json(db.fx, config);
   if (url.startsWith("/headquarters/templates")) return json(db.templates, config);

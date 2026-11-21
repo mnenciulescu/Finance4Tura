@@ -23,11 +23,6 @@
   line-height: var(--lh-footnote);
   color: var(--label-secondary);
 }
-.chevron {
-  color: var(--label-tertiary);
-  flex-shrink: 0;
-  transition: transform var(--dur-base) var(--ease-standard);
-}
 .positive { color: var(--status-positive); }
 .negative { color: var(--status-negative); }
 

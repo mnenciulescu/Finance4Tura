@@ -138,10 +138,6 @@
   font-size: var(--fs-body);
   font-weight: 600;
 }
-.holdingRaw {
-  font-size: var(--fs-caption1);
-  color: var(--label-secondary);
-}
 .holdingDate {
   font-size: var(--fs-footnote);
   color: var(--label-secondary);

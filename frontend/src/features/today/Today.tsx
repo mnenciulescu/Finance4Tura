@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { Screen } from "../../app/Screen";
-import { Badge, Button, Notice, ProgressRing, RevealScope, ScreenSkeleton, StatTile, Widget } from "../../ui";
-import { keys, useBooks, useExpenses, useFxRates, useIncomes, useSnapshots, useSplitPayments, useToggleExpense } from "../../data/queries";
+import { Badge, Button, Notice, ProgressRing, RevealScope, ScreenSkeleton, Skeleton, StatTile, Widget } from "../../ui";
+import { keys, useBooks, useExpenses, useIncomes, useSplitPayments, useToggleExpense } from "../../data/queries";
 import { BUDGET_COLOR } from "../../theme/domainColors";
 import { fmtInt, fmtNum, todayIso } from "../../utils/format";
 import { byCreatedDesc, splitStats } from "../../utils/split";
@@ -13,10 +13,11 @@ import { ExpenseRow } from "../money/budget/ExpenseRow";
 import { byPriorityThenDate } from "../money/budget/budgetMath";
 import { SettleAlert, SplitSlots } from "../money/split/SplitSlots";
 import { useSplitEditor } from "../money/split/useSplitEditor";
-import { HoldingsWidget } from "./HoldingsWidget";
 import { LibraryWidget } from "./LibraryWidget";
 // Only shown while the app is not installed; loads on demand.
 const InstallBanner = lazy(() => import("./InstallBanner").then(m => ({ default: m.InstallBanner })));
+// Portfolio v2 data and maths load with the widget, outside the first download.
+const HoldingsWidget = lazy(() => import("./HoldingsWidget"));
 import type { Expense, Income } from "../../types";
 import s from "./Today.module.css";
 import b from "../money/budget/Budget.module.css";
@@ -31,8 +32,6 @@ export default function Today() {
   const expenses = useExpenses();
   const splits = useSplitPayments();
   const books = useBooks();
-  const snapshots = useSnapshots();
-  const fx = useFxRates();
 
   // Which expenses were outstanding when the page loaded (or was refreshed).
   // Ticking one updates the cache but not this, so the row stays — struck
@@ -44,14 +43,14 @@ export default function Today() {
 
   const refresh = async () => {
     await Promise.all([
-      keys.incomes, keys.expenses, keys.splits, keys.books, keys.snapshots, keys.fx,
+      keys.incomes, keys.expenses, keys.splits, keys.books, ["pv2"],
     ].map(k => qc.invalidateQueries({ queryKey: k })));
     const fresh = qc.getQueryData<Expense[]>(keys.expenses) ?? [];
     setPendingAtLoad(new Set(fresh.filter(e => e.status !== "Completed").map(e => e.expenseId)));
   };
 
-  const loading = incomes.isPending || expenses.isPending || splits.isPending || books.isPending || snapshots.isPending;
-  const error = incomes.isError || expenses.isError || splits.isError || books.isError || snapshots.isError;
+  const loading = incomes.isPending || expenses.isPending || splits.isPending || books.isPending;
+  const error = incomes.isError || expenses.isError || splits.isError || books.isError;
 
   return (
     <Screen title="Today" subtitle={dayjs().format("dddd, D MMMM")} onRefresh={refresh}>
@@ -64,7 +63,7 @@ export default function Today() {
           <ThisPeriod incomes={incomes.data ?? []} expenses={expenses.data ?? []} pendingAtLoad={pendingAtLoad ?? new Set()} />
           <SplitWidget />
           <RevealScope>
-            <HoldingsWidget snapshots={snapshots.data ?? []} fx={fx.data ?? null} />
+            <Suspense fallback={<Skeleton height={160} />}><HoldingsWidget /></Suspense>
           </RevealScope>
           <LibraryWidget books={books.data ?? []} />
         </div>

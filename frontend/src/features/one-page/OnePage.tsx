@@ -10,10 +10,10 @@ import { useOnline } from "../../app/useOnline";
 import { openOverlayCount } from "../../app/overlays";
 import { useForms } from "../money/forms/FormsContext";
 import { SplitFormSheet } from "../money/split/SplitFormSheet";
-import { OperationSheet, SnapshotSheet } from "../money/invest/InvestForms";
+import { OperationSheet } from "../money/invest/InvestForms";
 import { BookSheet } from "../library/BookSheet";
 import { NO_FILTERS, type Filters } from "../library/libraryMath";
-import type { Book, Operation, Snapshot, SplitPayment } from "../../types";
+import type { Book, Operation, SplitPayment } from "../../types";
 import { Header } from "./Header";
 import { MoneyMask } from "./Block";
 import { BudgetBlock } from "./blocks/BudgetBlock";
@@ -43,7 +43,6 @@ export default function OnePage() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [split, setSplit] = useState<{ entry?: SplitPayment } | null>(null);
   const [book, setBook] = useState<{ book?: Book; name?: string } | null>(null);
-  const [snap, setSnap] = useState<{ snap?: Snapshot; date?: string } | null>(null);
   const [op, setOp] = useState<{ op?: Operation } | null>(null);
   const [shortcuts, setShortcuts] = useState(false);
   const [noteHidden, setNoteHidden] = useState(false);
@@ -100,7 +99,6 @@ export default function OnePage() {
     focusBlock,
     openSplit: setSplit,
     openBook: setBook,
-    openSnapshot: setSnap,
     openOperation: setOp,
   }), [filters, focusBlock]);
 
@@ -110,7 +108,6 @@ export default function OnePage() {
     split: () => setSplit({}),
     book: () => setBook({}),
     operation: () => setOp({}),
-    snapshot: () => setSnap({}),
     toggleIncome: () => setIncomeVisible(!incomeVisible),
     refresh: () => qc.invalidateQueries(),
     help: () => setShortcuts(true),
@@ -182,7 +179,6 @@ export default function OnePage() {
 
         <SplitFormSheet target={split} onClose={() => setSplit(null)} />
         <BookSheet target={book} names={names} onClose={() => setBook(null)} />
-        <SnapshotSheet target={snap} onClose={() => setSnap(null)} />
         <OperationSheet target={op} onClose={() => setOp(null)} />
         <ShortcutsSheet isOpen={shortcuts} onClose={() => setShortcuts(false)} />
       </RevealScope>
@@ -220,10 +216,10 @@ function regionNumber(layout: LayoutItem[], index: number) {
 
 /* ── Keyboard shortcuts (§6.4) ────────────────────────────────────────────── */
 
-const NEW_KEYS = { e: "expense", i: "income", s: "split", b: "book", o: "operation", p: "snapshot" } as const;
+const NEW_KEYS = { e: "expense", i: "income", s: "split", b: "book", o: "operation" } as const;
 
 interface ShortcutActions {
-  expense: () => void; income: () => void; split: () => void; book: () => void; operation: () => void; snapshot: () => void;
+  expense: () => void; income: () => void; split: () => void; book: () => void; operation: () => void;
   toggleIncome: () => void; refresh: () => void; help: () => void;
 }
 
@@ -268,7 +264,6 @@ const SHORTCUTS: [string, string][] = [
   ["N then E", "New expense"],
   ["N then I", "New income"],
   ["N then S", "New split payment"],
-  ["N then P", "New snapshot"],
   ["N then O", "New operation"],
   ["N then B", "New library entry"],
   ["← / →", "Previous / next budget period"],

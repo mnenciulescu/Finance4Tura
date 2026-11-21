@@ -4,9 +4,9 @@ import { updateExpense, deleteExpense, createExpense, updateExpenseSeries } from
 import { createSplitPayment, updateSplitPayment, deleteSplitPayment } from "../api/splitPayments";
 import { createBook, updateBook, deleteBook } from "../api/booksAndDev";
 import {
-  createOperation, updateOperation, deleteOperation, createSnapshot, updateSnapshot, deleteSnapshot,
+  createOperation, updateOperation, deleteOperation,
 } from "../api/investments";
-import type { Book, Expense, Income, Operation, Snapshot, SplitPayment } from "../types";
+import type { Book, Expense, Income, Operation, SplitPayment } from "../types";
 import { keys, patchLists, restoreLists, snapshotLists } from "./queries";
 
 // Write-side hooks used only by lazily loaded screens and sheets, kept out of
@@ -208,8 +208,5 @@ export function crud<T>(key: readonly unknown[], idOf: (t: T) => string, create:
 }
 
 const opCrud = crud<Operation>(keys.operations, o => o.operationId, createOperation, updateOperation, deleteOperation);
-const snapCrud = crud<Snapshot>(keys.snapshots, s => s.snapshotId, createSnapshot, updateSnapshot, deleteSnapshot);
 export const useSaveOperation = opCrud.useSave;
 export const useDeleteOperation = opCrud.useDelete;
-export const useSaveSnapshot = snapCrud.useSave;
-export const useDeleteSnapshot = snapCrud.useDelete;

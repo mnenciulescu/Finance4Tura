@@ -18,10 +18,6 @@ const EXPENSES = Array.from({ length: 7 }, (_, i) => ({
 const SPLITS = [
   { splitPaymentId: "s1", title: "Laptop", totalAmount: 1200, currency: "RON", occurrenceCount: 4, occurrenceType: "amount", createdDate: "2026-09-01", occurrences: [{ index: 0, value: 300 }, { index: 1, value: "" }, { index: 2, value: "" }, { index: 3, value: "" }] },
 ];
-const SNAPSHOTS = [
-  { snapshotId: "p1", date: "2026-08-31", platform: "eToro", amount: 5000, currency: "EUR" },
-  { snapshotId: "p2", date: "2026-08-31", platform: "Fidelity", amount: 3000, currency: "EUR" },
-];
 const BOOKS = Array.from({ length: 5 }, (_, i) => ({
   bookId: `b${i + 1}`, name: i < 3 ? "Ana" : "Radu", title: `Book ${i + 1}`, author: "A", source: "Book", type: "Book", dateCompleted: `2026-0${i + 1}`, rating: 4, comments: "",
 }));
@@ -35,7 +31,6 @@ vi.mock("../../api/expenses", async orig => ({
 vi.mock("../../api/splitPayments", async orig => ({ ...(await orig<object>()), listSplitPayments: () => Promise.resolve(SPLITS) }));
 vi.mock("../../api/investments", async orig => ({
   ...(await orig<object>()),
-  listSnapshots: () => Promise.resolve(SNAPSHOTS),
   listOperations: () => Promise.resolve([]),
 }));
 vi.mock("../../api/fxRates", async orig => ({ ...(await orig<object>()), getFxRates: () => Promise.resolve({ rates: null, updatedAt: null }) }));

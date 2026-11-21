@@ -6,6 +6,13 @@
 **Audience:** the implementer. Read with `CLAUDE.md` (what the PWA does today)
 and `Frontend_Redesign_Proposal.md` (the design language).
 
+> **Investments (later change):** the manual Investments module described
+> here — platform snapshots, the evolution chart, the snapshot forms — was
+> replaced by **Portfolio v2** (AI-priced assets) on One-Page and on Money →
+> Invest, and its `PortfolioSnapshots` table and API were deleted. Only the
+> operations log remains. The Investments passages below are historical; see
+> `CLAUDE.md` → *Money → Invest* and *Portfolio v2* for what is built.
+
 ---
 
 ## 1. Summary
@@ -118,18 +125,8 @@ behaviour come for free.
 
 ### 3.4 Money → Invest
 
-| Function | PWA today | One-Page |
-|---|---|---|
-| Total portfolio | Collapsible EUR total, platform count, FX date; rows per held platform with share bars | **Investments → Portfolio** tab; total and rows **masked behind hold-to-reveal** (see §10) |
-| Evolution chart | From 2023-01, carry-forward, 1Y/3Y/All, legend chips, operation dots, tooltip | **Statistics → Investments**; hover tooltips |
-| Snapshots | Grouped by date, 3 dates at a time, swipe Edit/Delete, *+ Add Platform to This Date* | **Investments → Snapshots** tab; 3 dates + Show more/less; hover actions |
-| Operations | Newest first, 3 at a time, Deposit/Withdrawal badges, notes on expand | **Investments → Operations** tab; same |
-| Forms | Snapshot / Operation sheets, platform currency pre-fill, snapshot edits keep the id | Dialogs (same `InvestForms`) |
-
-> The PWA shows holdings masked **only on Today**; Invest shows amounts
-> openly. One-Page sits on a desktop that may be in an office or on a shared
-> screen, so it applies the Today rule to the Portfolio tab as well. This is
-> a deliberate tightening, in the spirit of "protect sensitive data".
+*Superseded:* the Investments blocks were replaced by the Portfolio v2
+block, which also lists the operations (see `CLAUDE.md`).
 
 ### 3.5 Money → Stats
 
@@ -340,7 +337,7 @@ a **"?" shortcuts dialog** in the account menu.
 
 | Key | Action |
 |---|---|
-| `N` then `E` / `I` / `S` / `B` / `O` / `P` | New Expense / Income / Split / Book / Operation / Snapshot |
+| `N` then `E` / `I` / `S` / `B` / `O` | New Expense / Income / Split / Book / Operation |
 | `←` / `→` | Previous / next Budget period (when focus is in the Budget block or on the page body) |
 | `T` | Budget → current period |
 | `/` | Focus Library search |
@@ -412,14 +409,7 @@ Empty states match the PWA. Keyboard: rows are a grid list (React Aria
 
 ### 7.3 Investments (col 2, top)
 
-**Header:** "Investments" · subtitle `N snapshots · M operations` · **+**
-(New Snapshot / New Operation).
-
-| Tab | Content |
-|---|---|
-| **Portfolio** (default) | EUR total and per-platform rows (share bar, %, original currency) for `heldPlatforms`; FX date. **All amounts masked** with hold-to-reveal (§10). "View evolution →" links to the Statistics tab |
-| **Snapshots** | Grouped by date, newest first; **3 dates**, Show more/less; rows with hover Edit/Delete; *+ Add Platform to This Date* per group |
-| **Operations** | Newest first; **3 rows**, Show more/less; Deposit/Withdrawal badge; click expands notes; hover Edit/Delete |
+*Superseded:* replaced by the Portfolio v2 block (see `CLAUDE.md`).
 
 ### 7.4 Statistics (col 2, below Investments)
 
@@ -433,7 +423,6 @@ in the PWA.
 | **Budget** | Tiles: Avg free / month, Survival / month, `N months with data · now <Mon>`. **Free amount per month** bar chart (rounded tops, current month full opacity, dashed "now", zero line). Clicking a bar shows Income / High / Medium / Low / Free plus "Open in Budget" | `statsMath.ts`, `FreeChart` |
 | **Priorities** | High / Medium / Low averages (as in the PWA) plus a **per-month table** (month × High / Medium / Low / Total). This is the same data the Free tooltip shows, laid out for a wide screen | `statsMath` rows |
 | **★ Special** | Total, then the special expenses for the year: 3 rows, Show more/less; click opens the expense | `statsMath` / expenses |
-| **Investments** | Evolution line chart from `CHART_START` with carry-forward, **1Y · 3Y · All** range, legend chips (Total on, platforms off), operation dots and tooltip. **Amounts follow the holdings mask**: masked state shows the shape and hides the axis values and tooltip figures | `investMath.ts`, `EvolutionChart` |
 | **Library** | 12-month completions line chart, **one line per person** (legend chips toggle), with totals; filtered by the Library block's current filters so the two agree | `libraryMath.ts`, `MonthlyChart` (generalised to multi-series) |
 | **HQ** | Location picker, then the water consumption chart (cold/hot per month, values on points, dashed averages, last 3 years) per water template | `hqMath.ts`, `WaterChart` |
 
@@ -560,7 +549,6 @@ preview and discard prompts with no duplicated code.
 | Expense | ✓ (`N E`) | Budget **+ Add Expense** (period date), period ··· → Add Expense to This Period |
 | Income | ✓ (`N I`) | Budget ··· → New Income |
 | Split payment | ✓ (`N S`) | Split **+** |
-| Snapshot | ✓ (`N P`) | Investments **+**, Snapshots → *+ Add Platform to This Date* |
 | Operation | ✓ (`N O`) | Investments **+** |
 | Book | ✓ (`N B`) | Library **+** (person pre-filled from the active tab) |
 | HQ entry | ✓ (asks for the template) | HQ → template → **New Entry** |
@@ -717,7 +705,7 @@ block render.
 |---|---|---|
 | `BudgetPeriodCard` (PeriodHeader + BudgetBar + rows + Add) | `Budget.tsx` | Budget screen pager page, BudgetBlock |
 | `SplitCard` (+ existing `SplitSlots`) | `SplitScreen.tsx` | Split screen, Today widget, SplitBlock |
-| `PortfolioPanel`, `SnapshotList`, `OperationList` | `InvestScreen.tsx` | Invest screen, InvestBlock |
+| `OperationList` | `InvestPanels.tsx` | Invest screen, Portfolio v2 block |
 | `StatsSummary`, `SpecialList` (+ existing `FreeChart`) | `StatsScreen.tsx` | Stats screen, StatsBlock |
 | `BookCard` | `Library.tsx` | Library screen, LibraryBlock |
 | `TemplateSection` (exists), `OverviewList` | `HqScreen.tsx` | HQ screen, HqBlock |
@@ -740,8 +728,8 @@ screens use:
 `useIncomesForYear` / `useExpensesForYear` (Budget, Stats),
 `useToggleExpense`, `useSaveExpense`, `useSaveIncome`, `useDeleteExpense`,
 `useDeleteIncome`, `useSplitPayments` + `saveSplitOccurrences`,
-`useSaveSplit`, `useDeleteSplit`, `useOperations`, `useSnapshots`,
-`useFxRates`, the operation and snapshot cruds, `useBooks`, `useSaveBook`,
+`useSaveSplit`, `useDeleteSplit`, `useOperations`,
+`useFxRates`, the operation cruds, `useBooks`, `useSaveBook`,
 `useRateBook`, `useDeleteBook`, and `useHqLocations` / `useHqTemplates` /
 `useHqEntries` with their mutations.
 

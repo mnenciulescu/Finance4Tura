@@ -2,6 +2,13 @@
 
 **Status:** implemented on branch `feature/fe-pwa-redesign-v2` (Nov 2026). Deviations: expense/income forms are overlay sheets with deep-link URLs rather than modal routes; sheets fit content or fill the screen (no medium detent); month picker is a grid, not wheels.
 
+> **Investments (later change):** the manual Investments module described
+> here — platform snapshots, the evolution chart, the snapshot forms — was
+> replaced by **Portfolio v2** (AI-priced assets) on One-Page and on Money →
+> Invest, and its `PortfolioSnapshots` table and API were deleted. Only the
+> operations log remains. The Investments passages below are historical; see
+> `CLAUDE.md` → *Money → Invest* and *Portfolio v2* for what is built.
+
 Originally: proposal, not implemented. Written 2026-11-14 against `main` at the
 time of writing; updated the same day for cross-platform behaviour (§10), a
 stack review (§12.1) and a consistency pass. This document is the
@@ -873,28 +880,8 @@ FREE AMOUNT PER MONTH
 
 ### 8.7 Money → Invest
 
-Subtitle under the segmented control: `N snapshots · M operations` (as today).
-Four sections, same data rules as today:
-
-1. **Total Portfolio** — collapsible card: total EUR (title1), platform count,
-   `FX Nov 13` / `No FX rates set`. Expanded: per-platform rows with dot, EUR
-   amount, share bar in platform colour, share %, original amount + currency,
-   last snapshot date (`heldPlatforms`).
-2. **Evolution** — line chart from `CHART_START` (2023-01), Total visible,
-   platforms toggled by chips (`activePlatforms`) in a horizontally scrolling
-   chip row; operation-month dots; tooltip with value, that month's operations
-   and net cash. Add a range segmented control *1Y · 3Y · All* (new, view-only;
-   default All so current behaviour is preserved).
-3. **Snapshots** — grouped by date, newest first, 3 at a time with
-   *Show 3 More* / *Show Less* (unchanged counts). Collapsed row: date, count
-   badge, platform dots, carry-forward total. Expanded: platform rows with
-   amount, `≈ N EUR`, swipe Edit / Delete; *Add Platform to This Date* row.
-4. **Operations** — rows with platform dot, name, Deposit / Withdrawal badge
-   (positive / negative colour), date, signed amount; tap expands notes; swipe
-   Edit / Delete. Same 3-at-a-time reveal.
-
-`+` menu: *New Snapshot*, *New Operation* → `FormSheet`s (type as segmented
-Deposit / Withdrawal; currency pre-filled from platform default, editable).
+*Superseded:* Money → Invest now shows Portfolio v2 plus the operations
+log (see `CLAUDE.md`). The old snapshot / evolution design was removed.
 
 ### 8.8 Library (Books & Development)
 
@@ -1610,12 +1597,7 @@ Every row must be ticked before the old implementation is removed.
 - [ ] Special expenses list with total
 
 **A.7 Invest**
-- [ ] Header `N snapshots · M operations`
-- [ ] Total portfolio with FX date or "no FX rates set"; per-platform shares of `heldPlatforms`
-- [ ] Evolution from `CHART_START`; carry-forward; Total + toggleable platforms (`activePlatforms`); operation dots; tooltip with ops and net cash
-- [ ] Snapshots grouped by date, 3 at a time, show more / less; edit, delete; add platform to date
-- [ ] Operations newest first, 3 at a time; notes; edit, delete
-- [ ] Create/edit sheets; currency default per platform; snapshot edit keeps id
+- [x] Superseded by Portfolio v2 (see `CLAUDE.md` → Money → Invest)
 
 **A.8 Library**
 - [ ] Per-person sections, alphabetical, Unassigned last; collapsible

@@ -3,9 +3,9 @@ import { listIncomes, getIncome } from "../api/incomes";
 import { listExpenses, updateExpense, getExpense, resolveIncome } from "../api/expenses";
 import { listSplitPayments, updateSplitPayment } from "../api/splitPayments";
 import { listBooks } from "../api/booksAndDev";
-import { listOperations, listSnapshots } from "../api/investments";
+import { listOperations } from "../api/investments";
 import { getFxRates } from "../api/fxRates";
-import type { Book, Expense, FxRates, Income, Occurrence, Operation, Snapshot, SplitPayment } from "../types";
+import type { Book, Expense, FxRates, Income, Occurrence, Operation, SplitPayment } from "../types";
 
 /* ── Keys ─────────────────────────────────────────────────────────────────── */
 
@@ -20,7 +20,6 @@ export const keys = {
   splits: ["splitPayments"] as const,
   books: ["books"] as const,
   operations: ["operations"] as const,
-  snapshots: ["snapshots"] as const,
   fx: ["fxRates"] as const,
   hqLocations: ["hq", "locations"] as const,
   hqTemplates: ["hq", "templates"] as const,
@@ -121,11 +120,9 @@ export const saveSplitOccurrences = (id: string, occurrences: Occurrence[]) =>
 
 export const useBooks = () => useQuery({ queryKey: keys.books, queryFn: () => listBooks() as Promise<Book[]> });
 
-/* ── Investments / FX ─────────────────────────────────────────────────────── */
+/* ── Operations / FX ─────────────────────────────────────────────────────── */
 
 export const useOperations = () =>
   useQuery({ queryKey: keys.operations, queryFn: () => listOperations() as Promise<Operation[]> });
-export const useSnapshots = () =>
-  useQuery({ queryKey: keys.snapshots, queryFn: () => listSnapshots() as Promise<Snapshot[]> });
 export const useFxRates = () =>
   useQuery({ queryKey: keys.fx, queryFn: () => getFxRates() as Promise<FxRates> });

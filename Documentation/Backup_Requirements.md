@@ -74,7 +74,6 @@ All 11 tables in the `finance4tura-backend` stack (the `TABLES` list in `adminBa
 | `Incomes` | `incomeId` |
 | `Expenses` | `expenseId` |
 | `InvestmentOperations` | `operationId` |
-| `PortfolioSnapshots` | `snapshotId` |
 | `SplitPayments` | `splitPaymentId` |
 | `AppSettings` | `settingKey` |
 | `FxRates` | `rateId` |

@@ -5,7 +5,3 @@ export const createOperation = (body)     => client.post("/investments/operation
 export const updateOperation = (id, body) => client.put(`/investments/operations/${id}`, body).then(r => r.data);
 export const deleteOperation = (id)       => client.delete(`/investments/operations/${id}`).then(r => r.data);
 
-export const listSnapshots   = (params)   => client.get("/investments/snapshots", { params }).then(r => r.data);
-export const createSnapshot  = (body)     => client.post("/investments/snapshots", body).then(r => r.data);
-export const updateSnapshot  = (id, body) => client.put(`/investments/snapshots/${id}`, body).then(r => r.data);
-export const deleteSnapshot  = (id)       => client.delete(`/investments/snapshots/${id}`).then(r => r.data);

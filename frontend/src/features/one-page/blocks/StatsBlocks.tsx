@@ -27,7 +27,7 @@ type Tab = (typeof TABS)[number];
 /*
  * The statistics blocks (One-Page §7.4), each beside the block it summarises:
  * Budget Statistics (Budget · Priorities · ★ Special, following the header's
- * year), Investment Statistics (evolution), HQ Statistics (water charts) and
+ * year), HQ Statistics (water charts) and
  * Library Statistics (12-month chart following the Library filters).
  */
 

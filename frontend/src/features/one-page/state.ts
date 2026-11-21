@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Book, Operation, Snapshot, SplitPayment } from "../../types";
+import type { Book, Operation, SplitPayment } from "../../types";
 import { NO_FILTERS, type Filters } from "../library/libraryMath";
 
 /* ── URL state ────────────────────────────────────────────────────────────── */
@@ -41,7 +41,6 @@ export type BlockId =
 export interface DeskForms {
   openSplit: (t: { entry?: SplitPayment }) => void;
   openBook: (t: { book?: Book; name?: string }) => void;
-  openSnapshot: (t: { snap?: Snapshot; date?: string }) => void;
   openOperation: (t: { op?: Operation }) => void;
 }
 
@@ -59,7 +58,6 @@ export const OnePageContext = createContext<OnePageValue>({
   focusBlock: () => {},
   openSplit: () => {},
   openBook: () => {},
-  openSnapshot: () => {},
   openOperation: () => {},
 });
 

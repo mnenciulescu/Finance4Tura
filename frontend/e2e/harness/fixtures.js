@@ -36,13 +36,6 @@ for (let m = 0; m < 14; m++) {
     b++;
   });
 }
-const platforms = [["eToro", "USD", 8200], ["Binance", "USD", 1500], ["Fidelity", "USD", 12000], ["ING Funds RON", "RON", 30000], ["ING Funds EUR", "EUR", 4000]];
-const snapshots = [];
-let s = 1;
-for (let q = 0; q < 12; q++) {
-  const d = new Date(y - 2, q * 3, 28);
-  platforms.forEach(([platform, currency, base], k) => snapshots.push({ snapshotId: `sn${s++}`, date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-28`, platform, currency, amount: Math.round(base * (1 + q * 0.06 + k * 0.01)) }));
-}
 const operations = [
   { operationId: "o1", date: `${y}-03-05`, type: "Deposit", platform: "eToro", amount: 1000, currency: "USD", notes: "Monthly top-up" },
   { operationId: "o2", date: `${y}-05-05`, type: "Deposit", platform: "Fidelity", amount: 2000, currency: "USD", notes: "" },
@@ -109,4 +102,4 @@ const pv2Snapshots = [];
 });
 const pv2Ai = { configured: true, keyUpdatedAt: `${y}-11-01T10:00:00Z`, model: "claude-opus-5-5", maxSearches: 5, enabled: true };
 
-export const db = { incomes, expenses, splits, books, snapshots, operations, fx, locations, templates, entries, users, pv2Assets, pv2Snapshots, pv2Ai };
+export const db = { incomes, expenses, splits, books, operations, fx, locations, templates, entries, users, pv2Assets, pv2Snapshots, pv2Ai };

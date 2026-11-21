@@ -286,157 +286,24 @@ Automated in `SplitPayment.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (
 
 ---
 
-## Phase 11 – Investments Module ✅
+## Phase 11 – Investment Operations ✅
 
-Portfolio tracker across six platforms. Route `/investments` (Dashboard ⋮ menu). Full spec: `Investments_Requirement.md`.
+The manual Investments module (platform snapshots, evolution chart) was
+replaced by **Portfolio v2** (AI-priced assets; see `CLAUDE.md`). Its
+platform history was imported into Portfolio v2 as Total snapshots and the
+`PortfolioSnapshots` table was deleted. What remains is the operations log —
+deposits and withdrawals — listed by Portfolio v2 (Money → Invest, One-Page).
 
-### Platforms
-| Platform | Default Currency |
-|---|---|
-| eToro, Binance, Fidelity, Tradeville | USD |
-| ING Funds RON | RON |
-| ING Funds EUR | EUR |
-
-### Tables
+### Table
 - `InvestmentOperations` (PK `operationId`): `userId`, `date`, `type` (`Deposit` \| `Withdrawal`), `platform`, `amount` (always positive), `currency`, `notes`.
-- `PortfolioSnapshots` (PK `snapshotId`): `userId`, `date`, `platform`, `amount`, `currency` — one record per platform per reading.
 
 ### Endpoints
 | Method | Path | Description |
 |---|---|---|
 | `GET` / `POST` | `/investments/operations` | List / create |
 | `PUT` / `DELETE` | `/investments/operations/{operationId}` | Edit / delete |
-| `GET` | `/investments/snapshots` | List |
-| `GET` | `/investments/snapshots/latest` | Latest per platform |
-| `POST` | `/investments/snapshots` | Record a reading |
-| `PUT` / `DELETE` | `/investments/snapshots/{snapshotId}` | Edit in place / delete |
 
-### Page Blocks
-1. **Total portfolio** — expandable; EUR total, platform count, FX date; expanded, per-platform share bars for every platform still holding money.
-2. **Portfolio evolution** — EUR line chart **from 2023**, carrying forward the latest reading per platform; Total line on by default, platform lines togglable; dots on operation months.
-3. **Portfolio snapshots** — grouped by date, 3 at a time, each expandable to per-platform rows with edit, delete and *Add platform to this date*.
-4. **Operations log** — newest first, 3 at a time, expandable for notes and edit/delete.
-
-Bottom sheets for add/edit; two-step inline delete. EUR conversion uses the stored FX rates (Phase 15). No S&P 500 simulation.
-
-### Tests – Phase 11
-`Investments.test.jsx` — 9 render tests. Acceptance tests in the full spec.
-
----
-
-## Phase 12 – AI News Page ⛔ Retired
-
-An `/ai-news` page showed AI news from Google News and MIT Technology Review RSS feeds. It was removed from the frontend, and the backend endpoint (`AiNewsFunction`, `AnthropicApiKey` parameter) was deleted in the November 2026 cleanup.
-
----
-
-## Phase 13 – Home Overview ✅
-
-### Goal
-A landing page (`/`) summarising the day. The Finance Dashboard moved to `/finance`.
-
-### Blocks
-1. **Current period expenses** — the current income in a hero header; the expenses mapped to it that were outstanding when the page loaded, by priority then date. Ticking marks one Completed (unticking reverts); ticked rows stay, struck through, until the next load. Footer: **Done** and **Pending** totals for the period.
-2. **Split Payments — Last 3** — the three newest open entries, with the Split Pay slot rules and settle prompt; *View all →*.
-3. **Current Holdings** — EUR total behind a hold-to-reveal mask, active platforms, FX date.
-4. **Books & Development — Latest per Person** — persons × types, the latest entry in each.
-
-### Tests – Phase 13
-`HomeOverview.test.jsx` (13) and `HomeOverview.splitPay.test.jsx` (23).
-
----
-
-## Phase 14 – Books & Development ✅
-
-### Goal
-A reading and training log per person. Route `/books-and-dev` — the **Books** tab.
-
-### Data
-`Books_and_Dev` (PK `bookId`): `userId`, `name` (person), `source` (Book / Voxa / Udemy / Other), `type` (Book / Audiobook / Training / Other), `author`, `title`, `dateCompleted` (`YYYY-MM`), `rating` (1–5 or null), `comments`, `createdAt`, `updatedAt`. CRUD on `/books-and-dev`, sorted by `dateCompleted` desc then title.
-
-### Behavior
-- One collapsible section per person (alphabetical, Unassigned last), newest first, 5 at a time.
-- Per-person line chart for the last 12 months: entries completed per month, any type or source, with the total.
-- Filter sheet: person, type, source, rating, text search on title/author.
-- Add/edit in a bottom sheet with a 1–5 star picker; two-step inline delete.
-
-### Tests – Phase 14
-`BooksAndDev.test.jsx` (5).
-
----
-
-## Phase 15 – App Settings, FX Rates, Admin, Backstage ✅
-
-### App Settings
-- `AppSettings` table, one `global` item: `backstageEnabled`, `googleLoginEnabled`, `createAccountEnabled` (all default on).
-- `GET /app-settings` is public (the login page needs it); `PUT` is admin-only.
-
-### FX Rates
-- `FxRates` table, one `global` item with the full EUR/USD/RON matrix (`rates[FROM][TO]`) and `updatedAt`.
-- `GET /fx-rates` is public; `POST /fx-rates` (admin) fetches from frankfurter.app and stores the matrix. Pages never fetch rates from a third party.
-
-### Admin page (`/admin`)
-Shown only to username `nenciulescu`; the API requires the Cognito `admin` group.
-- **App Settings** toggles
-- **FX Rates** with **Update FX rates**
-- **Database Backup** (Phase 17)
-- **Users** — list with income/expense counts, toggle admin, delete after re-entering your password
-
-### Settings page (`/settings`)
-- Colour theme: Dusk (default), Light, Amber
-- Default visibility of income amounts
-
-### Backstage (`/backstage`)
-Raw viewer for Incomes, Expenses, Operations, Snapshots and Splits — search, 10 rows a page, delete — plus a live log of the last 50 API calls. In the avatar menu only while `backstageEnabled` is on.
-
----
-
-## Phase 16 – Headquarters ✅
-
-Meter readings per location. Route `/headquarters` — the **HQ** tab. Full spec: `Headquarters_Requirements.md`.
-
-- Tables `HQ_Locations`, `HQ_Templates`, `HQ_Entries`; one Lambda (`HQFunction`).
-- Tabs: HQ Dashboard · one per location · Settings.
-- Templates of up to 30 parameters (`number` / `text` / `boolean`); entries auto-save with a 600 ms debounce.
-- Water templates get computed consumption columns and a dashboard chart.
-
-### Tests – Phase 16
-`Headquarters.test.jsx` (4).
-
----
-
-## Phase 17 – Database Backup ✅
-
-**Admin → Database Backup → Backup ALL Tables** exports all 11 tables (every user) to CSV in a new dated Google Drive folder, one table per request, with live per-table status. Full spec: `Backup_Requirements.md`.
-
----
-
-## Phase 18 – One Layout & Design System ✅ (superseded by Phase 19)
-
-### Goal
-One consistent, phone-first app.
-
-- Every page is a 430 px column on every screen; desktop layout removed.
-- Design tokens (colour, radius, elevation, spacing, type) as CSS variables in `index.css`; `designTokens.test.js` fails the build on raw values elsewhere.
-- Shared primitives in `components/ui.jsx`; categorical colours in `utils/colors.js`.
-- Themes: Dusk (default), Light, Amber; Nunito with tabular numerals.
-- 16 px form controls everywhere (no iOS zoom), guarded by `noZoom.test.jsx`.
-- App calendar sheet (`DateSheet`) where a native date field would be risky.
-- Bottom sheets for forms; two-step inline delete instead of dialogs.
-
----
-
-## Phase 19 – Apple-style PWA Redesign ✅
-
-Implemented from `Frontend_Redesign_Proposal.md` (November 2026). Phases 4–18 above describe the earlier UI; the current frontend is described in `CLAUDE.md`.
-
-- Tabs Today · Money (Budget · Split · Stats · Invest) · Library · HQ; account sheet; old routes redirect.
-- Light / Dark / Automatic themes; SF Pro on Apple devices, Inter elsewhere; tokens enforced by `guards.test.ts`.
-- React Aria Components, Motion, TanStack Query (IndexedDB persistence), TypeScript.
-- Sheets for create/edit, swipe two-step delete, Android back handled through history, iPhone-only edge swipe.
-- Tests: 246 Vitest + 26 Playwright (iPhone WebKit, Pixel Chrome). Bundle budget ≤ 200 KB initial JS.
-
----
+Platforms: eToro, Binance, Fidelity, Tradeville (USD), ING Funds RON (RON), ING Funds EUR (EUR).
 
 ## Table Summary
 
@@ -446,7 +313,6 @@ Implemented from `Frontend_Redesign_Proposal.md` (November 2026). Phases 4–18 
 | `Expenses` | `expenseId` | 1 |
 | `SplitPayments` | `splitPaymentId` | 10 |
 | `InvestmentOperations` | `operationId` | 11 |
-| `PortfolioSnapshots` | `snapshotId` | 11 |
 | `Books_and_Dev` | `bookId` | 14 |
 | `AppSettings` | `settingKey` | 15 |
 | `FxRates` | `rateId` | 15 |

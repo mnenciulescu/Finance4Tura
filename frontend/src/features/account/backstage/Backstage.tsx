@@ -6,9 +6,9 @@ import { Badge, Button, IconButton, ListSection, Notice, ScreenSkeleton, SearchF
 import { opLog, getLogSeq } from "../../../api/client";
 import { deleteIncome } from "../../../api/incomes";
 import { deleteExpense } from "../../../api/expenses";
-import { deleteOperation, deleteSnapshot } from "../../../api/investments";
+import { deleteOperation } from "../../../api/investments";
 import { deleteSplitPayment } from "../../../api/splitPayments";
-import { keys, useExpenses, useIncomes, useOperations, useSnapshots, useSplitPayments } from "../../../data/queries";
+import { keys, useExpenses, useIncomes, useOperations, useSplitPayments } from "../../../data/queries";
 import { HTTP_METHOD_COLOR } from "../../../theme/domainColors";
 import s from "./Backstage.module.css";
 
@@ -48,12 +48,6 @@ const TABLES: TableDef[] = [
     remove: id => deleteOperation(id),
   },
   {
-    id: "snapshots", label: "Snapshots", key: keys.snapshots, idOf: r => r.snapshotId, title: r => r.platform,
-    amount: r => `${r.amount} ${r.currency ?? ""}`.trim(),
-    fields: r => [["Date", r.date], ["Platform", r.platform], ["ID", r.snapshotId]],
-    remove: id => deleteSnapshot(id),
-  },
-  {
     id: "splits", label: "Splits", key: keys.splits, idOf: r => r.splitPaymentId, title: r => r.title,
     amount: r => `${r.totalAmount} ${r.currency ?? ""}`.trim(),
     fields: r => [["Date", r.createdDate], ["Track by", r.occurrenceType], ["Occurrences", r.occurrenceCount], ["ID", r.splitPaymentId]],
@@ -67,7 +61,7 @@ export default function Backstage() {
   const qc = useQueryClient();
   const toast = useToast();
   const queries = {
-    incomes: useIncomes(), expenses: useExpenses(), operations: useOperations(), snapshots: useSnapshots(), splits: useSplitPayments(),
+    incomes: useIncomes(), expenses: useExpenses(), operations: useOperations(), splits: useSplitPayments(),
   } as Record<string, { data?: Row[]; isPending: boolean; isError: boolean }>;
   const [active, setActive] = useState("incomes");
   const [search, setSearch] = useState("");
