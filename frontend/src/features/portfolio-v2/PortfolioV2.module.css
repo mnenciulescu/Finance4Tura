@@ -409,3 +409,58 @@
 @container (width < 560px) {
   .twoCol { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── Phone (Money → Invest) ─────────────────────────────────────────────── */
+/* Rows reach the 44 pt touch target; hover backgrounds stay desk-only. */
+.phoneList .rowButton,
+.phoneList .assetRow { min-height: 44px; }
+.phoneList .rowButton:hover { background: none; }
+.phoneList .rowButton:active { background: var(--fill-pressed); }
+.phoneList .rowMain .badges { margin-top: 2px; }
+.phoneList .assets { padding-left: calc(var(--space-3) + 20px); }
+
+.runList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.runGroup {
+  padding: 0 var(--space-3) var(--space-1);
+  font-size: var(--fs-caption1);
+  line-height: var(--lh-caption1);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--label-secondary);
+}
+.runItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+}
+.runItem.rowFailed { background: color-mix(in srgb, var(--status-negative) 8%, transparent); }
+.runItemTop {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+}
+.runItemName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.runItemDetail {
+  color: var(--label-secondary);
+  overflow-wrap: anywhere;
+}
+.runItemDetail:empty { display: none; }
+.runItem > div:last-child:has(button) { margin-top: var(--space-1); }
+.footerPhone > :first-child { flex-basis: 100%; }
+.footerPhone > button { flex: 1; }

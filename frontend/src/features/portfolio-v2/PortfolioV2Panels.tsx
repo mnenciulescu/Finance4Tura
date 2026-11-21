@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ActionSheet, Badge, Button, Dot, Icon, PrivateValue, Sheet, SwipeActions, useToast } from "../../ui";
+import { ActionSheet, Badge, Button, Dot, Icon, PrivateValue, Sheet, SwipeActions, useIsDesk, useToast } from "../../ui";
 import { fmtDate, fmtNum } from "../../utils/format";
 import type { Pv2Asset, Pv2Run } from "../../types";
 import { useDeletePv2Asset } from "./data";
@@ -14,15 +14,27 @@ const fmtUnits = (n: number | null | undefined) =>
 
 /* ── Last snapshot ────────────────────────────────────────────────────────── */
 
-export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSummary[]; colors: Record<string, string> }) {
+/**
+ * The last snapshot per platform; a row expands to its assets. On the phone
+ * (`heading={false}` under a ListSection) the badges sit under the name so
+ * the value keeps its width at 360 px.
+ */
+export function LatestSnapshot({ platforms, colors, heading = true }: { platforms: PlatformSummary[]; colors: Record<string, string>; heading?: boolean }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const desk = useIsDesk();
   if (platforms.length === 0) return null;
   return (
     <section aria-label="Last snapshot">
-      <div className={s.sectionHead}><span>Last snapshot</span></div>
-      <ul className={s.list}>
+      {heading && <div className={s.sectionHead}><span>Last snapshot</span></div>}
+      <ul className={[s.list, desk ? "" : s.phoneList].join(" ")}>
         {platforms.map(p => {
           const isOpen = !!open[p.platform];
+          const badges = (p.missing > 0 || p.stale > 0) && (
+            <span className={s.badges}>
+              {p.missing > 0 && <Badge color="var(--status-warning)">{p.missing} unpriced</Badge>}
+              {p.stale > 0 && <Badge color="var(--status-warning)">{p.stale} stale</Badge>}
+            </span>
+          );
           return (
             <li key={p.platform} data-platform={p.platform}>
               <button type="button" className={s.rowButton} aria-expanded={isOpen} onClick={() => setOpen(m => ({ ...m, [p.platform]: !isOpen }))}>
@@ -35,11 +47,9 @@ export function LatestSnapshot({ platforms, colors }: { platforms: PlatformSumma
                       ? <>Imported history · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : ""}</>
                       : <>{p.rows.length} asset{p.rows.length === 1 ? "" : "s"} · {p.latestPriceDate ? fmtDate(p.latestPriceDate) : "no prices yet"}{p.imported ? " · imported" : ""}</>}
                   </span>
+                  {!desk && badges}
                 </span>
-                <span className={s.badges}>
-                  {p.missing > 0 && <Badge color="var(--status-warning)">{p.missing} unpriced</Badge>}
-                  {p.stale > 0 && <Badge color="var(--status-warning)">{p.stale} stale</Badge>}
-                </span>
+                {desk && badges}
                 <span className={s.rowEnd}>
                   <span className={s.rowValue}><H>{fmtNum(p.valueEUR)}</H> EUR</span>
                   <span className={s.rowSub}>{p.share.toFixed(1)}%</span>
@@ -87,14 +97,21 @@ function hostOf(url: string) {
 
 /* ── Assets ───────────────────────────────────────────────────────────────── */
 
+/**
+ * The asset list, Total first per platform; swipe (hover on One-Page) to Edit
+ * or Remove. `embedded`: the caller provides the heading, the collapse and Add
+ * (the phone's ListSection), so only the list renders.
+ */
 export function AssetsArea({
-  assets, onAdd, onEdit,
+  assets, onAdd, onEdit, embedded,
 }: {
   assets: Pv2Asset[];
   onAdd: (platform?: string) => void;
   onEdit: (a: Pv2Asset) => void;
+  embedded?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState(false);
+  const open = embedded || openState;
   const [confirm, setConfirm] = useState<Pv2Asset | null>(null);
   const del = useDeletePv2Asset();
   const toast = useToast();
@@ -113,18 +130,22 @@ export function AssetsArea({
 
   return (
     <section aria-label="Assets">
-      <button type="button" className={s.areaToggle} aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        <Icon name="chevronRight" size={12} weight="semibold" className={s.chevron} style={{ transform: open ? "rotate(90deg)" : "none" }} />
-        <span>Assets</span>
-        <span className={s.meta}>{priced.length} · {platforms.length} platform{platforms.length === 1 ? "" : "s"}</span>
-      </button>
+      {!embedded && (
+        <button type="button" className={s.areaToggle} aria-expanded={open} onClick={() => setOpen(o => !o)}>
+          <Icon name="chevronRight" size={12} weight="semibold" className={s.chevron} style={{ transform: open ? "rotate(90deg)" : "none" }} />
+          <span>Assets</span>
+          <span className={s.meta}>{priced.length} · {platforms.length} platform{platforms.length === 1 ? "" : "s"}</span>
+        </button>
+      )}
       {open && (
         <>
-          <div className={s.areaActions}>
-            <Button variant="tinted" size="small" icon="plus" onClick={() => onAdd()}>Add Asset</Button>
-          </div>
+          {!embedded && (
+            <div className={s.areaActions}>
+              <Button variant="tinted" size="small" icon="plus" onClick={() => onAdd()}>Add Asset</Button>
+            </div>
+          )}
           {assets.length === 0 ? <p className={s.empty}>No assets yet. Add one to start.</p> : (
-            <ul className={s.list} aria-label="Asset list">
+            <ul className={[s.list, embedded ? s.phoneList : ""].join(" ")} aria-label="Asset list">
               {platforms.map(platform => {
                 const rows = assets.filter(a => a.platform === platform)
                   .sort((a, b) => Number(b.type === "Total") - Number(a.type === "Total") || a.order - b.order || a.name.localeCompare(b.name));

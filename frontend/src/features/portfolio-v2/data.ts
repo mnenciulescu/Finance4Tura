@@ -5,7 +5,7 @@ import {
 } from "../../api/portfolioV2";
 import type { Pv2AiConfig, Pv2Asset, Pv2Run, Pv2Snapshot } from "../../types";
 
-/* Portfolio v2 server state (One-Page only, so it stays in that chunk). */
+/* Portfolio v2 server state (One-Page block and Money → Invest; both lazy chunks). */
 
 export const pv2Keys = {
   all: ["pv2"] as const,

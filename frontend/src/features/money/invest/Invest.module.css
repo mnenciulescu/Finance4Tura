@@ -31,64 +31,6 @@
 .positive { color: var(--status-positive); }
 .negative { color: var(--status-negative); }
 
-/* ── Total ──────────────────────────────────────────────────────────────── */
-.totalHead {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-4);
-  text-align: left;
-}
-.totalHead:active {
-  background: var(--fill-pressed);
-}
-.totalText {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.totalValue {
-  font-family: var(--font-rounded);
-  font-size: var(--fs-title1);
-  line-height: var(--lh-title1);
-  font-weight: 700;
-}
-.unit {
-  font-size: var(--fs-subheadline);
-  font-weight: 600;
-  color: var(--label-secondary);
-}
-.holdings {
-  list-style: none;
-  padding: 0 var(--space-4) var(--space-3);
-}
-.holding {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) 0;
-  border-top: var(--hairline) solid var(--separator);
-}
-.holdingTop {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.holdingName {
-  flex: 1;
-  font-size: var(--fs-body);
-}
-.holdingAmount {
-  font-weight: 600;
-}
-.holdingMeta {
-  display: flex;
-  gap: var(--space-3);
-  font-size: var(--fs-caption1);
-  color: var(--label-secondary);
-}
 .emptyLine {
   padding: var(--space-4);
   font-size: var(--fs-subheadline);
@@ -109,9 +51,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-.range {
-  align-self: stretch;
 }
 .chips {
   display: flex;
@@ -144,30 +83,7 @@
   font-weight: 600;
 }
 
-/* Range switch + line chips above the evolution chart. */
-.controls {
-  display: contents;
-}
-.tooltip {
-  min-width: 180px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--fs-footnote);
-  line-height: var(--lh-footnote);
-}
-.tooltipHead {
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-.tooltipRow {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-/* ── Snapshot / operation rows ──────────────────────────────────────────── */
+/* ── Operation rows ──────────────────────────────────────────── */
 .rowHead {
   display: flex;
   align-items: center;
@@ -186,12 +102,6 @@
   font-weight: 500;
   white-space: nowrap;
 }
-.dots {
-  flex: 1;
-  display: inline-flex;
-  gap: 3px;
-  flex-wrap: wrap;
-}
 .rowValue {
   font-size: var(--fs-subheadline);
   font-weight: 600;
@@ -202,56 +112,6 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-.subList {
-  list-style: none;
-  border-top: var(--hairline) solid var(--separator);
-}
-.subList > li + li {
-  border-top: var(--hairline) solid var(--separator);
-}
-.subRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 48px;
-  padding: 0 var(--space-2) 0 var(--space-4);
-  background: var(--bg-grouped-secondary);
-}
-.subName {
-  flex: 1;
-  font-size: var(--fs-subheadline);
-}
-.subAmounts {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-size: var(--fs-subheadline);
-  font-weight: 600;
-}
-.subEur {
-  font-size: var(--fs-caption1);
-  font-weight: 400;
-  color: var(--label-secondary);
-}
-.inlineEdit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  color: var(--tint);
-}
-.addRow {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 var(--space-4);
-  text-align: left;
-  color: var(--tint);
-  font-size: var(--fs-subheadline);
-}
-.addRow:active {
-  background: var(--fill-pressed);
 }
 .opBody {
   padding: var(--space-2) var(--space-4) var(--space-3);
@@ -267,4 +127,26 @@
 .opActions {
   display: flex;
   gap: var(--space-2);
+}
+
+/* ── Portfolio v2 total ─────────────────────────────────────────────────── */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4);
+}
+.totalValue {
+  font-family: var(--font-rounded);
+  font-size: var(--fs-title1);
+  line-height: var(--lh-title1);
+  font-weight: 700;
+}
+.unit {
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+.heroActions {
+  margin-top: var(--space-3);
 }

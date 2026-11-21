@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, Icon, Notice, PrivateValue, ProgressBar, Sheet, Skeleton, useToast } from "../../ui";
+import { Button, Icon, Notice, PrivateValue, ProgressBar, Sheet, Skeleton, useIsDesk, useToast } from "../../ui";
 import { fmtDate, fmtNum } from "../../utils/format";
 import type { Pv2ItemStatus, Pv2Run, Pv2RunItem } from "../../types";
 import { pv2Keys, useCancelPv2Run, usePv2Run, useRetryPv2Run } from "./data";
@@ -78,6 +78,7 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
   const qc = useQueryClient();
   const data = run.data;
   const running = data?.status === "running";
+  const desk = useIsDesk();
 
   // When a run finishes: refresh snapshots and say how it went.
   const wasRunning = useRef(false);
@@ -132,38 +133,69 @@ export function RunDialog({ runId, onClose }: { runId: string | null; onClose: (
               </div>
             </div>
             {data.status === "failed" && <Notice>The run could not start. Try again.</Notice>}
-            <table className={s.runTable} aria-label="Assets in this run">
-              <thead>
-                <tr><th scope="col">Asset</th><th scope="col">Status</th><th scope="col">Result</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr>
-              </thead>
-              <tbody>
-                {groups.map(([platform, items]) => [
-                  <tr key={`g-${platform}`} className={s.groupRow}><th colSpan={4} scope="rowgroup">{platform}</th></tr>,
-                  ...items.map(({ item }) => (
-                    <tr key={item.assetId} className={item.status === "failed" ? s.rowFailed : undefined} data-status={item.status}>
-                      <td>
-                        <div>{item.type === "Total" ? <strong>Platform total</strong> : item.name}</div>
-                        {item.type !== "Total" && <div className={s.meta}>{[item.symbol, item.isin].filter(Boolean).join(" · ")}</div>}
-                      </td>
-                      <td><StatusCell item={item} /></td>
-                      <td>
-                        {detail(item)}
-                        {item.sourceUrl && item.status !== "failed" && (
-                          <div><a className={s.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer noopener">{hostOf(item.sourceUrl)}</a></div>
-                        )}
-                        {item.usage && <ItemUsage item={item} model={data.model} />}
-                      </td>
-                      <td>
-                        {!running && item.type !== "Total" && RETRYABLE.includes(item.status) && (
-                          <Button variant="gray" size="small" icon="refresh" disabled={retry.isPending} onClick={() => doRetry([item.assetId])}>Retry</Button>
-                        )}
-                      </td>
-                    </tr>
-                  )),
-                ])}
-              </tbody>
-            </table>
-            <div className={s.footer}>
+            {desk ? (
+              <table className={s.runTable} aria-label="Assets in this run">
+                <thead>
+                  <tr><th scope="col">Asset</th><th scope="col">Status</th><th scope="col">Result</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr>
+                </thead>
+                <tbody>
+                  {groups.map(([platform, items]) => [
+                    <tr key={`g-${platform}`} className={s.groupRow}><th colSpan={4} scope="rowgroup">{platform}</th></tr>,
+                    ...items.map(({ item }) => (
+                      <tr key={item.assetId} className={item.status === "failed" ? s.rowFailed : undefined} data-status={item.status}>
+                        <td>
+                          <div>{item.type === "Total" ? <strong>Platform total</strong> : item.name}</div>
+                          {item.type !== "Total" && <div className={s.meta}>{[item.symbol, item.isin].filter(Boolean).join(" · ")}</div>}
+                        </td>
+                        <td><StatusCell item={item} /></td>
+                        <td>
+                          {detail(item)}
+                          {item.sourceUrl && item.status !== "failed" && (
+                            <div><a className={s.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer noopener">{hostOf(item.sourceUrl)}</a></div>
+                          )}
+                          {item.usage && <ItemUsage item={item} model={data.model} />}
+                        </td>
+                        <td>
+                          {!running && item.type !== "Total" && RETRYABLE.includes(item.status) && (
+                            <Button variant="gray" size="small" icon="refresh" disabled={retry.isPending} onClick={() => doRetry([item.assetId])}>Retry</Button>
+                          )}
+                        </td>
+                      </tr>
+                    )),
+                  ])}
+                </tbody>
+              </table>
+            ) : (
+              /* Phone: one stacked row per asset — name and status, then the
+                 result, sources and cost; the table does not fit 360 px. */
+              <ul className={s.runList} aria-label="Assets in this run">
+                {groups.map(([platform, items]) => (
+                  <li key={`g-${platform}`}>
+                    <div className={s.runGroup}>{platform}</div>
+                    <ul className={s.list}>
+                      {items.map(({ item }) => (
+                        <li key={item.assetId} className={[s.runItem, item.status === "failed" ? s.rowFailed : ""].join(" ")} data-status={item.status}>
+                          <div className={s.runItemTop}>
+                            <span className={s.runItemName}>{item.type === "Total" ? <strong>Platform total</strong> : item.name}</span>
+                            <StatusCell item={item} />
+                          </div>
+                          {item.type !== "Total" && (item.symbol || item.isin) && <div className={s.meta}>{[item.symbol, item.isin].filter(Boolean).join(" · ")}</div>}
+                          <div className={s.runItemDetail}>{detail(item)}</div>
+                          {item.sourceUrl && item.status !== "failed" && (
+                            <a className={s.sourceLink} href={item.sourceUrl} target="_blank" rel="noreferrer noopener">{hostOf(item.sourceUrl)}</a>
+                          )}
+                          {item.usage && <ItemUsage item={item} model={data.model} />}
+                          {!running && item.type !== "Total" && RETRYABLE.includes(item.status) && (
+                            <div><Button variant="gray" size="small" icon="refresh" disabled={retry.isPending} onClick={() => doRetry([item.assetId])}>Retry</Button></div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className={[s.footer, desk ? "" : s.footerPhone].join(" ")}>
               <UsageLine run={data} running={running} />
               {running ? (
                 <Button variant="destructiveTinted" size="small" icon="xmark" disabled={!!data.cancelRequested || cancel.isPending} onClick={() => cancel.mutate(data.runId)}>

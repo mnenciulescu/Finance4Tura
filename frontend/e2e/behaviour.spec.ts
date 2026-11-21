@@ -119,3 +119,23 @@ for (const width of [360, 393, 430]) {
     });
   }
 }
+
+test("Invest (Portfolio v2): eye reveals, run dialog stacks per asset and fits the phone", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await ready(page, "/money/invest");
+  const total = page.getByRole("region", { name: "Portfolio v2 total" });
+  await expect(total.getByRole("img", { name: "Hidden amount" })).toBeVisible();
+  await page.getByRole("button", { name: "Show amounts" }).click();
+  await expect(total.getByRole("img", { name: "Hidden amount" })).toHaveCount(0);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/invest-${test.info().project.name}.png`, fullPage: true });
+
+  await page.getByRole("button", { name: "Generate Snapshot" }).click();
+  await page.getByRole("dialog", { name: /Look up prices/ }).getByRole("button", { name: "Generate Snapshot" }).click();
+  const dialog = page.getByRole("dialog", { name: /Generating snapshot|Snapshot run/ });
+  await expect(dialog.getByRole("list", { name: "Assets in this run" })).toBeVisible();
+  await expect(dialog.locator('[data-status="failed"]')).toContainText("AI rate limit reached", { timeout: 15000 });
+  await expect(dialog.getByRole("table")).toHaveCount(0);
+  const overflow = await dialog.evaluate(el => [...el.querySelectorAll("*")].some(n => n.scrollWidth > n.clientWidth + 1 && getComputedStyle(n).overflowX === "visible" && n.getBoundingClientRect().right > window.innerWidth + 1));
+  expect(overflow).toBe(false);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/run-${test.info().project.name}.png` });
+});

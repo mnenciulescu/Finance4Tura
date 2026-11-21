@@ -9,7 +9,7 @@ dashboard PWA. Its core is budgeting: incomes are received periodically, and
 expenses are mapped to the most recent income before their date. Around that
 sit Split Payments, Investments, Statistics, Books & Development and
 Headquarters (home-utility tracking), plus an admin area. **Portfolio v2**
-(One-Page only) tracks asset prices looked up by an AI agent.
+(One-Page block and the phone's Money → Invest) tracks asset prices looked up by an AI agent.
 
 **Current status**: live on AWS. Everything below describes what is deployed.
 
@@ -288,23 +288,31 @@ without data blank.
 
 ### Money → Invest
 
-Route `/money/invest` — `features/money/invest/`. Data rules unchanged
-(`investMath.ts`).
+Route `/money/invest` — `features/money/invest/InvestScreen.tsx`. **Portfolio v2
+on the phone**: the same data, rules and dialogs as One-Page's Portfolio v2
+block (shared `features/portfolio-v2/usePortfolioV2.ts`), in one column. The
+old manual snapshots (Total card, Evolution chart, Snapshots list) are gone
+from the phone; Today's Holdings widget still reads them.
 
-- Subtitle `N snapshots · M operations` (snapshot **dates**); **+** menu: New
-  Snapshot / New Operation.
-- **Total portfolio** — collapsible: EUR total, platform count, FX date;
-  expanded rows for `heldPlatforms` (latest > 0) with share bars and %.
-- **Evolution** — line chart from `CHART_START` (2023-01) with carry-forward;
-  range control **1Y · 3Y · All** (default All); legend chips (Total on,
-  `activePlatforms` off); operation-month dots; tooltip with value, operations
-  and net cash.
-- **Snapshots** grouped by date (3 at a time, Show N More / Show Less), rows
-  swipe Edit/Delete, *+ Add Platform to This Date*.
-- **Operations** newest first (3 at a time), Deposit/Withdrawal badges, notes
-  on expand, swipe Edit/Delete. Sheets pre-fill the platform's currency;
-  snapshot edits keep the id. Platforms: eToro, Binance, Fidelity, Tradeville,
-  ING Funds RON, ING Funds EUR.
+- Subtitle `N assets · M platforms`; nav bar: **eye** (toggle — tap shows,
+  tap again or leaving the app masks; masks totals, chart axis/tooltip, run
+  values and operation amounts) and **+** (New Asset, New Operation, Snapshot
+  Runs). Pull to refresh reloads Portfolio v2, operations and FX.
+- **Total portfolio** card: EUR total, change over the range, last snapshot
+  time, FX date, full-width **Generate Snapshot** (same confirmation with
+  *Look Up All Assets*; the disabled reason is shown under it) or
+  **Snapshot Running · n/m** that reopens the run.
+- **Evolution**: range 1W · 1M · 3M · 1Y · All (default 3M), line chips, the
+  Portfolio v2 chart (220 px). Range and lines are screen state, not URL.
+- **Last snapshot** per platform (badges under the name on the phone), expand
+  for assets.
+- **Operations**: the old Investments operations list (3 at a time, swipe
+  Edit/Delete, expand for notes) with Add.
+- **Assets · N**: collapsible section (closed by default) with Add; swipe
+  Edit / Remove (Archive / Delete).
+- The **run dialog** on the phone is a stacked list per asset (name + status,
+  result, source, tokens · searches · fetches · ≈ USD, Retry) instead of the
+  desk table (`useIsDesk` in `RunDialog.tsx`).
 
 ### Library (Books & Development)
 
@@ -385,7 +393,7 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   dialog); **Portfolio v2** (see its section below; its holdings eye is a
   show/hide flag — click to show, click again to hide, re-masked when the page
   is hidden). The old **Investments** and **Investment Statistics** blocks were
-  removed from One-Page (the phone's Money → Invest is unchanged); their
+  removed from One-Page (Money → Invest now shows Portfolio v2 too); their
   operations list lives in Portfolio v2, and `N` then `P` / `O` still open the
   old module's snapshot / operation forms.
 - **State in the URL** (`?period=&split=&stats=&lib=&hq=&hqchart=&pv2range=&pv2lines=`),
@@ -402,13 +410,13 @@ Route `/one-page` — `features/one-page/`. Spec and implementation notes:
   (`onePage.default`, only when `/` launches on a ≥ 1024 px screen). The
   account menu has *Open Mobile Layout*.
 - Shared pieces extracted for both layouts: `SplitCard`, `InvestPanels`
-  (`PortfolioCard`, `SnapshotList`, `OperationList`, `EvolutionPanel`),
+  (`OperationList`), `usePortfolioV2` and the Portfolio v2 panels,
   `StatsPanels`, `BookCard`, `ReadList`, `HqSettingsContent`,
   `useBudgetDeletes`, `splitGroups` / `outstandingByCurrency`.
 
 ### Portfolio v2 (One-Page block)
 
-Block `portfolioV2` across One-Page columns 2–3 — `features/portfolio-v2/`,
+Block `portfolioV2` across One-Page columns 2–3, and the phone's Money → Invest — `features/portfolio-v2/`,
 `features/one-page/blocks/PortfolioV2Block.tsx`; backend
 `handlers/portfolioV2.mjs` (API), `handlers/portfolioV2Worker.mjs` (async
 worker), `lib/portfolioV2/` (`model.mjs` pure rules, `agent.mjs`, `runner.mjs`,
@@ -613,7 +621,7 @@ Totals also `originalAmount`, `originalCurrency`, `legacySnapshotId`.
 
 **Google Sign-In flow**: Google ID token → `tokeninfo` verification → `AdminGetUser` / `AdminCreateUser` → `AdminSetUserPassword` with a fresh random password → `AdminInitiateAuth` → Cognito JWT returned.
 
-**Portfolio Evolution chart**: per-month totals carry forward the latest snapshot per platform (`portfolioAt`/`platformAt`); the month spine runs from `CHART_START` (`2023-01`), or the earliest data if that is later, to the latest snapshot/operation month. No S&P 500 simulation.
+**Portfolio v2 chart**: daily series of the platform Totals carried forward, plus their sum (`buildSeries` in `portfolio-v2/pv2Math.ts`); shared by One-Page and Money → Invest.
 
 ## API Endpoints
 
@@ -719,10 +727,10 @@ cd backend && node --test src/**/*.test.mjs
 | Frontend logic | `expandDates`, `incomeMapping`, `dateValidation`, `formValidation`, `statistics`, `YearContext`, `parseAmount`, `split`, `theme`, `navigation` | 128 incl. guards |
 | Frontend guards | `guards.test.ts` — colour/radius/shadow/type tokens, 16 px controls, one 430 px column, pinch zoom | (in the row above) |
 | Frontend UI library | `ui/ui.test.tsx` — sheets, discard prompt, overlay stack + system back, alerts, swipe two-step, PrivateValue, controls, toasts | 22 |
-| Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
+| Frontend screens | Today (10), split slots on Today + Split (29), Budget (13), forms (6), Stats (6), Invest — Portfolio v2 on the phone (7), Library (6), HQ (6), shell (7), Settings/Admin/Login (7) | 96 |
 | One-Page | `features/one-page/onePage.test.tsx` — blocks, Budget paging and periods, URL state, deep links, masked holdings, income privacy, shortcuts, theme switch, desktop dialog and hover actions | 13 |
 | Portfolio v2 | `features/portfolio-v2/portfolioV2.test.tsx` — ranges, carried-forward series, per-platform summary, imported history (archived lines end), masked block, platform expand, run dialog statuses, usage and ≈ cost, Retry, Look Up All, failed poll | 10 |
-| Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes — on both profiles | 26 |
+| Cross-platform (Playwright) | back navigation, discard prompt, iOS-only edge swipe, long-press menu, hold-to-reveal, comma decimals, no overflow at 360/393/430 px × 2 themes, Invest eye + stacked run dialog at 360 px — on both profiles | 28 |
 | One-Page (Playwright) | `e2e/onepage.spec.ts` on desktop Chrome (1440) and desktop WebKit (1280): 4/3/2/1 columns, block order (no old Investments blocks) and the double-width Portfolio v2, independent column scroll, no overflow at 1024–1920 px × 2 themes, Back closes dialogs, dirty-form Escape, hover two-step delete, right-click menu, account menu navigation, holdings eye flag (mouse and Space), shortcuts, cross-links, Portfolio v2 (masking, range, expand, run progress) | 42 |
 | Backend handlers | `validation` (year range), `amountValidation` | 24 |
 | Backend lib | `expandDates`, `resolveIncome` | 24 |
@@ -762,7 +770,7 @@ from invented fixtures, nothing reaches AWS. Time-dependent tests pin "today".
 | Navigation | Four tabs — Today · Money · Library · HQ. Money's sections are a visible segmented control, not a hidden menu. Settings/Backstage/Admin live in the Account sheet. Overlays and tabs are mirrored in browser history so Android back behaves natively |
 | Split Payments | Card list; open entries expanded, settled collapsed; slot count pinned to the series; app calendar instead of native date fields; settling asks first; debounced coverage auto-save shared by Today and Split |
 | Statistics | Expenses-by-Priority chart removed and its data moved into the Free-amount tooltip; Special Expenses is an expandable block |
-| Investments | Expandable total, chart from 2023 with 1Y/3Y/All range, snapshots and operations revealed 3 at a time; sheets for add/edit; swipe or confirmed delete |
+| Investments | The phone's Invest shows Portfolio v2 (AI-priced assets) plus the old operations; the old manual snapshots stay only behind Today's Holdings and One-Page's `N P` form |
 | Library | Library tab; per-person sections with a 12-month completion chart, inline star ratings, search + filter sheet |
 | App Settings | Global settings stored in DynamoDB (`AppSettings` table); GET is public, PUT is admin-only |
 | Admin | Page restricted to username `nenciulescu` in the frontend; admin API routes require the Cognito `admin` group |
